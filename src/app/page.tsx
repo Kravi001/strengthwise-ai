@@ -259,16 +259,7 @@ export default function HomePage() {
     });
   };
 
-  if (sessionLoading) {
-    return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-neutral-400">
-          <RefreshCw className="h-5 w-5 animate-spin text-emerald-400" />
-          <span>Loading StrengthWise...</span>
-        </div>
-      </div>
-    );
-  }
+
 
   // CONDITION: If profile is not created yet (or user clicked "Edit Profile"), SHOW ONLY THE TREMOR PROFILE SETUP!
   const showProfileSetup = !user || !profile || isEditingProfile;
