@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Dumbbell, LogOut, User as UserIcon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Dumbbell, Info, LogOut, User as UserIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -11,6 +11,7 @@ export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
 
   useEffect(() => {
@@ -68,13 +69,29 @@ export function Navbar() {
           </div>
         </Link>
 
-        {/* Navigation Links */}
+        {/* Navigation Tabs: About & Profile */}
         <nav className="flex items-center gap-1 sm:gap-2">
           <Link
             href="/"
-            className="rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition bg-neutral-900 text-white border border-neutral-800"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition ${
+              pathname === "/"
+                ? "bg-neutral-800 text-emerald-400 border border-neutral-700 shadow-sm"
+                : "text-neutral-400 hover:text-white hover:bg-neutral-900/60"
+            }`}
           >
-            Athlete Hub
+            <Info className="h-3.5 w-3.5" />
+            <span>About</span>
+          </Link>
+          <Link
+            href="/profile"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition ${
+              pathname.startsWith("/profile")
+                ? "bg-neutral-800 text-emerald-400 border border-neutral-700 shadow-sm"
+                : "text-neutral-400 hover:text-white hover:bg-neutral-900/60"
+            }`}
+          >
+            <UserIcon className="h-3.5 w-3.5" />
+            <span>Profile</span>
           </Link>
         </nav>
 
