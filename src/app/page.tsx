@@ -17,6 +17,7 @@ import {
   Utensils,
   XCircle,
 } from "lucide-react";
+import { TremorAthleteDashboard } from "@/components/tremor-athlete-dashboard";
 
 interface HealthStatus {
   timestamp: string;
@@ -93,6 +94,9 @@ export default function Home() {
             </Link>
           </div>
         </header>
+
+        {/* Tremor Analytics & Performance Dashboard */}
+        <TremorAthleteDashboard />
 
         {/* Live System Connectivity Card */}
         <section className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 backdrop-blur-xl shadow-2xl">
