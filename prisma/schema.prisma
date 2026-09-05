@@ -1,0 +1,90 @@
+// StrengthWise AI — Modern PostgreSQL Prisma Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id // Supabase auth user UUID
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile  Profile?
+  workouts WorkoutLog[]
+  meals    MealLog[]
+
+  @@map("users")
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  age             Int?
+  gender          String?
+  heightCm        Float?
+  weightKg        Float?
+  goalWeightKg    Float?
+  
+  activityLevel   String?  // SEDENTARY | LIGHT | MODERATE | ACTIVE | VERY_ACTIVE
+  goal            String?  // LOSE_WEIGHT | MAINTAIN | BUILD_MUSCLE
+  dietPreference  String?  // STANDARD | VEGETARIAN | VEGAN | KETO
+  experienceLevel String?  // BEGINNER | INTERMEDIATE | ADVANCED
+
+  // Calorie & macro targets
+  targetCalories  Int?
+  targetProtein   Float?
+  targetCarbs     Float?
+  targetFat       Float?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model WorkoutLog {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String
+  durationMinutes Int?
+  caloriesBurned  Int?
+  notes           String?
+  
+  loggedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, loggedAt])
+  @@map("workout_logs")
+}
+
+model MealLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  mealType  String   // BREAKFAST | LUNCH | DINNER | SNACK
+  name      String
+  calories  Int
+  protein   Float    @default(0)
+  carbs     Float    @default(0)
+  fat       Float    @default(0)
+  
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, loggedAt])
+  @@map("meal_logs")
+}
