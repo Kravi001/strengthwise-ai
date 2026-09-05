@@ -366,10 +366,8 @@ export default function AboutPage() {
 
               <DonutChart
                 data={demoChartData}
-                category="value"
-                index="name"
+                label="Target Grams"
                 valueFormatter={(v) => `${v}g`}
-                colors={["emerald", "cyan", "amber"]}
                 className="h-44 w-44"
               />
 

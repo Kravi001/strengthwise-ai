@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Card,
   Metric,
@@ -30,7 +31,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets, type CalculatedTargets } from "@/lib/calc";
-import type { User } from "@supabase/supabase-js";
+import { TremorAppShell } from "@/components/dashboard/tremor-app-shell";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 interface ProfileData {
   id: string;
@@ -51,6 +53,7 @@ interface ProfileData {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [sessionLoading, setSessionLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -184,14 +187,16 @@ export default function ProfilePage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        setProfile(null);
-      } else {
-        refreshData();
+    } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        setUser(session?.user ?? null);
+        if (!session?.user) {
+          setProfile(null);
+        } else {
+          refreshData();
+        }
       }
-    });
+    );
 
     return () => {
       subscription.unsubscribe();
@@ -774,239 +779,26 @@ export default function ProfilePage() {
   }
 
   // CONDITION: USER IS SIGNED IN AND PROFILE IS CREATED!
-  // UNLOCK THE FULL TREMOR ATHLETE DASHBOARD WITH THEIR REAL DATA!
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
-      {/* Dashboard Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-6">
-        <div>
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-xs font-medium text-emerald-400 mb-2">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Profile Verified</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            Athlete Command Center
-          </h1>
-          <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-            Personalized metrics for <span className="text-emerald-400 font-mono">{user?.email}</span>
-          </p>
-        </div>
+  // UNLOCK THE FULL TREMOR APP SHELL WITH VERTICAL LEFT SIDEBAR!
+  if (user && profile) {
+    return (
+      <TremorAppShell
+        user={user}
+        profile={profile}
+        onProfileUpdated={(updated) => {
+          setProfile(updated);
+          setIsEditingProfile(false);
+        }}
+        onSignOut={async () => {
+          await supabase.auth.signOut();
+          setUser(null);
+          setProfile(null);
+          router.push("/login");
+          router.refresh();
+        }}
+      />
+    );
+  }
 
-        <div className="flex items-center gap-3 self-start">
-          <button
-            type="button"
-            onClick={() => setIsEditingProfile(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-800 hover:text-white transition"
-          >
-            <Edit3 className="h-3.5 w-3.5" />
-            <span>Edit Profile & Targets</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 4 Tremor KPI Cards Powered by Real User Profile Targets */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Caloric Budget */}
-        <Card decoration="top" decorationColor="emerald">
-          <div className="flex items-center justify-between">
-            <Text>Target Calories</Text>
-            <BadgeDelta
-              deltaType={
-                profile?.goal === "BUILD_MUSCLE"
-                  ? "increase"
-                  : profile?.goal === "LOSE_WEIGHT"
-                  ? "decrease"
-                  : "unchanged"
-              }
-            >
-              {profile?.goal === "BUILD_MUSCLE"
-                ? "Surplus"
-                : profile?.goal === "LOSE_WEIGHT"
-                ? "Deficit"
-                : "Maintenance"}
-            </BadgeDelta>
-          </div>
-          <Metric className="mt-2 text-2xl">
-            {profile?.targetCalories || targets.targetCalories}{" "}
-            <span className="text-sm font-normal text-neutral-400">kcal/day</span>
-          </Metric>
-          <ProgressBar value={100} color="emerald" className="mt-4" label="Personal target" />
-        </Card>
-
-        {/* Protein Target */}
-        <Card decoration="top" decorationColor="emerald">
-          <div className="flex items-center justify-between">
-            <Text>Daily Protein</Text>
-            <BadgeDelta deltaType="increase">~2.0g/kg</BadgeDelta>
-          </div>
-          <Metric className="mt-2 text-2xl">
-            {profile?.targetProtein || targets.targetProtein}g
-          </Metric>
-          <ProgressBar value={100} color="emerald" className="mt-4" label="Muscle hypertrophy" />
-        </Card>
-
-        {/* Carbohydrates Target */}
-        <Card decoration="top" decorationColor="cyan">
-          <div className="flex items-center justify-between">
-            <Text>Daily Carbs</Text>
-            <BadgeDelta deltaType="moderateIncrease">Energy</BadgeDelta>
-          </div>
-          <Metric className="mt-2 text-2xl">
-            {profile?.targetCarbs || targets.targetCarbs}g
-          </Metric>
-          <ProgressBar value={100} color="cyan" className="mt-4" label="Glycogen pacing" />
-        </Card>
-
-        {/* Dietary Fat Target */}
-        <Card decoration="top" decorationColor="amber">
-          <div className="flex items-center justify-between">
-            <Text>Healthy Fats</Text>
-            <BadgeDelta deltaType="unchanged">Balance</BadgeDelta>
-          </div>
-          <Metric className="mt-2 text-2xl">
-            {profile?.targetFat || targets.targetFat}g
-          </Metric>
-          <ProgressBar value={100} color="amber" className="mt-4" label="Hormonal health" />
-        </Card>
-      </div>
-
-      {/* Tremor 14-Day Consistency Tracker */}
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <Title>14-Day Training & Nutrition Adherence</Title>
-            <Subtitle>Track progressive training consistency and rest days</Subtitle>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-neutral-400">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span>Active</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-neutral-700" />
-              <span>Rest</span>
-            </div>
-          </div>
-        </div>
-        <Tracker
-          data={[
-            { color: "emerald", tooltip: "Day 1: Setup Completed" },
-            { color: "emerald", tooltip: "Day 2: Target Calibrated" },
-            { color: "emerald", tooltip: "Day 3: Nutrition Goal Set" },
-            { color: "neutral", tooltip: "Day 4: Scheduled Rest" },
-            { color: "emerald", tooltip: "Day 5: Session Scheduled" },
-            { color: "emerald", tooltip: "Day 6: Hypertrophy" },
-            { color: "neutral", tooltip: "Day 7: Active Recovery" },
-            { color: "emerald", tooltip: "Day 8: Volume Push" },
-            { color: "emerald", tooltip: "Day 9: Volume Pull" },
-            { color: "emerald", tooltip: "Day 10: Leg Focus" },
-            { color: "emerald", tooltip: "Day 11: Deload Target" },
-            { color: "neutral", tooltip: "Day 12: Rest" },
-            { color: "emerald", tooltip: "Day 13: Power Day" },
-            { color: "emerald", tooltip: "Today: Profile Active" },
-          ]}
-          className="mt-2"
-        />
-      </Card>
-
-      {/* Detailed Macro Donut Chart & Profile Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Macro Donut Card */}
-        <Card className="lg:col-span-5 flex flex-col justify-between" decoration="top" decorationColor="purple">
-          <div>
-            <Title>Your Macronutrient Distribution</Title>
-            <Subtitle>Total daily nutrition blueprint</Subtitle>
-          </div>
-          <div className="py-4">
-            <DonutChart
-              data={[
-                { name: "Protein", value: profile?.targetProtein || targets.targetProtein, color: "#10b981" },
-                { name: "Carbs", value: profile?.targetCarbs || targets.targetCarbs, color: "#06b6d4" },
-                { name: "Fats", value: profile?.targetFat || targets.targetFat, color: "#f59e0b" },
-              ]}
-              label="Target Grams"
-              valueFormatter={(v) => `${v}g`}
-            />
-          </div>
-          <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-3 text-xs text-neutral-400 flex items-center gap-2">
-            <Utensils className="h-4 w-4 text-emerald-400 shrink-0" />
-            <span>Targeting {profile?.dietPreference || "STANDARD"} diet strategy.</span>
-          </div>
-        </Card>
-
-        {/* Profile Attributes Card */}
-        <Card className="lg:col-span-7 flex flex-col justify-between" decoration="top" decorationColor="cyan">
-          <div>
-            <div className="flex items-center justify-between">
-              <Title>Athlete Profile Summary</Title>
-              <span className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-400">
-                {profile?.goal || "BUILD_MUSCLE"}
-              </span>
-            </div>
-            <Subtitle>Stored in PostgreSQL database via Prisma</Subtitle>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 py-4">
-            <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-3">
-              <span className="text-xs text-neutral-400">Current Weight:</span>
-              <p className="text-base font-bold text-white mt-0.5">
-                {profile?.weightKg} kg{" "}
-                <span className="text-xs font-normal text-neutral-400">
-                  ({Math.round((profile?.weightKg || 0) * 2.20462)} lbs)
-                </span>
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-3">
-              <span className="text-xs text-neutral-400">Goal Weight:</span>
-              <p className="text-base font-bold text-emerald-400 mt-0.5">
-                {profile?.goalWeightKg} kg{" "}
-                <span className="text-xs font-normal text-neutral-400">
-                  ({Math.round((profile?.goalWeightKg || 0) * 2.20462)} lbs)
-                </span>
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-3">
-              <span className="text-xs text-neutral-400">Height:</span>
-              <p className="text-base font-bold text-white mt-0.5">
-                {profile?.heightCm} cm
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-3">
-              <span className="text-xs text-neutral-400">Activity Level:</span>
-              <p className="text-sm font-semibold text-white mt-0.5">
-                {profile?.activityLevel || "MODERATE"}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-3">
-              <span className="text-xs text-neutral-400">Experience:</span>
-              <p className="text-sm font-semibold text-white mt-0.5">
-                {profile?.experienceLevel || "INTERMEDIATE"}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-3">
-              <span className="text-xs text-neutral-400">Diet Type:</span>
-              <p className="text-sm font-semibold text-white mt-0.5">
-                {profile?.dietPreference || "STANDARD"}
-              </p>
-            </div>
-          </div>
-
-          <div className="border-t border-neutral-800 pt-3 flex items-center justify-between text-xs text-neutral-400">
-            <span>Ready for Workout Logging & AI Coach</span>
-            <button
-              onClick={() => setIsEditingProfile(true)}
-              className="text-emerald-400 hover:text-emerald-300 font-medium underline"
-            >
-              Update Metrics
-            </button>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
+  return null;
 }

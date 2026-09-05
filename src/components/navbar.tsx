@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Dumbbell, Info, LogOut, User as UserIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
@@ -32,9 +32,11 @@ export function Navbar() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        setUser(session?.user ?? null);
+      }
+    );
 
     return () => {
       subscription.unsubscribe();
@@ -47,6 +49,11 @@ export function Navbar() {
     router.push("/login");
     router.refresh();
   };
+
+  // If user is inside the authenticated app on /profile, the full-height Tremor App Shell provides the vertical left sidebar and navigation
+  if (pathname.startsWith("/profile") && user) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-800/80 bg-neutral-950/80 backdrop-blur-md">
