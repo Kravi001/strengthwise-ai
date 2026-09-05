@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Dumbbell, LogOut, User as UserIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -10,7 +10,6 @@ import type { User } from "@supabase/supabase-js";
 export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
@@ -73,23 +72,9 @@ export function Navbar() {
         <nav className="flex items-center gap-1 sm:gap-2">
           <Link
             href="/"
-            className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition ${
-              pathname === "/"
-                ? "bg-neutral-800 text-white"
-                : "text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200"
-            }`}
+            className="rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition bg-neutral-900 text-white border border-neutral-800"
           >
-            Dashboard
-          </Link>
-          <Link
-            href="/profile"
-            className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition ${
-              pathname === "/profile"
-                ? "bg-neutral-800 text-white"
-                : "text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200"
-            }`}
-          >
-            Profile
+            Athlete Hub
           </Link>
         </nav>
 
