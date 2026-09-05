@@ -8,7 +8,6 @@ import {
   Text,
   Title,
   Subtitle,
-  Divider,
   ProgressBar,
   BadgeDelta,
   DonutChart,
@@ -16,37 +15,25 @@ import {
   Tracker,
 } from "@/components/tremor";
 import {
-  Activity,
   AlertCircle,
   ArrowRight,
-  Award,
   BrainCircuit,
-  Check,
   CheckCircle2,
   ChevronRight,
-  Clock,
   Dumbbell,
   Edit3,
-  Flame,
   Info,
   LayoutDashboard,
   LineChart,
-  Lock,
   LogOut,
   Menu,
-  MessageSquare,
   RefreshCw,
   Save,
-  Scale,
   Send,
   Settings,
-  Sparkles,
   Target,
-  TrendingUp,
-  User as UserIcon,
   Utensils,
   X,
-  Zap,
 } from "lucide-react";
 import { calculateNutritionTargets, type CalculatedTargets } from "@/lib/calc";
 import type { User } from "@supabase/supabase-js";
@@ -584,7 +571,7 @@ export function TremorAppShell({
                         <Dumbbell className="h-5 w-5" />
                       </div>
                       <div>
-                        <Title>Today's Prescribed Session</Title>
+                        <Title>Today&apos;s Prescribed Session</Title>
                         <Subtitle>Hypertrophy Push A • Target RPE 8-9</Subtitle>
                       </div>
                     </div>

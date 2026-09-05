@@ -13,14 +13,12 @@ import {
   ProgressBar,
   BadgeDelta,
   DonutChart,
-  Tracker,
 } from "@/components/tremor";
 import {
   Activity,
   AlertCircle,
   ArrowRight,
   CheckCircle2,
-  Edit3,
   Lock,
   RefreshCw,
   Save,
@@ -54,7 +52,6 @@ interface ProfileData {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [sessionLoading, setSessionLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -177,8 +174,6 @@ export default function ProfilePage() {
       }
     } catch (err) {
       console.error("Error loading user profile:", err);
-    } finally {
-      setSessionLoading(false);
     }
   };
 
