@@ -3,17 +3,27 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import {
+  Card,
+  Metric,
+  Text,
+  Title,
+  Subtitle,
+  Divider,
+  ProgressBar,
+  BadgeDelta,
+  DonutChart,
+} from "@/components/tremor";
+import {
   Activity,
   AlertCircle,
-  Calculator,
   CheckCircle2,
-  Flame,
   Lock,
   RefreshCw,
   Save,
   Scale,
   Sparkles,
   User,
+  Utensils,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets, type CalculatedTargets } from "@/lib/calc";
@@ -24,7 +34,7 @@ export default function ProfilePage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Form Fields (internally stored in metric units)
-  const [unitSystem, setUnitSystem] = useState<"metric" | "imperial">("imperial");
+  const [unitSystem, setUnitSystem] = useState<"imperial" | "metric">("imperial");
   const [age, setAge] = useState<number | "">(26);
   const [gender, setGender] = useState<string>("MALE");
   const [heightCm, setHeightCm] = useState<number | "">(178);
@@ -95,6 +105,19 @@ export default function ProfilePage() {
     goal,
     dietPreference,
   });
+
+  // Dynamic Donut Chart Data for Tremor
+  const donutData = [
+    { name: "Protein", value: targets.targetProtein, color: "#10b981" },
+    { name: "Carbs", value: targets.targetCarbs, color: "#06b6d4" },
+    { name: "Fats", value: targets.targetFat, color: "#f59e0b" },
+  ];
+
+  // Calculate Macro Caloric Percentages
+  const totalMacroCalories = targets.targetCalories || 2000;
+  const proteinPercent = Math.round(((targets.targetProtein * 4) / totalMacroCalories) * 100);
+  const carbsPercent = Math.round(((targets.targetCarbs * 4) / totalMacroCalories) * 100);
+  const fatPercent = Math.round(((targets.targetFat * 9) / totalMacroCalories) * 100);
 
   // Load user profile on mount
   useEffect(() => {
@@ -169,7 +192,7 @@ export default function ProfilePage() {
 
         setStatusMsg({
           type: "success",
-          text: "Profile and sports nutrition targets saved successfully!",
+          text: "Profile metrics and sports nutrition targets saved in PostgreSQL!",
         });
       } catch (err: unknown) {
         setStatusMsg({
@@ -195,42 +218,42 @@ export default function ProfilePage() {
   if (!isAuthenticated) {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-900/60 p-8 text-center backdrop-blur-xl shadow-2xl space-y-5">
+        <Card className="max-w-md text-center space-y-5" decoration="top" decorationColor="emerald">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
             <Lock className="h-7 w-7" />
           </div>
-          <h2 className="text-xl font-bold text-white">Sign In Required</h2>
-          <p className="text-sm text-neutral-400">
-            Please create an account or sign in to configure your strength profile and target sports nutrition.
-          </p>
+          <Title className="text-xl">Authentication Required</Title>
+          <Text>
+            Sign in with Google or your email to configure your athlete profile and sports nutrition targets.
+          </Text>
           <div className="pt-2">
             <Link
               href="/login"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-neutral-950 hover:bg-emerald-400 transition"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-neutral-950 hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20"
             >
               <User className="h-4 w-4" />
               <span>Go to Sign In / Sign Up</span>
             </Link>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-6">
         <div>
           <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-xs font-medium text-emerald-400 mb-2">
             <Sparkles className="h-3.5 w-3.5" />
-            <span>Athlete Profile & Nutrition Targets</span>
+            <span>Tremor Athlete Profile Engine</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">
-            Personal Health & Performance
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            Personal Metrics & Macro Targets
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-            Logged in as <span className="text-neutral-200 font-mono">{userEmail}</span>
+            Authenticated via Supabase as <span className="text-emerald-400 font-mono">{userEmail}</span>
           </p>
         </div>
 
@@ -239,9 +262,9 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => setUnitSystem("imperial")}
-            className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
               unitSystem === "imperial"
-                ? "bg-emerald-500 text-neutral-950 font-semibold"
+                ? "bg-emerald-500 text-neutral-950 shadow-sm shadow-emerald-500/20"
                 : "text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -250,9 +273,9 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => setUnitSystem("metric")}
-            className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
               unitSystem === "metric"
-                ? "bg-emerald-500 text-neutral-950 font-semibold"
+                ? "bg-emerald-500 text-neutral-950 shadow-sm shadow-emerald-500/20"
                 : "text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -263,7 +286,7 @@ export default function ProfilePage() {
 
       {statusMsg && (
         <div
-          className={`flex items-center gap-2 rounded-xl border p-4 text-sm ${
+          className={`flex items-center gap-2.5 rounded-xl border p-4 text-sm ${
             statusMsg.type === "success"
               ? "border-emerald-900/40 bg-emerald-950/30 text-emerald-300"
               : "border-red-900/40 bg-red-950/30 text-red-300"
@@ -278,363 +301,375 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Form Column */}
-        <div className="lg:col-span-2 space-y-6">
-          <form onSubmit={handleSave} className="space-y-6">
-            {/* Physical Stats Card */}
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 backdrop-blur-xl space-y-4">
-              <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                <Scale className="h-4 w-4 text-emerald-400" />
-                Physical Metrics
-              </h2>
+      {/* Main Grid: Form on Left, Tremor Targets on Right */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Form Column (7 Cols) */}
+        <form onSubmit={handleSave} className="lg:col-span-7 space-y-6">
+          {/* Card 1: Physical Measurements */}
+          <Card decoration="top" decorationColor="emerald">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <Title className="flex items-center gap-2">
+                  <Scale className="h-4 w-4 text-emerald-400" />
+                  Physical Measurements
+                </Title>
+                <Subtitle>Body composition data for metabolic rate calculations</Subtitle>
+              </div>
+              <span className="rounded-md bg-neutral-800 px-2 py-0.5 text-[11px] font-mono text-neutral-300">
+                {unitSystem.toUpperCase()}
+              </span>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Age */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Age</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Age */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">Age</label>
+                <input
+                  type="number"
+                  min={12}
+                  max={120}
+                  value={age}
+                  onChange={(e) =>
+                    setAge(e.target.value ? parseInt(e.target.value, 10) : "")
+                  }
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Gender */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">Biological Sex</label>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  <option value="MALE">Male (Mifflin-St Jeor +5)</option>
+                  <option value="FEMALE">Female (Mifflin-St Jeor -161)</option>
+                  <option value="OTHER">Other / Non-binary</option>
+                </select>
+              </div>
+
+              {/* Height */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">
+                  Height {unitSystem === "imperial" ? "(ft / in)" : "(cm)"}
+                </label>
+                {unitSystem === "imperial" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      placeholder="Feet"
+                      min={3}
+                      max={8}
+                      value={heightFt}
+                      onChange={(e) => {
+                        const val = e.target.value ? parseInt(e.target.value, 10) : 0;
+                        updateHeightFromFtIn(val, Number(heightIn) || 0);
+                      }}
+                      className="rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Inches"
+                      min={0}
+                      max={11}
+                      value={heightIn}
+                      onChange={(e) => {
+                        const val = e.target.value ? parseInt(e.target.value, 10) : 0;
+                        updateHeightFromFtIn(Number(heightFt) || 0, val);
+                      }}
+                      className="rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                ) : (
                   <input
                     type="number"
-                    min={12}
-                    max={120}
-                    value={age}
-                    onChange={(e) =>
-                      setAge(e.target.value ? parseInt(e.target.value, 10) : "")
-                    }
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    min={100}
+                    max={250}
+                    value={heightCm}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : 0;
+                      updateHeightFromCm(val);
+                    }}
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
-                </div>
+                )}
+              </div>
 
-                {/* Gender */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Gender</label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                    <option value="OTHER">Other / Non-binary</option>
-                  </select>
-                </div>
+              {/* Weight */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">
+                  Current Bodyweight {unitSystem === "imperial" ? "(lbs)" : "(kg)"}
+                </label>
+                {unitSystem === "imperial" ? (
+                  <input
+                    type="number"
+                    min={50}
+                    max={600}
+                    value={weightLbs}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : 0;
+                      updateWeightFromLbs(val);
+                    }}
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    min={25}
+                    max={300}
+                    value={weightKg}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : 0;
+                      updateWeightFromKg(val);
+                    }}
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                )}
+              </div>
 
-                {/* Height */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">
-                    Height {unitSystem === "imperial" ? "(ft / in)" : "(cm)"}
-                  </label>
-                  {unitSystem === "imperial" ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="number"
-                        placeholder="Feet"
-                        min={3}
-                        max={8}
-                        value={heightFt}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseInt(e.target.value, 10) : 0;
-                          updateHeightFromFtIn(val, Number(heightIn) || 0);
-                        }}
-                        className="rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Inches"
-                        min={0}
-                        max={11}
-                        value={heightIn}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseInt(e.target.value, 10) : 0;
-                          updateHeightFromFtIn(Number(heightFt) || 0, val);
-                        }}
-                        className="rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                  ) : (
-                    <input
-                      type="number"
-                      min={100}
-                      max={250}
-                      value={heightCm}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateHeightFromCm(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  )}
-                </div>
+              {/* Goal Weight */}
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-xs font-medium text-neutral-300">
+                  Target Goal Weight {unitSystem === "imperial" ? "(lbs)" : "(kg)"}
+                </label>
+                {unitSystem === "imperial" ? (
+                  <input
+                    type="number"
+                    min={50}
+                    max={600}
+                    value={goalWeightLbs}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : 0;
+                      updateGoalWeightFromLbs(val);
+                    }}
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    min={25}
+                    max={300}
+                    value={goalWeightKg}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : 0;
+                      updateGoalWeightFromKg(val);
+                    }}
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                )}
+              </div>
+            </div>
+          </Card>
 
-                {/* Weight */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">
-                    Current Weight {unitSystem === "imperial" ? "(lbs)" : "(kg)"}
-                  </label>
-                  {unitSystem === "imperial" ? (
-                    <input
-                      type="number"
-                      min={50}
-                      max={600}
-                      value={weightLbs}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateWeightFromLbs(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  ) : (
-                    <input
-                      type="number"
-                      min={25}
-                      max={300}
-                      value={weightKg}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateWeightFromKg(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  )}
-                </div>
-
-                {/* Goal Weight */}
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs font-medium text-neutral-300">
-                    Target Goal Weight {unitSystem === "imperial" ? "(lbs)" : "(kg)"}
-                  </label>
-                  {unitSystem === "imperial" ? (
-                    <input
-                      type="number"
-                      min={50}
-                      max={600}
-                      value={goalWeightLbs}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateGoalWeightFromLbs(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  ) : (
-                    <input
-                      type="number"
-                      min={25}
-                      max={300}
-                      value={goalWeightKg}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateGoalWeightFromKg(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  )}
-                </div>
+          {/* Card 2: Training & Nutrition Preferences */}
+          <Card decoration="top" decorationColor="cyan">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <Title className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-cyan-400" />
+                  Training & Dietary Strategy
+                </Title>
+                <Subtitle>Tailor energy expenditure and macronutrient distribution</Subtitle>
               </div>
             </div>
 
-            {/* Goals & Activity Card */}
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 backdrop-blur-xl space-y-4">
-              <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                <Activity className="h-4 w-4 text-emerald-400" />
-                Goals & Lifestyle
-              </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Fitness Goal */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">Primary Goal</label>
+                <select
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                >
+                  <option value="LOSE_WEIGHT">Fat Loss (-500 kcal Deficit)</option>
+                  <option value="MAINTAIN">Maintain / Body Recomposition (0 kcal)</option>
+                  <option value="BUILD_MUSCLE">Muscle Hypertrophy (+300 kcal Surplus)</option>
+                </select>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Fitness Goal */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Primary Goal</label>
-                  <select
-                    value={goal}
-                    onChange={(e) => setGoal(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    <option value="LOSE_WEIGHT">Fat Loss (500 kcal Deficit)</option>
-                    <option value="MAINTAIN">Maintain / Recomposition</option>
-                    <option value="BUILD_MUSCLE">Muscle Gain (300 kcal Surplus)</option>
-                  </select>
-                </div>
+              {/* Activity Level */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">Activity Level</label>
+                <select
+                  value={activityLevel}
+                  onChange={(e) => setActivityLevel(e.target.value)}
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                >
+                  <option value="SEDENTARY">Sedentary (Desk work, little exercise)</option>
+                  <option value="LIGHT">Light Activity (1-3 workout days/wk)</option>
+                  <option value="MODERATE">Moderate Activity (3-5 workout days/wk)</option>
+                  <option value="ACTIVE">Very Active (6-7 intense days/wk)</option>
+                  <option value="VERY_ACTIVE">Athletic / Heavy Physical Labor</option>
+                </select>
+              </div>
 
-                {/* Activity Level */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Activity Level</label>
-                  <select
-                    value={activityLevel}
-                    onChange={(e) => setActivityLevel(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    <option value="SEDENTARY">Sedentary (Desk job, little exercise)</option>
-                    <option value="LIGHT">Lightly Active (1-3 workout days/wk)</option>
-                    <option value="MODERATE">Moderately Active (3-5 workout days/wk)</option>
-                    <option value="ACTIVE">Very Active (6-7 intense days/wk)</option>
-                    <option value="VERY_ACTIVE">Athletic / Heavy Physical Labor</option>
-                  </select>
-                </div>
+              {/* Diet Preference */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">Diet Type</label>
+                <select
+                  value={dietPreference}
+                  onChange={(e) => setDietPreference(e.target.value)}
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                >
+                  <option value="STANDARD">Standard Omnivore</option>
+                  <option value="VEGETARIAN">Vegetarian</option>
+                  <option value="VEGAN">Vegan</option>
+                  <option value="KETO">Ketogenic (High Fat, Low Carb)</option>
+                </select>
+              </div>
 
-                {/* Diet Preference */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Diet Preference</label>
-                  <select
-                    value={dietPreference}
-                    onChange={(e) => setDietPreference(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    <option value="STANDARD">Standard Omnivore</option>
-                    <option value="VEGETARIAN">Vegetarian</option>
-                    <option value="VEGAN">Vegan</option>
-                    <option value="KETO">Ketogenic (High Fat, Low Carb)</option>
-                  </select>
-                </div>
-
-                {/* Experience */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Lifting Experience</label>
-                  <select
-                    value={experienceLevel}
-                    onChange={(e) => setExperienceLevel(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    <option value="BEGINNER">Beginner (&lt; 1 year)</option>
-                    <option value="INTERMEDIATE">Intermediate (1-3 years)</option>
-                    <option value="ADVANCED">Advanced (3+ years)</option>
-                  </select>
-                </div>
+              {/* Experience */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">Lifting Experience</label>
+                <select
+                  value={experienceLevel}
+                  onChange={(e) => setExperienceLevel(e.target.value)}
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                >
+                  <option value="BEGINNER">Beginner (&lt; 1 year)</option>
+                  <option value="INTERMEDIATE">Intermediate (1-3 years)</option>
+                  <option value="ADVANCED">Advanced (3+ years)</option>
+                </select>
               </div>
             </div>
+          </Card>
 
-            {/* Save Button */}
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3 text-sm font-semibold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-500 transition disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin text-neutral-950" />
-                  <span>Saving Profile to PostgreSQL...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  <span>Save Profile & Targets</span>
-                </>
-              )}
-            </button>
-          </form>
-        </div>
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3.5 text-sm font-semibold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-500 transition disabled:opacity-50"
+          >
+            {saving ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin text-neutral-950" />
+                <span>Saving to PostgreSQL via Prisma...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                <span>Save Athlete Profile & Targets</span>
+              </>
+            )}
+          </button>
+        </form>
 
-        {/* Live Targets Column */}
-        <div className="space-y-6">
-          <div className="sticky top-24 rounded-2xl border border-neutral-800 bg-neutral-900/80 p-6 backdrop-blur-xl shadow-xl space-y-6">
-            <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-              <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                <Calculator className="h-4 w-4 text-emerald-400" />
-                Calculated Targets
-              </h2>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                Real-Time
-              </span>
+        {/* Tremor Analytics Target Column (5 Cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Caloric Target Card */}
+          <Card decoration="top" decorationColor="emerald">
+            <div className="flex items-center justify-between">
+              <Text>Target Daily Energy</Text>
+              <BadgeDelta
+                deltaType={
+                  goal === "BUILD_MUSCLE"
+                    ? "increase"
+                    : goal === "LOSE_WEIGHT"
+                    ? "decrease"
+                    : "unchanged"
+                }
+              >
+                {goal === "BUILD_MUSCLE"
+                  ? "+300 kcal"
+                  : goal === "LOSE_WEIGHT"
+                  ? "-500 kcal"
+                  : "Maintenance"}
+              </BadgeDelta>
+            </div>
+            <Metric className="mt-2 text-3xl">
+              {targets.targetCalories}{" "}
+              <span className="text-sm font-normal text-neutral-400">kcal / day</span>
+            </Metric>
+
+            <Divider />
+
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-neutral-400">Basal Metabolic Rate:</span>
+                <p className="text-sm font-semibold text-neutral-200 mt-0.5">
+                  {targets.bmr} kcal
+                </p>
+              </div>
+              <div>
+                <span className="text-neutral-400">Maintenance TDEE:</span>
+                <p className="text-sm font-semibold text-neutral-200 mt-0.5">
+                  {targets.tdee} kcal
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Tremor Macro Donut Chart & Progress Bars */}
+          <Card decoration="top" decorationColor="purple">
+            <Title>Recommended Macronutrients</Title>
+            <Subtitle>Calculated using athletic sports science guidelines</Subtitle>
+
+            {/* Donut Chart */}
+            <div className="py-2">
+              <DonutChart
+                data={donutData}
+                label="Target Grams"
+                valueFormatter={(v) => `${v}g`}
+              />
             </div>
 
-            {/* Calories Banner */}
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center">
-              <span className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
-                Daily Calorie Target
-              </span>
-              <div className="text-3xl font-extrabold text-emerald-400 mt-1">
-                {targets.targetCalories}{" "}
-                <span className="text-sm font-normal text-neutral-300">kcal/day</span>
-              </div>
-              <div className="flex items-center justify-center gap-4 text-xs text-neutral-400 mt-2 pt-2 border-t border-emerald-500/10">
-                <div>
-                  BMR: <span className="text-neutral-200 font-medium">{targets.bmr}</span>
-                </div>
-                <div>
-                  TDEE: <span className="text-neutral-200 font-medium">{targets.tdee}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Macro Splits */}
-            <div className="space-y-3">
-              <span className="text-xs font-semibold text-neutral-300 uppercase tracking-wider">
-                Target Macronutrient Split
-              </span>
-
+            {/* Macro Progress Bars */}
+            <div className="space-y-4 pt-2">
               {/* Protein */}
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 font-bold text-xs">
-                    P
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-white">Protein</h4>
-                    <p className="text-[10px] text-neutral-400">Muscle repair & growth</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-emerald-400">
-                    {targets.targetProtein}g
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-medium text-white">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Protein ({proteinPercent}%)
                   </span>
-                  <p className="text-[10px] text-neutral-500">
-                    {targets.targetProtein * 4} kcal
-                  </p>
+                  <span className="font-mono font-semibold text-emerald-400">
+                    {targets.targetProtein}g ({targets.targetProtein * 4} kcal)
+                  </span>
                 </div>
+                <ProgressBar value={proteinPercent} color="emerald" />
               </div>
 
               {/* Carbs */}
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 font-bold text-xs">
-                    C
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-white">Carbohydrates</h4>
-                    <p className="text-[10px] text-neutral-400">Energy & glycogen</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-cyan-400">
-                    {targets.targetCarbs}g
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-medium text-white">
+                    <span className="h-2 w-2 rounded-full bg-cyan-500" />
+                    Carbs ({carbsPercent}%)
                   </span>
-                  <p className="text-[10px] text-neutral-500">
-                    {targets.targetCarbs * 4} kcal
-                  </p>
+                  <span className="font-mono font-semibold text-cyan-400">
+                    {targets.targetCarbs}g ({targets.targetCarbs * 4} kcal)
+                  </span>
                 </div>
+                <ProgressBar value={carbsPercent} color="cyan" />
               </div>
 
               {/* Fat */}
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 font-bold text-xs">
-                    F
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-white">Fats</h4>
-                    <p className="text-[10px] text-neutral-400">Hormonal balance</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-amber-400">
-                    {targets.targetFat}g
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-medium text-white">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    Fats ({fatPercent}%)
                   </span>
-                  <p className="text-[10px] text-neutral-500">
-                    {targets.targetFat * 9} kcal
-                  </p>
+                  <span className="font-mono font-semibold text-amber-400">
+                    {targets.targetFat}g ({targets.targetFat * 9} kcal)
+                  </span>
                 </div>
+                <ProgressBar value={fatPercent} color="amber" />
               </div>
             </div>
 
-            {/* Sports Science Note */}
-            <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/50 p-3.5 text-xs text-neutral-400 space-y-1">
-              <div className="flex items-center gap-1.5 font-medium text-neutral-300">
-                <Flame className="h-3.5 w-3.5 text-orange-400" />
-                <span>Sports Science Formula</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-neutral-400">
-                Calculated using the Mifflin-St Jeor equation and standard athletic protein allocations (~2.0g/kg).
-              </p>
+            <Divider />
+
+            <div className="flex items-center gap-2 text-xs text-neutral-400">
+              <Utensils className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span>
+                Protein targeted at <strong>~2.0g per kg</strong> of body mass.
+              </span>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
