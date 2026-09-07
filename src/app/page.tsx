@@ -7,15 +7,22 @@ import {
   Text,
   Title,
   DonutChart,
+  Divider,
 } from "@/components/tremor";
 import {
   Activity,
   ArrowRight,
   BrainCircuit,
   ChevronRight,
+  Code2,
+  Database,
   Dumbbell,
+  ExternalLink,
+  Globe,
+  Layers,
   LineChart,
   Lock,
+  Mail,
   ShieldCheck,
   Sparkles,
   User as UserIcon,
@@ -435,7 +442,146 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* 5. Bottom Call to Action */}
+      {/* 5. Creator Profile Spotlight */}
+      <section className="space-y-6">
+        <div className="text-center max-w-xl mx-auto space-y-2">
+          <div className="text-xs uppercase tracking-wider text-emerald-400 font-bold">
+            The Mind Behind StrengthWise
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Creator Profile
+          </h2>
+          <p className="text-xs sm:text-sm text-neutral-400">
+            Engineered by Karthik Ravi to merge clinical exercise science with autonomous AI coaching.
+          </p>
+        </div>
+
+        <Card decoration="top" decorationColor="emerald" className="bg-neutral-900/60 border-neutral-800 p-6 sm:p-8">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6 sm:gap-8">
+            {/* Creator Avatar with Radiant Accent */}
+            <div className="relative group shrink-0">
+              <div className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 p-1 shadow-xl shadow-emerald-500/15">
+                <div className="h-full w-full rounded-[22px] bg-neutral-950 flex flex-col items-center justify-center text-white">
+                  <span className="text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-br from-emerald-400 to-cyan-300 bg-clip-text text-transparent">
+                    KR
+                  </span>
+                  <span className="text-[10px] uppercase font-mono tracking-widest text-neutral-400 mt-1">
+                    Creator
+                  </span>
+                </div>
+              </div>
+              <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-neutral-950 shadow-md">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+            </div>
+
+            {/* Bio & Details */}
+            <div className="flex-1 text-center md:text-left space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  <h3 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                    Karthik Ravi
+                  </h3>
+                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                    Lead Developer &amp; Founder
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-cyan-400">
+                  Full-Stack AI Engineer &amp; Exercise Science Practitioner
+                </p>
+              </div>
+
+              <p className="text-sm text-neutral-300 leading-relaxed max-w-2xl">
+                Creator of <strong>StrengthWise AI</strong>. Built with the mission to eliminate
+                guesswork from strength training and macro nutrition by fusing proven metabolic
+                equations (Mifflin-St Jeor, adaptive training volume) with responsive AI assistance
+                and real-time data telemetry.
+              </p>
+
+              {/* Quick Links / Badges */}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+                <a
+                  href="https://github.com/Kravi001/strengthwise-ai"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/80 px-3.5 py-2 text-xs font-semibold text-white hover:bg-neutral-700 hover:border-neutral-600 transition"
+                >
+                  <svg className="h-4 w-4 fill-current text-neutral-300" viewBox="0 0 24 24">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                  </svg>
+                  <span>GitHub Repository</span>
+                  <ExternalLink className="h-3 w-3 text-neutral-400" />
+                </a>
+
+                <a
+                  href="mailto:karthik.s.ravi@gmail.com"
+                  className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/80 px-3.5 py-2 text-xs font-semibold text-white hover:bg-neutral-700 hover:border-neutral-600 transition"
+                >
+                  <Mail className="h-4 w-4 text-emerald-400" />
+                  <span>karthik.s.ravi@gmail.com</span>
+                </a>
+
+                <div className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs font-mono text-neutral-400">
+                  <Globe className="h-3.5 w-3.5 text-cyan-400" />
+                  <span>Live on Vercel Edge</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Divider className="my-6" />
+
+          {/* Architecture & Tech Stack Highlights */}
+          <div>
+            <h4 className="text-xs uppercase tracking-wider font-semibold text-neutral-400 mb-3">
+              Core Engineering Architecture
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-neutral-800/90 bg-neutral-950/60 p-3.5 space-y-1">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Code2 className="h-4 w-4" />
+                  <span className="text-xs font-bold text-white">Next.js 15.5</span>
+                </div>
+                <p className="text-[11px] text-neutral-400">
+                  React 19, Turbopack, App Router &amp; Server Actions
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-neutral-800/90 bg-neutral-950/60 p-3.5 space-y-1">
+                <div className="flex items-center gap-2 text-cyan-400">
+                  <Database className="h-4 w-4" />
+                  <span className="text-xs font-bold text-white">Supabase + Prisma</span>
+                </div>
+                <p className="text-[11px] text-neutral-400">
+                  PostgreSQL pooler, Row Level Security &amp; OAuth
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-neutral-800/90 bg-neutral-950/60 p-3.5 space-y-1">
+                <div className="flex items-center gap-2 text-amber-400">
+                  <Layers className="h-4 w-4" />
+                  <span className="text-xs font-bold text-white">Tremor UI</span>
+                </div>
+                <p className="text-[11px] text-neutral-400">
+                  Tailwind CSS design system &amp; clean dashboard aesthetics
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-neutral-800/90 bg-neutral-950/60 p-3.5 space-y-1">
+                <div className="flex items-center gap-2 text-purple-400">
+                  <BrainCircuit className="h-4 w-4" />
+                  <span className="text-xs font-bold text-white">AI Coach Engine</span>
+                </div>
+                <p className="text-[11px] text-neutral-400">
+                  Dynamic RPE autoregulation &amp; sports science formulas
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* 6. Bottom Call to Action */}
       <section className="rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/40 via-neutral-950 to-neutral-900 p-8 sm:p-12 text-center space-y-6">
         <div className="max-w-2xl mx-auto space-y-3">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
