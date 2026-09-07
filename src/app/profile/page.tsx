@@ -1,34 +1,26 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Card, Title, Text, Divider } from "@/components/tremor";
 import {
-  Card,
-  Metric,
-  Text,
-  Title,
-  Subtitle,
-  Divider,
-  ProgressBar,
-  BadgeDelta,
-  DonutChart,
-} from "@/components/tremor";
-import {
-  Activity,
-  AlertCircle,
   ArrowRight,
-  CheckCircle2,
+  BrainCircuit,
+  Code2,
+  Database,
+  ExternalLink,
+  Globe,
+  Layers,
+  LayoutDashboard,
   Lock,
-  RefreshCw,
-  Save,
-  Scale,
+  LogOut,
+  Mail,
+  ShieldCheck,
   Sparkles,
   User as UserIcon,
-  Utensils,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { calculateNutritionTargets, type CalculatedTargets } from "@/lib/calc";
 import { TremorAppShell } from "@/components/dashboard/tremor-app-shell";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -54,93 +46,10 @@ export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-
-  // Form State (internally metric)
-  const [unitSystem, setUnitSystem] = useState<"imperial" | "metric">("imperial");
-  const [age, setAge] = useState<number | "">(26);
-  const [gender, setGender] = useState<string>("MALE");
-  const [heightCm, setHeightCm] = useState<number | "">(178);
-  const [weightKg, setWeightKg] = useState<number | "">(77);
-  const [goalWeightKg, setGoalWeightKg] = useState<number | "">(75);
-  const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
-  const [goal, setGoal] = useState<string>("BUILD_MUSCLE");
-  const [dietPreference, setDietPreference] = useState<string>("STANDARD");
-  const [experienceLevel, setExperienceLevel] = useState<string>("INTERMEDIATE");
-
-  // Display fields for Imperial
-  const [heightFt, setHeightFt] = useState<number | "">(5);
-  const [heightIn, setHeightIn] = useState<number | "">(10);
-  const [weightLbs, setWeightLbs] = useState<number | "">(170);
-  const [goalWeightLbs, setGoalWeightLbs] = useState<number | "">(165);
-
-  const [saving, startSaveTransition] = useTransition();
-  const [statusMsg, setStatusMsg] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [viewingDashboard, setViewingDashboard] = useState(false);
 
   const supabase = createClient();
 
-  // Unit synchronization
-  const updateWeightFromLbs = (lbs: number) => {
-    setWeightLbs(lbs);
-    setWeightKg(Math.round((lbs / 2.20462) * 10) / 10);
-  };
-
-  const updateGoalWeightFromLbs = (lbs: number) => {
-    setGoalWeightLbs(lbs);
-    setGoalWeightKg(Math.round((lbs / 2.20462) * 10) / 10);
-  };
-
-  const updateHeightFromFtIn = (ft: number, inch: number) => {
-    setHeightFt(ft);
-    setHeightIn(inch);
-    const totalInches = ft * 12 + inch;
-    setHeightCm(Math.round(totalInches * 2.54));
-  };
-
-  const updateHeightFromCm = (cm: number) => {
-    setHeightCm(cm);
-    const totalInches = cm / 2.54;
-    setHeightFt(Math.floor(totalInches / 12));
-    setHeightIn(Math.round(totalInches % 12));
-  };
-
-  const updateWeightFromKg = (kg: number) => {
-    setWeightKg(kg);
-    setWeightLbs(Math.round(kg * 2.20462));
-  };
-
-  const updateGoalWeightFromKg = (kg: number) => {
-    setGoalWeightKg(kg);
-    setGoalWeightLbs(Math.round(kg * 2.20462));
-  };
-
-  // Live scientific calculations
-  const targets: CalculatedTargets = calculateNutritionTargets({
-    age: typeof age === "number" ? age : null,
-    gender,
-    heightCm: typeof heightCm === "number" ? heightCm : null,
-    weightKg: typeof weightKg === "number" ? weightKg : null,
-    goalWeightKg: typeof goalWeightKg === "number" ? goalWeightKg : null,
-    activityLevel,
-    goal,
-    dietPreference,
-  });
-
-  const donutData = [
-    { name: "Protein", value: targets.targetProtein, color: "#10b981" },
-    { name: "Carbs", value: targets.targetCarbs, color: "#06b6d4" },
-    { name: "Fats", value: targets.targetFat, color: "#f59e0b" },
-  ];
-
-  const totalMacroCalories = targets.targetCalories || 2000;
-  const proteinPercent = Math.round(((targets.targetProtein * 4) / totalMacroCalories) * 100);
-  const carbsPercent = Math.round(((targets.targetCarbs * 4) / totalMacroCalories) * 100);
-  const fatPercent = Math.round(((targets.targetFat * 9) / totalMacroCalories) * 100);
-
-  // Load user & profile
   const refreshData = async () => {
     try {
       const {
@@ -155,22 +64,8 @@ export default function ProfilePage() {
           const data = await res.json();
           if (data.profile) {
             setProfile(data.profile);
-            const p = data.profile;
-            if (p.age) setAge(p.age);
-            if (p.gender) setGender(p.gender);
-            if (p.heightCm) updateHeightFromCm(p.heightCm);
-            if (p.weightKg) updateWeightFromKg(p.weightKg);
-            if (p.goalWeightKg) updateGoalWeightFromKg(p.goalWeightKg);
-            if (p.activityLevel) setActivityLevel(p.activityLevel);
-            if (p.goal) setGoal(p.goal);
-            if (p.dietPreference) setDietPreference(p.dietPreference);
-            if (p.experienceLevel) setExperienceLevel(p.experienceLevel);
-          } else {
-            setProfile(null);
           }
         }
-      } else {
-        setProfile(null);
       }
     } catch (err) {
       console.error("Error loading user profile:", err);
@@ -187,6 +82,7 @@ export default function ProfilePage() {
         setUser(session?.user ?? null);
         if (!session?.user) {
           setProfile(null);
+          setViewingDashboard(false);
         } else {
           refreshData();
         }
@@ -198,7 +94,6 @@ export default function ProfilePage() {
     };
   }, [supabase]);
 
-  // Google sign in shortcut
   const handleGoogleSignIn = async () => {
     const origin = window.location.origin;
     await supabase.auth.signInWithOAuth({
@@ -209,138 +104,257 @@ export default function ProfilePage() {
     });
   };
 
-  // Save profile
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatusMsg(null);
-
-    if (!user) {
-      // Redirect to login if unauthenticated
-      window.location.href = "/login";
-      return;
-    }
-
-    startSaveTransition(async () => {
-      try {
-        const res = await fetch("/api/profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            age: typeof age === "number" ? age : null,
-            gender,
-            heightCm: typeof heightCm === "number" ? heightCm : null,
-            weightKg: typeof weightKg === "number" ? weightKg : null,
-            goalWeightKg: typeof goalWeightKg === "number" ? goalWeightKg : null,
-            activityLevel,
-            goal,
-            dietPreference,
-            experienceLevel,
-          }),
-        });
-
-        const result = await res.json();
-        if (!res.ok) {
-          throw new Error(result.error || "Failed to save profile.");
-        }
-
-        setProfile(result.profile);
-        setIsEditingProfile(false);
-        setStatusMsg({
-          type: "success",
-          text: "Profile created! Your athlete dashboard is now unlocked.",
-        });
-      } catch (err: unknown) {
-        setStatusMsg({
-          type: "error",
-          text:
-            err instanceof Error ? err.message : "An unexpected error occurred.",
-        });
-      }
-    });
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setViewingDashboard(false);
+    router.push("/login");
+    router.refresh();
   };
 
-
-
-  // CONDITION: If profile is not created yet (or user clicked "Edit Profile"), SHOW ONLY THE TREMOR PROFILE SETUP!
-  const showProfileSetup = !user || !profile || isEditingProfile;
-
-  if (showProfileSetup) {
+  // If user explicitly requests to open their Tremor dashboard shell
+  if (user && profile && viewingDashboard) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
-        {/* Header Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-6">
-          <div>
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-xs font-medium text-emerald-400 mb-2">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Step 1: Athlete Setup</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              {profile ? "Edit Your Athlete Profile" : "Create Your Athlete Profile"}
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-              {user ? (
-                <>
-                  Signed in as <span className="text-emerald-400 font-mono">{user.email}</span>. Complete your profile to unlock your dashboard.
-                </>
-              ) : (
-                "Set your metrics and dietary goals to unlock your personalized training dashboard."
-              )}
-            </p>
-          </div>
+      <TremorAppShell
+        user={user}
+        profile={profile}
+        onProfileUpdated={(updated) => {
+          setProfile(updated);
+        }}
+        onSignOut={handleSignOut}
+      />
+    );
+  }
 
-          <div className="flex items-center gap-2 self-start">
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8 space-y-10">
+      {/* 1. Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-6">
+        <div>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-xs font-medium text-emerald-400 mb-2">
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>StrengthWise AI Creator</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+            Creator Profile
+          </h1>
+          <p className="text-sm text-neutral-400 mt-1">
+            The mind and engineering behind the StrengthWise sports nutrition &amp; strength engine.
+          </p>
+        </div>
+
+        {/* Action button if logged in */}
+        {user && (
+          <div className="flex items-center gap-2">
             {profile && (
               <button
                 type="button"
-                onClick={() => setIsEditingProfile(false)}
-                className="rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-300 hover:text-white"
+                onClick={() => setViewingDashboard(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:bg-emerald-400 transition"
               >
-                Back to Dashboard
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Open App Dashboard</span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        )}
+      </div>
 
-            {/* Unit Toggle */}
-            <div className="flex items-center gap-1 rounded-xl bg-neutral-900 p-1 border border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setUnitSystem("imperial")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  unitSystem === "imperial"
-                    ? "bg-emerald-500 text-neutral-950 shadow-sm shadow-emerald-500/20"
-                    : "text-neutral-400 hover:text-neutral-200"
-                }`}
+      {/* 2. Main Creator Spotlight Card */}
+      <Card decoration="top" decorationColor="emerald" className="bg-neutral-900/60 border-neutral-800 p-6 sm:p-8">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 sm:gap-8">
+          {/* Creator Avatar with Radiant Accent */}
+          <div className="relative group shrink-0">
+            <div className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 p-1 shadow-xl shadow-emerald-500/15">
+              <div className="h-full w-full rounded-[22px] bg-neutral-950 flex flex-col items-center justify-center text-white">
+                <span className="text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-br from-emerald-400 to-cyan-300 bg-clip-text text-transparent">
+                  KR
+                </span>
+                <span className="text-[10px] uppercase font-mono tracking-widest text-neutral-400 mt-1">
+                  Creator
+                </span>
+              </div>
+            </div>
+            <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500 text-neutral-950 shadow-md">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+          </div>
+
+          {/* Bio & Details */}
+          <div className="flex-1 text-center md:text-left space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  Karthik Ravi
+                </h2>
+                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                  Lead Developer &amp; Founder
+                </span>
+              </div>
+              <p className="text-sm font-medium text-cyan-400">
+                Full-Stack AI Engineer &amp; Exercise Science Practitioner
+              </p>
+            </div>
+
+            <p className="text-sm text-neutral-300 leading-relaxed max-w-2xl">
+              Creator of <strong>StrengthWise AI</strong>. Built with the objective of eliminating
+              guesswork from strength training and macro nutrition by fusing proven metabolic
+              equations (Mifflin-St Jeor, adaptive training volume) with autonomous AI assistance
+              and real-time data telemetry.
+            </p>
+
+            {/* Quick Links / Badges */}
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+              <a
+                href="https://github.com/Kravi001/strengthwise-ai"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/80 px-3.5 py-2 text-xs font-semibold text-white hover:bg-neutral-700 hover:border-neutral-600 transition"
               >
-                Imperial (lbs, ft)
-              </button>
-              <button
-                type="button"
-                onClick={() => setUnitSystem("metric")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  unitSystem === "metric"
-                    ? "bg-emerald-500 text-neutral-950 shadow-sm shadow-emerald-500/20"
-                    : "text-neutral-400 hover:text-neutral-200"
-                }`}
+                <svg className="h-4 w-4 fill-current text-neutral-300" viewBox="0 0 24 24">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                </svg>
+                <span>GitHub Repository</span>
+                <ExternalLink className="h-3 w-3 text-neutral-400" />
+              </a>
+
+              <a
+                href="mailto:karthik.s.ravi@gmail.com"
+                className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/80 px-3.5 py-2 text-xs font-semibold text-white hover:bg-neutral-700 hover:border-neutral-600 transition"
               >
-                Metric (kg, cm)
-              </button>
+                <Mail className="h-4 w-4 text-emerald-400" />
+                <span>karthik.s.ravi@gmail.com</span>
+              </a>
+
+              <div className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs font-mono text-neutral-400">
+                <Globe className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Live on Vercel Edge</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Authentication Notice if not signed in */}
-        {!user && (
-          <Card decoration="left" decorationColor="emerald" className="bg-emerald-950/20 border-emerald-900/50">
+        <Divider className="my-6" />
+
+        {/* Architecture & Tech Stack Highlights */}
+        <div>
+          <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-400 mb-3">
+            Core Engineering Architecture
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-neutral-800/90 bg-neutral-950/60 p-3.5 space-y-1">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <Code2 className="h-4 w-4" />
+                <span className="text-xs font-bold text-white">Next.js 15.5</span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                React 19, Turbopack, App Router &amp; Server Actions
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-neutral-800/90 bg-neutral-950/60 p-3.5 space-y-1">
+              <div className="flex items-center gap-2 text-cyan-400">
+                <Database className="h-4 w-4" />
+                <span className="text-xs font-bold text-white">Supabase + Prisma</span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                PostgreSQL pooler, Row Level Security &amp; OAuth
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-neutral-800/90 bg-neutral-950/60 p-3.5 space-y-1">
+              <div className="flex items-center gap-2 text-amber-400">
+                <Layers className="h-4 w-4" />
+                <span className="text-xs font-bold text-white">Tremor UI</span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Tailwind CSS design system &amp; clean dashboard aesthetics
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-neutral-800/90 bg-neutral-950/60 p-3.5 space-y-1">
+              <div className="flex items-center gap-2 text-purple-400">
+                <BrainCircuit className="h-4 w-4" />
+                <span className="text-xs font-bold text-white">AI Coach Engine</span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Dynamic RPE autoregulation &amp; sports science formulas
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* 3. Authenticated Visitor Account Card */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400">
+          Your Account Status
+        </h3>
+
+        {user ? (
+          <Card decoration="left" decorationColor="emerald" className="bg-neutral-900/60 border-neutral-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <UserIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Title className="text-white text-base">
+                      {user.user_metadata?.full_name || user.user_metadata?.name || "Active Athlete"}
+                    </Title>
+                    <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-mono text-emerald-400">
+                      CONNECTED
+                    </span>
+                  </div>
+                  <Text className="text-xs text-neutral-400 mt-0.5">{user.email}</Text>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setViewingDashboard(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition"
+                >
+                  <LayoutDashboard className="h-3.5 w-3.5" />
+                  <span>Launch Dashboard</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs font-medium text-neutral-400 hover:text-red-400 transition"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <Card decoration="left" decorationColor="cyan" className="bg-neutral-900/60 border-neutral-800">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <Title className="text-white flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-emerald-400" />
-                  Sign In Required to Save Your Profile
+                  <Lock className="h-4 w-4 text-cyan-400" />
+                  Visitor Mode
                 </Title>
-                <Text className="text-neutral-300 text-xs sm:text-sm">
-                  Sign in through Supabase with Google or Email so your profile is saved to PostgreSQL.
+                <Text className="text-xs text-neutral-300">
+                  Sign in with Google or Email via Supabase to track your workouts and sync your telemetry with PostgreSQL.
                 </Text>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
@@ -364,8 +378,9 @@ export default function ProfilePage() {
                       d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                     />
                   </svg>
-                  <span>Google</span>
+                  <span>Sign In with Google</span>
                 </button>
+
                 <Link
                   href="/login"
                   className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 transition"
@@ -377,423 +392,7 @@ export default function ProfilePage() {
             </div>
           </Card>
         )}
-
-        {statusMsg && (
-          <div
-            className={`flex items-center gap-2.5 rounded-xl border p-4 text-sm ${
-              statusMsg.type === "success"
-                ? "border-emerald-900/40 bg-emerald-950/30 text-emerald-300"
-                : "border-red-900/40 bg-red-950/30 text-red-300"
-            }`}
-          >
-            {statusMsg.type === "success" ? (
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
-            ) : (
-              <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
-            )}
-            <span>{statusMsg.text}</span>
-          </div>
-        )}
-
-        {/* Profile Setup Form & Live Tremor Calculations */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Form Column */}
-          <form onSubmit={handleSave} className="lg:col-span-7 space-y-6">
-            {/* Card 1: Physical Measurements */}
-            <Card decoration="top" decorationColor="emerald">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <Title className="flex items-center gap-2">
-                    <Scale className="h-4 w-4 text-emerald-400" />
-                    Physical Measurements
-                  </Title>
-                  <Subtitle>Body stats for Mifflin-St Jeor metabolic calculation</Subtitle>
-                </div>
-                <span className="rounded-md bg-neutral-800 px-2 py-0.5 text-[11px] font-mono text-neutral-300">
-                  {unitSystem.toUpperCase()}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Age */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Age</label>
-                  <input
-                    type="number"
-                    min={12}
-                    max={120}
-                    value={age}
-                    onChange={(e) =>
-                      setAge(e.target.value ? parseInt(e.target.value, 10) : "")
-                    }
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-
-                {/* Gender */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Biological Sex</label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    <option value="MALE">Male (Mifflin +5)</option>
-                    <option value="FEMALE">Female (Mifflin -161)</option>
-                    <option value="OTHER">Other / Non-binary</option>
-                  </select>
-                </div>
-
-                {/* Height */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">
-                    Height {unitSystem === "imperial" ? "(ft / in)" : "(cm)"}
-                  </label>
-                  {unitSystem === "imperial" ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="number"
-                        placeholder="Feet"
-                        min={3}
-                        max={8}
-                        value={heightFt}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseInt(e.target.value, 10) : 0;
-                          updateHeightFromFtIn(val, Number(heightIn) || 0);
-                        }}
-                        className="rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Inches"
-                        min={0}
-                        max={11}
-                        value={heightIn}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseInt(e.target.value, 10) : 0;
-                          updateHeightFromFtIn(Number(heightFt) || 0, val);
-                        }}
-                        className="rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                  ) : (
-                    <input
-                      type="number"
-                      min={100}
-                      max={250}
-                      value={heightCm}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateHeightFromCm(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  )}
-                </div>
-
-                {/* Weight */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">
-                    Current Bodyweight {unitSystem === "imperial" ? "(lbs)" : "(kg)"}
-                  </label>
-                  {unitSystem === "imperial" ? (
-                    <input
-                      type="number"
-                      min={50}
-                      max={600}
-                      value={weightLbs}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateWeightFromLbs(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  ) : (
-                    <input
-                      type="number"
-                      min={25}
-                      max={300}
-                      value={weightKg}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateWeightFromKg(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  )}
-                </div>
-
-                {/* Goal Weight */}
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs font-medium text-neutral-300">
-                    Target Goal Weight {unitSystem === "imperial" ? "(lbs)" : "(kg)"}
-                  </label>
-                  {unitSystem === "imperial" ? (
-                    <input
-                      type="number"
-                      min={50}
-                      max={600}
-                      value={goalWeightLbs}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateGoalWeightFromLbs(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  ) : (
-                    <input
-                      type="number"
-                      min={25}
-                      max={300}
-                      value={goalWeightKg}
-                      onChange={(e) => {
-                        const val = e.target.value ? parseFloat(e.target.value) : 0;
-                        updateGoalWeightFromKg(val);
-                      }}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  )}
-                </div>
-              </div>
-            </Card>
-
-            {/* Card 2: Training & Dietary Strategy */}
-            <Card decoration="top" decorationColor="cyan">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <Title className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-cyan-400" />
-                    Training & Dietary Strategy
-                  </Title>
-                  <Subtitle>Macro distribution and energy balance targets</Subtitle>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Goal */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Primary Goal</label>
-                  <select
-                    value={goal}
-                    onChange={(e) => setGoal(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                  >
-                    <option value="LOSE_WEIGHT">Fat Loss (-500 kcal Deficit)</option>
-                    <option value="MAINTAIN">Maintain / Recomposition (0 kcal)</option>
-                    <option value="BUILD_MUSCLE">Muscle Hypertrophy (+300 kcal Surplus)</option>
-                  </select>
-                </div>
-
-                {/* Activity Level */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Activity Level</label>
-                  <select
-                    value={activityLevel}
-                    onChange={(e) => setActivityLevel(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                  >
-                    <option value="SEDENTARY">Sedentary (Desk work, little exercise)</option>
-                    <option value="LIGHT">Light Activity (1-3 workout days/wk)</option>
-                    <option value="MODERATE">Moderate Activity (3-5 workout days/wk)</option>
-                    <option value="ACTIVE">Very Active (6-7 intense days/wk)</option>
-                    <option value="VERY_ACTIVE">Athletic / Heavy Physical Labor</option>
-                  </select>
-                </div>
-
-                {/* Diet Preference */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Diet Type</label>
-                  <select
-                    value={dietPreference}
-                    onChange={(e) => setDietPreference(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                  >
-                    <option value="STANDARD">Standard Omnivore</option>
-                    <option value="VEGETARIAN">Vegetarian</option>
-                    <option value="VEGAN">Vegan</option>
-                    <option value="KETO">Ketogenic (High Fat, Low Carb)</option>
-                  </select>
-                </div>
-
-                {/* Experience */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">Lifting Experience</label>
-                  <select
-                    value={experienceLevel}
-                    onChange={(e) => setExperienceLevel(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 px-3 text-sm text-neutral-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                  >
-                    <option value="BEGINNER">Beginner (&lt; 1 year)</option>
-                    <option value="INTERMEDIATE">Intermediate (1-3 years)</option>
-                    <option value="ADVANCED">Advanced (3+ years)</option>
-                  </select>
-                </div>
-              </div>
-            </Card>
-
-            {/* Save Button */}
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3.5 text-sm font-semibold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-500 transition disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin text-neutral-950" />
-                  <span>Saving Profile to PostgreSQL...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  <span>
-                    {user ? "Save Athlete Profile & Unlock Dashboard" : "Sign In & Save Profile"}
-                  </span>
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Right Column: Live Tremor Targets */}
-          <div className="lg:col-span-5 space-y-6">
-            {/* Calorie Target Card */}
-            <Card decoration="top" decorationColor="emerald">
-              <div className="flex items-center justify-between">
-                <Text>Target Daily Calories</Text>
-                <BadgeDelta
-                  deltaType={
-                    goal === "BUILD_MUSCLE"
-                      ? "increase"
-                      : goal === "LOSE_WEIGHT"
-                      ? "decrease"
-                      : "unchanged"
-                  }
-                >
-                  {goal === "BUILD_MUSCLE"
-                    ? "+300 kcal"
-                    : goal === "LOSE_WEIGHT"
-                    ? "-500 kcal"
-                    : "Maintenance"}
-                </BadgeDelta>
-              </div>
-              <Metric className="mt-2 text-3xl">
-                {targets.targetCalories}{" "}
-                <span className="text-sm font-normal text-neutral-400">kcal / day</span>
-              </Metric>
-
-              <Divider />
-
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-neutral-400">Basal Metabolic Rate:</span>
-                  <p className="text-sm font-semibold text-neutral-200 mt-0.5">
-                    {targets.bmr} kcal
-                  </p>
-                </div>
-                <div>
-                  <span className="text-neutral-400">Maintenance TDEE:</span>
-                  <p className="text-sm font-semibold text-neutral-200 mt-0.5">
-                    {targets.tdee} kcal
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Tremor Macro Donut Chart & Progress Bars */}
-            <Card decoration="top" decorationColor="purple">
-              <Title>Calculated Macronutrients</Title>
-              <Subtitle>Athletic sports nutrition split</Subtitle>
-
-              {/* Donut Chart */}
-              <div className="py-2">
-                <DonutChart
-                  data={donutData}
-                  label="Target Grams"
-                  valueFormatter={(v) => `${v}g`}
-                />
-              </div>
-
-              {/* Macro Progress Bars */}
-              <div className="space-y-4 pt-2">
-                {/* Protein */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 font-medium text-white">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      Protein ({proteinPercent}%)
-                    </span>
-                    <span className="font-mono font-semibold text-emerald-400">
-                      {targets.targetProtein}g ({targets.targetProtein * 4} kcal)
-                    </span>
-                  </div>
-                  <ProgressBar value={proteinPercent} color="emerald" />
-                </div>
-
-                {/* Carbs */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 font-medium text-white">
-                      <span className="h-2 w-2 rounded-full bg-cyan-500" />
-                      Carbs ({carbsPercent}%)
-                    </span>
-                    <span className="font-mono font-semibold text-cyan-400">
-                      {targets.targetCarbs}g ({targets.targetCarbs * 4} kcal)
-                    </span>
-                  </div>
-                  <ProgressBar value={carbsPercent} color="cyan" />
-                </div>
-
-                {/* Fat */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 font-medium text-white">
-                      <span className="h-2 w-2 rounded-full bg-amber-500" />
-                      Fats ({fatPercent}%)
-                    </span>
-                    <span className="font-mono font-semibold text-amber-400">
-                      {targets.targetFat}g ({targets.targetFat * 9} kcal)
-                    </span>
-                  </div>
-                  <ProgressBar value={fatPercent} color="amber" />
-                </div>
-              </div>
-
-              <Divider />
-
-              <div className="flex items-center gap-2 text-xs text-neutral-400">
-                <Utensils className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                <span>
-                  Protein targeted at <strong>~2.0g per kg</strong> of body mass.
-                </span>
-              </div>
-            </Card>
-          </div>
-        </div>
       </div>
-    );
-  }
-
-  // CONDITION: USER IS SIGNED IN AND PROFILE IS CREATED!
-  // UNLOCK THE FULL TREMOR APP SHELL WITH VERTICAL LEFT SIDEBAR!
-  if (user && profile) {
-    return (
-      <TremorAppShell
-        user={user}
-        profile={profile}
-        onProfileUpdated={(updated) => {
-          setProfile(updated);
-          setIsEditingProfile(false);
-        }}
-        onSignOut={async () => {
-          await supabase.auth.signOut();
-          setUser(null);
-          setProfile(null);
-          router.push("/login");
-          router.refresh();
-        }}
-      />
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
