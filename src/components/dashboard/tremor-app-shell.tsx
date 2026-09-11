@@ -26,14 +26,12 @@ import {
   LayoutDashboard,
   LineChart,
   LogOut,
-  Menu,
   RefreshCw,
   Save,
   Send,
   Settings,
   Target,
   Utensils,
-  X,
 } from "lucide-react";
 import { calculateNutritionTargets, type CalculatedTargets } from "@/lib/calc";
 import type { User } from "@supabase/supabase-js";
@@ -72,7 +70,6 @@ export function TremorAppShell({
   onSignOut,
 }: TremorAppShellProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Form states for Settings tab
   const [unitSystem, setUnitSystem] = useState<"imperial" | "metric">("imperial");
@@ -266,52 +263,30 @@ export function TremorAppShell({
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col md:flex-row">
-      {/* MOBILE TOP BAR */}
-      <div className="md:hidden flex items-center justify-between border-b border-neutral-800 bg-neutral-950 px-4 py-3 sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-neutral-950">
-            <Dumbbell className="h-4 w-4" />
-          </div>
-          <span className="font-extrabold text-sm tracking-tight text-white">
-            Strength<span className="text-emerald-400">Wise</span>
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="rounded-lg p-2 text-neutral-400 hover:text-white hover:bg-neutral-900 border border-neutral-800"
-        >
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-      </div>
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-row">
 
-      {/* LEFT VERTICAL SIDEBAR (TREMOR UI STYLE) */}
-      <aside
-        className={`fixed md:sticky top-0 left-0 z-50 h-screen w-64 shrink-0 border-r border-neutral-800/80 bg-neutral-950 flex flex-col justify-between p-4 transition-transform duration-200 ${
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        }`}
-      >
-        <div className="space-y-6">
+      {/* LEFT VERTICAL SIDEBAR — slim icon-only on mobile, full on md+ */}
+      <aside className="sticky top-0 h-screen shrink-0 border-r border-neutral-800/80 bg-neutral-950 flex flex-col justify-between
+        w-14 md:w-64 transition-all duration-300 z-40">
+
+        <div className="flex flex-col gap-5 overflow-hidden">
           {/* Brand Header */}
-          <div className="flex items-center justify-between px-2 pt-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 shadow-md shadow-emerald-500/20">
-                <Dumbbell className="h-5 w-5" />
+          <div className="flex items-center gap-2.5 px-3 pt-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 shadow-md shadow-emerald-500/20">
+              <Dumbbell className="h-5 w-5" />
+            </div>
+            <div className="hidden md:block">
+              <div className="text-base font-extrabold tracking-tight text-white leading-tight whitespace-nowrap">
+                Strength<span className="text-emerald-400">Wise</span>
               </div>
-              <div>
-                <div className="text-base font-extrabold tracking-tight text-white leading-tight">
-                  Strength<span className="text-emerald-400">Wise</span>
-                </div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/90">
-                  Tremor Dashboard
-                </div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/90">
+                AI Dashboard
               </div>
             </div>
           </div>
 
-          {/* Calibrated Status Badge */}
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5 space-y-1">
+          {/* Calibrated Status Badge — hidden on mobile */}
+          <div className="hidden md:block mx-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5 space-y-1">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -327,9 +302,9 @@ export function TremorAppShell({
             </div>
           </div>
 
-          {/* Navigation Links (Vertical Left Sidebar) */}
-          <nav className="space-y-1">
-            <div className="px-2 text-[10px] uppercase font-bold tracking-wider text-neutral-500 mb-2">
+          {/* Navigation Links */}
+          <nav className="flex flex-col gap-0.5 px-2">
+            <div className="hidden md:block px-1 text-[10px] uppercase font-bold tracking-wider text-neutral-500 mb-1">
               Athlete Platform
             </div>
             {navItems.map((item) => {
@@ -339,20 +314,20 @@ export function TremorAppShell({
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition text-left ${
+                  onClick={() => setActiveTab(item.id)}
+                  title={item.label}
+                  className={`group w-full flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-xs font-semibold transition text-left ${
                     isActive
                       ? "bg-neutral-900 text-emerald-400 border border-neutral-700/80 shadow-sm"
                       : "text-neutral-400 hover:text-white hover:bg-neutral-900/50"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-emerald-400" : "text-neutral-400"}`} />
-                  <span className="flex-1">{item.label}</span>
+                  <Icon className={`h-4.5 w-4.5 shrink-0 h-[18px] w-[18px] ${
+                    isActive ? "text-emerald-400" : "text-neutral-400 group-hover:text-white"
+                  }`} />
+                  <span className="hidden md:block flex-1 whitespace-nowrap">{item.label}</span>
                   {item.id === "coach" && (
-                    <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
+                    <span className="hidden md:block rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
                       AI
                     </span>
                   )}
@@ -360,29 +335,30 @@ export function TremorAppShell({
               );
             })}
 
-            {/* Link back to About / Landing Page */}
-            <div className="pt-4 border-t border-neutral-800/80">
-              <div className="px-2 text-[10px] uppercase font-bold tracking-wider text-neutral-500 mb-2">
+            {/* Link back to About */}
+            <div className="pt-3 mt-2 border-t border-neutral-800/80">
+              <div className="hidden md:block px-1 text-[10px] uppercase font-bold tracking-wider text-neutral-500 mb-1">
                 External
               </div>
               <Link
                 href="/"
-                className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium text-neutral-400 hover:text-white hover:bg-neutral-900/50 transition"
+                title="About StrengthWise"
+                className="group w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-xs font-medium text-neutral-400 hover:text-white hover:bg-neutral-900/50 transition"
               >
-                <Info className="h-4 w-4 text-neutral-400" />
-                <span>About StrengthWise</span>
+                <Info className="h-[18px] w-[18px] shrink-0 text-neutral-400 group-hover:text-white" />
+                <span className="hidden md:block whitespace-nowrap">About StrengthWise</span>
               </Link>
             </div>
           </nav>
         </div>
 
         {/* Sidebar Footer: User Account */}
-        <div className="border-t border-neutral-800/80 pt-4 space-y-3">
-          <div className="flex items-center gap-3 px-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-800 border border-neutral-700 text-emerald-400 font-bold text-xs uppercase">
+        <div className="border-t border-neutral-800/80 p-2 md:p-3 space-y-2">
+          <div className="flex items-center gap-3 px-0.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-neutral-800 border border-neutral-700 text-emerald-400 font-bold text-xs uppercase">
               {user.email?.charAt(0) || "A"}
             </div>
-            <div className="overflow-hidden text-left">
+            <div className="hidden md:block overflow-hidden text-left">
               <p className="truncate text-xs font-medium text-white">{user.email}</p>
               <p className="text-[10px] text-neutral-400">Athlete Pro Tier</p>
             </div>
@@ -390,10 +366,11 @@ export function TremorAppShell({
           <button
             type="button"
             onClick={onSignOut}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-red-400 transition"
+            title="Sign Out"
+            className="w-full flex items-center justify-center md:justify-start gap-2 rounded-xl border border-neutral-800 bg-neutral-900/80 px-2 py-2 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-red-400 transition"
           >
-            <LogOut className="h-3.5 w-3.5" />
-            <span>Sign Out</span>
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span className="hidden md:block">Sign Out</span>
           </button>
         </div>
       </aside>
