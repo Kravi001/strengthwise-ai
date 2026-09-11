@@ -263,7 +263,7 @@ export function TremorAppShell({
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-row">
+    <div className="fixed inset-0 bg-neutral-950 text-neutral-100 flex flex-row z-50 overflow-hidden">
 
       {/* LEFT VERTICAL SIDEBAR — slim icon-only on mobile, full on md+ */}
       <aside className="sticky top-0 h-screen shrink-0 border-r border-neutral-800/80 bg-neutral-950 flex flex-col justify-between
