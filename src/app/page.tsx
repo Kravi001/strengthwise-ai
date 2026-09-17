@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -25,12 +25,15 @@ import {
   Dumbbell,
   Edit3,
   ExternalLink,
+  Eye,
+  EyeOff,
   Flame,
   Globe,
   Layers,
   LineChart,
   Lock,
   Mail,
+  MailCheck,
   RefreshCw,
   Scale,
   ShieldCheck,
@@ -41,11 +44,25 @@ import {
   Utensils,
   Zap,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
+import type { User } from "@supabase/supabase-js";
 
 const AVATAR_PRESETS = ["🏋️‍♂️", "🦾", "🥗", "⚡", "🧘", "🏆", "🔥", "🥇"];
 
 export default function LandingPage() {
+  const supabase = createClient();
+
+  // --- Auth & User State ---
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authMode, setAuthMode] = useState<"signup" | "signin">("signup");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
+  const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
+  const [isVerifyingDev, setIsVerifyingDev] = useState(false);
+
   // --- Profile State ---
   const [hasProfile, setHasProfile] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(true);
@@ -65,48 +82,7 @@ export default function LandingPage() {
   const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("CUT");
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
 
-  // Load existing profile from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("sw_athlete_profile");
-      if (stored) {
-        const p = JSON.parse(stored);
-        if (p.isCompleted || p.age || p.weightLbs) {
-          setHasProfile(true);
-          setShowProfileForm(false); // Collapse form once created
-          if (p.avatar) setAvatar(p.avatar);
-          if (p.fullName) setFullName(p.fullName);
-          if (p.email) setEmail(p.email);
-          if (p.age) setAge(p.age);
-          if (p.gender) setGender(p.gender);
-          if (p.heightFt) setHeightFt(p.heightFt);
-          if (p.heightIn) setHeightIn(p.heightIn);
-          if (p.weightLbs) setCurrentWeightLbs(p.weightLbs);
-          if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
-          if (p.goal) setGoal(p.goal);
-          if (p.activityLevel) setActivityLevel(p.activityLevel);
-        }
-      }
-    } catch {
-      // Ignore parse error
-    }
-  }, []);
-
-  // Handle Photo Upload
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setAvatar(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Live Mifflin-St Jeor calculations based on athlete profile inputs
+  // Calculations
   const numWeightLbs = Number(currentWeightLbs) || 155;
   const numWeightKg = numWeightLbs / 2.20462;
   const totalInches = (Number(heightFt) || 5) * 12 + (Number(heightIn) || 8);
@@ -127,17 +103,188 @@ export default function LandingPage() {
     { name: "Fats", value: calculated.targetFat, color: "#f59e0b" },
   ];
 
-  // Handle Profile Submission
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setSaveSuccessMsg(null);
+  // 1. Check current Supabase session & load existing profile on mount
+  useEffect(() => {
+    async function initSessionAndProfile() {
+      try {
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
 
-    const profileData = {
+        setAuthUser(currentUser);
+        if (currentUser) {
+          if (currentUser.email) setEmail(currentUser.email);
+          if (currentUser.user_metadata?.full_name) setFullName(currentUser.user_metadata.full_name);
+
+          // Check if there is a pending draft to save from Google OAuth return
+          const draft = localStorage.getItem("sw_athlete_profile_draft");
+          if (draft) {
+            try {
+              const draftData = JSON.parse(draft);
+              await fetch("/api/profile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(draftData),
+              });
+              localStorage.removeItem("sw_athlete_profile_draft");
+              localStorage.setItem("sw_athlete_profile", JSON.stringify({ ...draftData, isCompleted: true }));
+              window.dispatchEvent(new Event("sw_profile_updated"));
+              setHasProfile(true);
+              setShowProfileForm(false);
+              setSaveSuccessMsg("🎉 Google Account connected and athlete profile saved!");
+              return;
+            } catch (err) {
+              console.warn("Could not save draft after OAuth:", err);
+            }
+          }
+
+          // Fetch profile from backend database
+          try {
+            const res = await fetch("/api/profile");
+            if (res.ok) {
+              const data = await res.json();
+              if (data.profile) {
+                setHasProfile(true);
+                setShowProfileForm(false);
+                if (data.profile.age) setAge(data.profile.age);
+                if (data.profile.gender) setGender(data.profile.gender);
+                if (data.profile.weightKg) setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
+                if (data.profile.goalWeightKg) setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
+                if (data.profile.goal) setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
+                if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+                return;
+              }
+            }
+          } catch {
+            // Fallback to local storage
+          }
+        }
+
+        // Fallback: check localStorage for offline/cached profile
+        const stored = localStorage.getItem("sw_athlete_profile");
+        if (stored) {
+          const p = JSON.parse(stored);
+          if (p.isCompleted || p.age || p.weightLbs) {
+            setHasProfile(true);
+            setShowProfileForm(false);
+            if (p.avatar) setAvatar(p.avatar);
+            if (p.fullName) setFullName(p.fullName);
+            if (p.email) setEmail(p.email);
+            if (p.age) setAge(p.age);
+            if (p.gender) setGender(p.gender);
+            if (p.heightFt) setHeightFt(p.heightFt);
+            if (p.heightIn) setHeightIn(p.heightIn);
+            if (p.weightLbs) setCurrentWeightLbs(p.weightLbs);
+            if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
+            if (p.goal) setGoal(p.goal);
+            if (p.activityLevel) setActivityLevel(p.activityLevel);
+          }
+        }
+      } catch (err) {
+        console.warn("Init session error:", err);
+      }
+    }
+
+    initSessionAndProfile();
+  }, [supabase]);
+
+  // 2. Google OAuth Handler
+  const handleGoogleSignIn = async () => {
+    setAuthErrorMsg(null);
+    setGoogleLoading(true);
+
+    // Prepare profile draft so that once user returns from Google, it's immediately saved
+    const profileDraft = {
+      fullName: fullName || "StrengthWise Athlete",
+      avatar,
+      age: Number(age),
+      gender,
+      heightCm,
+      weightKg: numWeightKg,
+      weightLbs: numWeightLbs,
+      goalWeightKg: (Number(goalWeightLbs) || 145) / 2.20462,
+      goalWeightLbs: Number(goalWeightLbs),
+      activityLevel,
+      goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
+    };
+
+    try {
+      localStorage.setItem("sw_athlete_profile_draft", JSON.stringify(profileDraft));
+      const origin = window.location.origin;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        setAuthErrorMsg(error.message);
+        setGoogleLoading(false);
+      }
+    } catch (err: unknown) {
+      setAuthErrorMsg(err instanceof Error ? err.message : "Failed to initiate Google sign-in.");
+      setGoogleLoading(false);
+    }
+  };
+
+  // 3. Instant Dev Verification Handler
+  const handleInstantVerify = async () => {
+    if (!email) return;
+    setIsVerifyingDev(true);
+    setAuthErrorMsg(null);
+    try {
+      const res = await fetch("/api/auth/dev-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to verify account.");
+
+      if (password) {
+        const { data: signData, error: signError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (!signError && signData.session) {
+          setAuthUser(signData.session.user);
+          setEmailConfirmationSent(false);
+          await commitProfileToDatabase(signData.session.user);
+          return;
+        }
+      }
+      setEmailConfirmationSent(false);
+      setAuthMode("signin");
+      setSaveSuccessMsg("Account verified! Click 'Sign In & Save Profile' below.");
+    } catch (err: unknown) {
+      setAuthErrorMsg(err instanceof Error ? err.message : "Verification failed.");
+    } finally {
+      setIsVerifyingDev(false);
+    }
+  };
+
+  // 4. Commit Profile to Supabase & Database
+  const commitProfileToDatabase = async (userObj?: User | null) => {
+    const activeUser = userObj || authUser;
+    const profilePayload = {
+      fullName,
+      name: fullName,
+      avatar,
+      age: Number(age),
+      gender,
+      heightCm,
+      weightKg: numWeightKg,
+      goalWeightKg: (Number(goalWeightLbs) || 145) / 2.20462,
+      activityLevel,
+      goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
+    };
+
+    const localProfileData = {
       isCompleted: true,
       avatar,
-      fullName,
-      email,
+      fullName: fullName || (activeUser?.email ? activeUser.email.split("@")[0] : "Athlete"),
+      email: email || activeUser?.email || "",
       age: Number(age),
       gender,
       heightFt: Number(heightFt),
@@ -155,47 +302,132 @@ export default function LandingPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    try {
-      localStorage.setItem("sw_athlete_profile", JSON.stringify(profileData));
-      document.cookie = `sw_athlete_profile=true; path=/; max-age=31536000; SameSite=Lax`;
-      window.dispatchEvent(new Event("sw_profile_updated"));
+    // Save locally
+    localStorage.setItem("sw_athlete_profile", JSON.stringify(localProfileData));
+    document.cookie = `sw_athlete_profile=true; path=/; max-age=31536000; SameSite=Lax`;
+    window.dispatchEvent(new Event("sw_profile_updated"));
 
-      // Attempt background sync to API if signed in
-      try {
-        await fetch("/api/profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            age: Number(age),
-            gender,
-            heightCm,
-            weightKg: numWeightKg,
-            goalWeightKg: (Number(goalWeightLbs) || 145) / 2.20462,
-            activityLevel,
-            goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
-          }),
-        });
-      } catch {
-        // API sync is optional for guests
+    // Save to PostgreSQL backend via Prisma API
+    try {
+      await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profilePayload),
+      });
+    } catch (err) {
+      console.warn("Backend profile save error:", err);
+    }
+
+    setHasProfile(true);
+    setShowProfileForm(false);
+    setSaveSuccessMsg("🎉 Profile saved to your Supabase account! Meals, Workouts, Progress, and AI Coach unlocked.");
+
+    setTimeout(() => {
+      const mealsEl = document.getElementById("meals");
+      if (mealsEl) {
+        mealsEl.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 600);
+  };
+
+  // 5. Handle Form Submit (Creates account if needed, then saves profile)
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthErrorMsg(null);
+    setSaveSuccessMsg(null);
+    setIsSaving(true);
+
+    try {
+      // CASE A: User is already signed in -> just save profile to Supabase/DB
+      if (authUser) {
+        await commitProfileToDatabase(authUser);
+        return;
       }
 
-      setHasProfile(true);
-      setShowProfileForm(false);
-      setSaveSuccessMsg("🎉 Athlete profile created! Meals, Workouts, Progress, and AI Coach are now unlocked.");
+      // CASE B: User needs to create an account or sign in with Email & Password
+      if (!email || !password) {
+        setAuthErrorMsg("Please enter both an email and a password to create your account and save your profile.");
+        setIsSaving(false);
+        return;
+      }
 
-      // Smooth scroll to Meals section
-      setTimeout(() => {
-        const mealsEl = document.getElementById("meals");
-        if (mealsEl) {
-          mealsEl.scrollIntoView({ behavior: "smooth" });
+      if (password.length < 6) {
+        setAuthErrorMsg("Password must be at least 6 characters long.");
+        setIsSaving(false);
+        return;
+      }
+
+      const origin = window.location.origin;
+
+      if (authMode === "signup") {
+        // Create Supabase Account
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName || email.split("@")[0],
+              avatar_url: avatar,
+            },
+            emailRedirectTo: `${origin}/auth/callback`,
+          },
+        });
+
+        if (error) {
+          setAuthErrorMsg(error.message);
+          setIsSaving(false);
+          return;
         }
-      }, 600);
-    } catch {
-      // Local storage fallback
-      setHasProfile(true);
-      setShowProfileForm(false);
+
+        if (data.session?.user) {
+          setAuthUser(data.session.user);
+          await commitProfileToDatabase(data.session.user);
+        } else {
+          // Email confirmation is required by Supabase
+          setEmailConfirmationSent(true);
+          setIsSaving(false);
+        }
+      } else {
+        // Sign In with existing password
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          if (error.message.toLowerCase().includes("email not confirmed")) {
+            setEmailConfirmationSent(true);
+            setAuthErrorMsg("Email address has not been confirmed yet. Click 'Instant Verify' to activate.");
+          } else {
+            setAuthErrorMsg(error.message);
+          }
+          setIsSaving(false);
+          return;
+        }
+
+        if (data.session?.user) {
+          setAuthUser(data.session.user);
+          await commitProfileToDatabase(data.session.user);
+        }
+      }
+    } catch (err: unknown) {
+      setAuthErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Photo Upload Handler
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setAvatar(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -311,16 +543,37 @@ export default function LandingPage() {
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 hover:scale-[1.02] transition active:scale-[0.98]"
             >
               <UserIcon className="h-4 w-4" />
-              <span>{hasProfile ? "View / Edit Athlete Profile" : "Create Profile to Unlock Tabs"}</span>
+              <span>{hasProfile ? "View / Edit Athlete Profile" : "Create Profile & Account to Unlock"}</span>
               <ArrowRight className="h-4 w-4" />
             </a>
-            <Link
-              href="/login"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900/90 px-6 py-3 text-sm font-semibold text-neutral-200 hover:bg-neutral-800 hover:text-white transition"
-            >
-              <Lock className="h-4 w-4 text-neutral-400" />
-              <span>Sign In with Account</span>
-            </Link>
+            {!authUser && (
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900/90 px-6 py-3 text-sm font-semibold text-white hover:bg-neutral-800 transition"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                  />
+                </svg>
+                <span>{googleLoading ? "Connecting Google..." : "Sign In with Google"}</span>
+              </button>
+            )}
           </div>
 
           {/* Trust badges */}
@@ -334,18 +587,18 @@ export default function LandingPage() {
               <span>Adaptive Volume</span>
             </div>
             <div className="flex items-center justify-center gap-1.5">
-              <LineChart className="h-4 w-4 text-amber-400" />
-              <span>Tremor Telemetry</span>
+              <Database className="h-4 w-4 text-amber-400" />
+              <span>Supabase Cloud Sync</span>
             </div>
           </div>
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* 2. ATHLETE PROFILE CREATION CARD (Required before accessing tabs)         */}
+      {/* 2. ATHLETE PROFILE & SUPABASE ACCOUNT CREATION CARD                      */}
       {/* ========================================================================= */}
       <section id="profile-setup" className="scroll-mt-6 space-y-6">
-        {/* Welcome Green Banner from Picture 1 */}
+        {/* Welcome Green Banner */}
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 sm:p-6 backdrop-blur-md shadow-xl">
           <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
@@ -354,29 +607,36 @@ export default function LandingPage() {
                 Welcome to StrengthWise AI!
               </h3>
               <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Please set up your new account profile below so our AI engine can compute your
-                personalized daily calorie targets, macro splits, meal plan, and workout routines.
-                Completing this profile unlocks all navigation tabs below.
+                Create your account and athlete profile below so our AI engine can compute your
+                personalized daily calorie targets, macro splits, and periodized workout routines.
+                Connecting your profile unlocks all navigation tabs below.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Profile Form Card */}
+        {/* Profile Card */}
         <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 space-y-8 shadow-2xl">
-          {/* Header & Collapse Toggle if already created */}
+          {/* Header & Status */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-5">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-black text-white tracking-tight">Your Profile</h2>
+                <h2 className="text-2xl font-black text-white tracking-tight">Your Profile &amp; Account</h2>
                 {hasProfile && (
                   <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-mono font-semibold text-emerald-400">
                     Active &amp; Unlocked
                   </span>
                 )}
+                {authUser && (
+                  <span className="rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 text-xs font-mono font-semibold text-cyan-400">
+                    Supabase Connected
+                  </span>
+                )}
               </div>
               <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-                We use this to calculate your calories, macros, meals, and workouts.
+                {authUser
+                  ? `Signed in as ${authUser.email}. Profile updates sync directly to your PostgreSQL database.`
+                  : "Create an account with Google or email to save your profile permanently."}
               </p>
             </div>
 
@@ -400,14 +660,151 @@ export default function LandingPage() {
             </div>
           )}
 
-          {/* Form Content (collapsible if completed) */}
-          {showProfileForm ? (
+          {/* Error Message Banner */}
+          {authErrorMsg && (
+            <div className="flex flex-col gap-2 rounded-xl border border-red-900/40 bg-red-950/30 p-4 text-xs text-red-300">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                <span>{authErrorMsg}</span>
+              </div>
+              {authErrorMsg.toLowerCase().includes("confirmed") && (
+                <button
+                  type="button"
+                  onClick={handleInstantVerify}
+                  disabled={isVerifyingDev}
+                  className="self-start mt-1 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/20 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/30 transition"
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  <span>{isVerifyingDev ? "Verifying..." : "Click here to Instant Verify & Activate"}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Email Confirmation Pending Screen */}
+          {emailConfirmationSent && (
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 space-y-4 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+                <MailCheck className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-white">Confirmation Email Requested</h4>
+                <p className="text-xs text-neutral-400">
+                  Supabase sent a confirmation link to <span className="font-mono text-emerald-300">{email}</span>.
+                </p>
+                <p className="text-xs text-neutral-500">
+                  Don&apos;t want to wait for email delivery? Click Instant Verify below to activate immediately.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleInstantVerify}
+                disabled={isVerifyingDev}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition"
+              >
+                <Zap className="h-3.5 w-3.5 fill-current" />
+                <span>{isVerifyingDev ? "Activating..." : "Instant Verify & Save Profile"}</span>
+              </button>
+            </div>
+          )}
+
+          {/* Form Content */}
+          {showProfileForm && !emailConfirmationSent ? (
             <form onSubmit={handleSaveProfile} className="space-y-8">
-              {/* SECTION A: PROFILE PICTURE & ACCOUNT */}
+
+              {/* 1. GOOGLE OAUTH FAST ACTION (If not logged in) */}
+              {!authUser && (
+                <div className="space-y-3 rounded-2xl border border-neutral-800 bg-neutral-950/80 p-5">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="space-y-0.5 text-center sm:text-left">
+                      <div className="text-xs font-bold text-white flex items-center justify-center sm:justify-start gap-1.5">
+                        <Zap className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Quick Connect via Google</span>
+                      </div>
+                      <div className="text-[11px] text-neutral-400">
+                        Authenticate with Google and save your profile to Supabase in one click.
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      disabled={googleLoading}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-neutral-800 hover:border-neutral-600 transition disabled:opacity-50"
+                    >
+                      {googleLoading ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-400" />
+                          <span>Connecting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4" viewBox="0 0 24 24">
+                            <path
+                              fill="#4285F4"
+                              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                            />
+                            <path
+                              fill="#34A853"
+                              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                            />
+                            <path
+                              fill="#FBBC05"
+                              d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                            />
+                            <path
+                              fill="#EA4335"
+                              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                            />
+                          </svg>
+                          <span>Continue with Google</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="relative flex items-center justify-center pt-2">
+                    <div className="w-full border-t border-neutral-800" />
+                    <span className="absolute bg-neutral-950 px-2.5 text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">
+                      Or Create with Email &amp; Password
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. PROFILE PICTURE & ACCOUNT SECTION */}
               <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
-                  Profile Picture &amp; Account
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
+                    Profile Picture &amp; Account
+                  </h3>
+                  {!authUser && (
+                    <div className="flex rounded-lg bg-neutral-950 p-1 border border-neutral-800">
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode("signup")}
+                        className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                          authMode === "signup"
+                            ? "bg-neutral-800 text-white shadow-xs"
+                            : "text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        Create Account
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode("signin")}
+                        className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                          authMode === "signin"
+                            ? "bg-neutral-800 text-white shadow-xs"
+                            : "text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        Sign In
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
                   {/* Avatar Circle Display */}
@@ -476,7 +873,7 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* Name & Email inputs */}
+                {/* Account credentials */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-neutral-300">Full Name</label>
@@ -489,24 +886,55 @@ export default function LandingPage() {
                       className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
                     />
                   </div>
+
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-neutral-300">Email Address</label>
                     <input
                       type="email"
                       required
+                      disabled={Boolean(authUser)}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="alex.smith@example.com"
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
+                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
+
+                  {/* Password field if not authenticated */}
+                  {!authUser && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-neutral-300">
+                          {authMode === "signup" ? "Set Account Password" : "Enter Password"}
+                        </label>
+                        <span className="text-[11px] text-neutral-500">Minimum 6 characters</span>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 pl-3.5 pr-10 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-2.5 text-neutral-500 hover:text-neutral-300"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* SECTION B: ABOUT YOU */}
+              {/* 3. ABOUT YOU SECTION (Biometrics) */}
               <div className="space-y-4 pt-4 border-t border-neutral-800/80">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
-                  About You
+                  About You (Biometrics)
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -650,7 +1078,9 @@ export default function LandingPage() {
               {/* Submit Button */}
               <div className="pt-4 border-t border-neutral-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-xs text-neutral-400 text-center sm:text-left">
-                  Calculates BMR &amp; TDEE instantly and unlocks all dashboard tabs below.
+                  {authUser
+                    ? "Saves directly to your Supabase PostgreSQL database."
+                    : "Creates your Supabase account, computes targets, and unlocks all tabs."}
                 </div>
 
                 <button
@@ -661,23 +1091,29 @@ export default function LandingPage() {
                   {isSaving ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin text-neutral-950" />
-                      <span>Saving Profile...</span>
+                      <span>Saving Profile to Supabase...</span>
                     </>
                   ) : (
                     <>
                       <Zap className="h-4 w-4 fill-current" />
-                      <span>Save Profile &amp; Unlock Dashboard</span>
+                      <span>
+                        {authUser
+                          ? "Save Profile to Supabase & Unlock"
+                          : authMode === "signup"
+                          ? "Create Account & Save Profile"
+                          : "Sign In & Save Profile"}
+                      </span>
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
                 </button>
               </div>
             </form>
-          ) : (
+          ) : !emailConfirmationSent ? (
             /* Collapsed Profile Summary State */
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-neutral-950/70 border border-neutral-800 p-5">
               <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-full border border-emerald-500/40 bg-neutral-900 flex items-center justify-center overflow-hidden text-2xl">
+                <div className="h-14 w-14 rounded-full border border-emerald-500/40 bg-neutral-900 flex items-center justify-center overflow-hidden text-2xl shadow-md">
                   {avatar.startsWith("data:") || avatar.startsWith("http") ? (
                     <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
                   ) : (
@@ -686,10 +1122,15 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-white flex items-center gap-2">
-                    {fullName || "Athlete"}
+                    {fullName || (authUser?.email ? authUser.email.split("@")[0] : "Athlete")}
                     <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
                       Profile Active
                     </span>
+                    {authUser && (
+                      <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                        Supabase Synced
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-neutral-400 mt-0.5">
                     {currentWeightLbs} lbs • {heightFt}&apos;{heightIn}&quot; • {gender.toLowerCase()} • {goal === "CUT" ? "Fat Loss" : goal === "BULK" ? "Muscle Surplus" : "Maintenance"}
@@ -713,7 +1154,7 @@ export default function LandingPage() {
                 </a>
               </div>
             </div>
-          )}
+          ) : null}
         </Card>
       </section>
 
@@ -732,14 +1173,14 @@ export default function LandingPage() {
                 Meals &amp; Nutrition Gated
               </h3>
               <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Create your athlete profile above so the Mifflin-St Jeor engine can calculate your
+                Create your account and athlete profile above so the Mifflin-St Jeor engine can calculate your
                 exact customized calorie targets and macro splits.
               </p>
               <a
                 href="#profile-setup"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition"
               >
-                <span>Create Profile to Unlock</span>
+                <span>Create Profile &amp; Account to Unlock</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -885,14 +1326,14 @@ export default function LandingPage() {
                 Workouts &amp; Periodization Gated
               </h3>
               <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Complete your athlete profile above to unlock periodized workout splits tailored to
+                Create your account and athlete profile above to unlock periodized workout splits tailored to
                 your training frequency and target RPE.
               </p>
               <a
                 href="#profile-setup"
                 className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-400 transition"
               >
-                <span>Create Profile to Unlock</span>
+                <span>Create Profile &amp; Account to Unlock</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -1003,13 +1444,13 @@ export default function LandingPage() {
                 Progress Telemetry Gated
               </h3>
               <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Create your athlete profile above to activate real-time telemetry, 1RM progress curves, and adherence monitoring.
+                Create your account and athlete profile above to activate real-time telemetry, 1RM progress curves, and adherence monitoring.
               </p>
               <a
                 href="#profile-setup"
                 className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition"
               >
-                <span>Create Profile to Unlock</span>
+                <span>Create Profile &amp; Account to Unlock</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -1083,14 +1524,14 @@ export default function LandingPage() {
                 AI Coach Specialist Gated
               </h3>
               <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Complete your athlete profile above so the AI Coach has your biomechanical context,
+                Create your account and athlete profile above so the AI Coach has your biomechanical context,
                 experience level, and injury history.
               </p>
               <a
                 href="#profile-setup"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition"
               >
-                <span>Create Profile to Unlock</span>
+                <span>Create Profile &amp; Account to Unlock</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>

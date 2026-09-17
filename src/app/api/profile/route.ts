@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
+      fullName,
+      name,
+      avatar,
       age,
       gender,
       heightCm,
@@ -70,6 +73,18 @@ export async function POST(request: NextRequest) {
       dietPreference,
       experienceLevel,
     } = body;
+
+    // Update user name in database if provided
+    if (fullName || name) {
+      try {
+        await prisma.user.update({
+          where: { id: auth.dbUser.id },
+          data: { name: fullName || name },
+        });
+      } catch (err) {
+        console.warn("Could not update user name:", err);
+      }
+    }
 
     // Sanitize and validate numbers
     const parsedAge = age ? parseInt(String(age), 10) : null;
