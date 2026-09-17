@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Dumbbell,
   Home,
+  Lock,
   LogOut,
   Sparkles,
   TrendingUp,
@@ -19,6 +20,9 @@ export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState("home");
+  const [hasProfile, setHasProfile] = useState(false);
+  const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
+  const [athleteName, setAthleteName] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -52,6 +56,36 @@ export function Navbar() {
     return () => {
       window.removeEventListener("scroll", updateActiveSection);
       window.removeEventListener("hashchange", updateActiveSection);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Check if athlete profile exists
+    const syncProfileState = () => {
+      try {
+        const stored = typeof window !== "undefined" ? localStorage.getItem("sw_athlete_profile") : null;
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setHasProfile(Boolean(parsed.isCompleted || parsed.age || parsed.weightLbs || parsed.weightKg));
+          setAthleteAvatar(parsed.avatar || null);
+          setAthleteName(parsed.fullName || null);
+        } else {
+          setHasProfile(false);
+          setAthleteAvatar(null);
+          setAthleteName(null);
+        }
+      } catch {
+        setHasProfile(false);
+      }
+    };
+
+    syncProfileState();
+    window.addEventListener("sw_profile_updated", syncProfileState);
+    window.addEventListener("storage", syncProfileState);
+
+    return () => {
+      window.removeEventListener("sw_profile_updated", syncProfileState);
+      window.removeEventListener("storage", syncProfileState);
     };
   }, []);
 
@@ -92,11 +126,11 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { href: "/#home", label: "Home", icon: Home, id: "home" },
-    { href: "/#meals", label: "Meals", icon: Utensils, id: "meals" },
-    { href: "/#workouts", label: "Workouts", icon: Dumbbell, id: "workouts" },
-    { href: "/#progress", label: "Progress", icon: TrendingUp, id: "progress" },
-    { href: "/#coach", label: "Coach", icon: Sparkles, id: "coach" },
+    { href: "/#home", label: "Home", icon: Home, id: "home", requiresProfile: false },
+    { href: "/#meals", label: "Meals", icon: Utensils, id: "meals", requiresProfile: true },
+    { href: "/#workouts", label: "Workouts", icon: Dumbbell, id: "workouts", requiresProfile: true },
+    { href: "/#progress", label: "Progress", icon: TrendingUp, id: "progress", requiresProfile: true },
+    { href: "/#coach", label: "Coach", icon: Sparkles, id: "coach", requiresProfile: true },
   ];
 
   return (
@@ -139,26 +173,50 @@ export function Navbar() {
           <div className="hidden md:block px-2 text-[10px] uppercase font-bold tracking-wider text-neutral-500 mb-1">
             Navigation
           </div>
-          {navLinks.map(({ href, label, icon: Icon, id }) => {
+          {navLinks.map(({ href, label, icon: Icon, id, requiresProfile }) => {
+            const isLocked = requiresProfile && !hasProfile;
             const isActive = activeSection === id;
+            const targetHref = isLocked ? "/#profile-setup" : href;
+
             return (
               <Link
                 key={href}
-                href={href}
-                onClick={() => setActiveSection(id)}
-                title={label}
-                className={`group flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-xs font-semibold transition ${
+                href={targetHref}
+                onClick={() => {
+                  if (isLocked) {
+                    setActiveSection("home");
+                    const el = document.getElementById("profile-setup");
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth" });
+                    }
+                  } else {
+                    setActiveSection(id);
+                  }
+                }}
+                title={isLocked ? `${label} (Create Profile to Unlock)` : label}
+                className={`group flex items-center justify-between rounded-xl px-2.5 py-2.5 text-xs font-semibold transition ${
                   isActive
                     ? "bg-neutral-900 text-emerald-400 border border-neutral-700/80 shadow-sm shadow-emerald-500/10"
+                    : isLocked
+                    ? "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30"
                     : "text-neutral-400 hover:text-white hover:bg-neutral-900/50"
                 }`}
               >
-                <Icon
-                  className={`h-[18px] w-[18px] shrink-0 ${
-                    isActive ? "text-emerald-400" : "text-neutral-400 group-hover:text-white"
-                  }`}
-                />
-                <span className="hidden md:block whitespace-nowrap">{label}</span>
+                <div className="flex items-center gap-3">
+                  <Icon
+                    className={`h-[18px] w-[18px] shrink-0 ${
+                      isActive
+                        ? "text-emerald-400"
+                        : isLocked
+                        ? "text-neutral-600 group-hover:text-neutral-400"
+                        : "text-neutral-400 group-hover:text-white"
+                    }`}
+                  />
+                  <span className="hidden md:block whitespace-nowrap">{label}</span>
+                </div>
+                {isLocked && (
+                  <Lock className="hidden md:block h-3.5 w-3.5 text-neutral-600 group-hover:text-amber-400 transition shrink-0" />
+                )}
               </Link>
             );
           })}
@@ -169,40 +227,54 @@ export function Navbar() {
       <div className="border-t border-neutral-800/80 p-2 md:p-3 space-y-2">
         {loading ? (
           <div className="h-8 w-full animate-pulse rounded-lg bg-neutral-800/50" />
-        ) : user ? (
-          <>
-            {/* User avatar / email */}
+        ) : (
+          <div className="space-y-2">
+            {/* Athlete Profile / User Session */}
             <div
-              title={user.email || "Athlete"}
+              title={athleteName || user?.email || "Athlete Profile"}
               className="flex items-center gap-2.5 rounded-xl border border-neutral-800 bg-neutral-900/60 px-2 py-1.5"
             >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-bold text-xs uppercase shadow-sm">
-                {(user.email ?? "A").charAt(0)}
+              {athleteAvatar?.startsWith("data:") || athleteAvatar?.startsWith("http") ? (
+                <img src={athleteAvatar} alt="Avatar" className="h-7 w-7 rounded-lg object-cover" />
+              ) : athleteAvatar ? (
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-base shadow-inner">
+                  {athleteAvatar}
+                </div>
+              ) : (
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-bold text-xs uppercase shadow-sm">
+                  {((athleteName || user?.email || "A")).charAt(0)}
+                </div>
+              )}
+              <div className="hidden md:flex flex-col overflow-hidden text-left">
+                <span className="max-w-[120px] truncate text-xs text-neutral-200 font-semibold">
+                  {athleteName || user?.email?.split("@")[0] || "Guest Athlete"}
+                </span>
+                <span className="text-[10px] text-emerald-400 font-mono">
+                  {hasProfile ? "Profile Active" : "No Profile"}
+                </span>
               </div>
-              <span className="hidden md:block max-w-[130px] truncate text-xs text-neutral-300 font-medium">
-                {user.email}
-              </span>
             </div>
 
-            {/* Sign Out */}
-            <button
-              onClick={handleSignOut}
-              title="Sign Out"
-              className="w-full flex items-center justify-center md:justify-start gap-2 rounded-xl border border-neutral-800/80 bg-neutral-900/80 px-2 py-2 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-red-400 transition"
-            >
-              <LogOut className="h-[18px] w-[18px] shrink-0" />
-              <span className="hidden md:block whitespace-nowrap">Sign Out</span>
-            </button>
-          </>
-        ) : (
-          <Link
-            href="/login"
-            title="Sign In"
-            className="flex items-center justify-center md:justify-start gap-2 rounded-xl bg-emerald-500 px-2.5 py-2.5 text-xs font-bold text-neutral-950 shadow-sm shadow-emerald-500/25 hover:bg-emerald-400 transition"
-          >
-            <UserIcon className="h-[18px] w-[18px] shrink-0" />
-            <span className="hidden md:block whitespace-nowrap">Sign In</span>
-          </Link>
+            {user ? (
+              <button
+                onClick={handleSignOut}
+                title="Sign Out"
+                className="w-full flex items-center justify-center md:justify-start gap-2 rounded-xl border border-neutral-800/80 bg-neutral-900/80 px-2 py-2 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-red-400 transition"
+              >
+                <LogOut className="h-[18px] w-[18px] shrink-0" />
+                <span className="hidden md:block whitespace-nowrap">Sign Out</span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                title="Sign In"
+                className="flex items-center justify-center md:justify-start gap-2 rounded-xl bg-emerald-500 px-2.5 py-2 text-xs font-bold text-neutral-950 shadow-sm shadow-emerald-500/25 hover:bg-emerald-400 transition"
+              >
+                <UserIcon className="h-[18px] w-[18px] shrink-0" />
+                <span className="hidden md:block whitespace-nowrap">Sign In</span>
+              </Link>
+            )}
+          </div>
         )}
       </div>
     </aside>
