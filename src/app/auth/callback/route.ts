@@ -5,7 +5,13 @@ import { ensureDbUser } from "@/lib/user";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") || "/";
+
+  // Dynamically resolve the true origin (accounting for proxies/Vercel)
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+  const resolvedOrigin = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : origin;
 
   if (code) {
     const supabase = await createClient();
@@ -26,14 +32,11 @@ export async function GET(request: NextRequest) {
         console.error("Error ensuring user in database on auth callback:", dbError);
       }
 
-      return NextResponse.redirect(`${origin}${next}`);
+      // Always return to root landing page in the black Tremor UI
+      return NextResponse.redirect(`${resolvedOrigin}/`);
     }
   }
 
-  // If there's an error or no code, redirect to login with error parameter
-  return NextResponse.redirect(
-    `${origin}/login?error=${encodeURIComponent(
-      "Could not verify your email or session code. Please try signing in again."
-    )}`
-  );
+  // If there's an error or no code, stay on the root landing page
+  return NextResponse.redirect(`${resolvedOrigin}/`);
 }
