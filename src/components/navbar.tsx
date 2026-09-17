@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, Info, LogOut, User as UserIcon } from "lucide-react";
+import { Dumbbell, Home, LogOut, User as UserIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -51,12 +51,12 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { href: "/", label: "About", icon: Info, exact: true },
+    { href: "/", label: "Home", icon: Home, exact: true },
     { href: "/profile", label: "Profile", icon: UserIcon, exact: false },
   ];
 
   return (
-    <aside className="sticky top-0 h-screen shrink-0 flex flex-col justify-between border-r border-neutral-800/80 bg-neutral-950/90 backdrop-blur-md z-50 w-14 md:w-56 transition-all duration-300">
+    <aside className="sticky top-0 h-screen shrink-0 flex flex-col justify-between border-r border-neutral-800/80 bg-neutral-950/95 backdrop-blur-xl z-50 w-14 md:w-60 transition-all duration-300">
 
       {/* Top: Brand + Nav Links */}
       <div className="flex flex-col gap-6 overflow-hidden">
@@ -64,24 +64,35 @@ export function Navbar() {
         {/* Brand */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 px-3 pt-5 font-bold tracking-tight text-white hover:opacity-90 transition"
+          className="flex items-center gap-3 px-3 pt-5 font-bold tracking-tight text-white hover:opacity-90 transition group"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 shadow-md shadow-emerald-500/20">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition">
             <Dumbbell className="h-5 w-5" />
           </div>
           <div className="hidden md:flex flex-col">
-            <span className="text-sm font-extrabold leading-tight whitespace-nowrap">
+            <span className="text-sm font-black tracking-tight leading-tight whitespace-nowrap">
               Strength<span className="text-emerald-400">Wise</span>
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold whitespace-nowrap">
+            <span className="text-[10px] uppercase tracking-wider text-emerald-400/90 font-mono font-bold whitespace-nowrap">
               AI Coach
             </span>
           </div>
         </Link>
 
+        {/* Status Pill Badge — Desktop */}
+        <div className="hidden md:block mx-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono font-semibold text-emerald-400">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span>Sports Science Engine</span>
+          </div>
+        </div>
+
         {/* Nav Links */}
-        <nav className="flex flex-col gap-0.5 px-2">
-          <div className="hidden md:block px-1 text-[10px] uppercase font-bold tracking-wider text-neutral-500 mb-1">
+        <nav className="flex flex-col gap-1 px-2">
+          <div className="hidden md:block px-2 text-[10px] uppercase font-bold tracking-wider text-neutral-500 mb-1">
             Navigation
           </div>
           {navLinks.map(({ href, label, icon: Icon, exact }) => {
@@ -93,8 +104,8 @@ export function Navbar() {
                 title={label}
                 className={`group flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-xs font-semibold transition ${
                   isActive
-                    ? "bg-neutral-800 text-emerald-400 border border-neutral-700 shadow-sm"
-                    : "text-neutral-400 hover:text-white hover:bg-neutral-900/60"
+                    ? "bg-neutral-900 text-emerald-400 border border-neutral-700/80 shadow-sm shadow-emerald-500/10"
+                    : "text-neutral-400 hover:text-white hover:bg-neutral-900/50"
                 }`}
               >
                 <Icon className={`h-[18px] w-[18px] shrink-0 ${isActive ? "text-emerald-400" : "text-neutral-400 group-hover:text-white"}`} />
@@ -117,10 +128,10 @@ export function Navbar() {
               title={user.email}
               className="flex items-center gap-2.5 rounded-xl border border-neutral-800 bg-neutral-900/60 px-2 py-1.5 hover:border-neutral-700 transition"
             >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-bold text-xs uppercase">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-bold text-xs uppercase shadow-sm">
                 {(user.email ?? "A").charAt(0)}
               </div>
-              <span className="hidden md:block max-w-[120px] truncate text-xs text-neutral-300">
+              <span className="hidden md:block max-w-[130px] truncate text-xs text-neutral-300 font-medium">
                 {user.email}
               </span>
             </Link>
@@ -129,7 +140,7 @@ export function Navbar() {
             <button
               onClick={handleSignOut}
               title="Sign Out"
-              className="w-full flex items-center justify-center md:justify-start gap-2 rounded-xl border border-neutral-800 bg-neutral-900/80 px-2 py-2 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-red-400 transition"
+              className="w-full flex items-center justify-center md:justify-start gap-2 rounded-xl border border-neutral-800/80 bg-neutral-900/80 px-2 py-2 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-red-400 transition"
             >
               <LogOut className="h-[18px] w-[18px] shrink-0" />
               <span className="hidden md:block whitespace-nowrap">Sign Out</span>
@@ -139,7 +150,7 @@ export function Navbar() {
           <Link
             href="/login"
             title="Sign In"
-            className="flex items-center justify-center md:justify-start gap-2 rounded-xl bg-emerald-500 px-2 py-2 text-xs font-medium text-neutral-950 shadow-sm shadow-emerald-500/25 hover:bg-emerald-400 transition"
+            className="flex items-center justify-center md:justify-start gap-2 rounded-xl bg-emerald-500 px-2.5 py-2.5 text-xs font-bold text-neutral-950 shadow-sm shadow-emerald-500/25 hover:bg-emerald-400 transition"
           >
             <UserIcon className="h-[18px] w-[18px] shrink-0" />
             <span className="hidden md:block whitespace-nowrap">Sign In</span>
