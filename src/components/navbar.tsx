@@ -3,16 +3,57 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, Home, LineChart, LogOut, User as UserIcon } from "lucide-react";
+import {
+  Dumbbell,
+  Home,
+  LogOut,
+  Sparkles,
+  TrendingUp,
+  User as UserIcon,
+  Utensils,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState("home");
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
+
+  useEffect(() => {
+    // Listen for hash change & scroll to detect active section
+    const updateActiveSection = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash && ["home", "meals", "workouts", "progress", "coach"].includes(hash)) {
+        setActiveSection(hash);
+      } else {
+        // Check scroll position of sections
+        const sections = ["home", "meals", "workouts", "progress", "coach"];
+        for (const section of sections) {
+          const el = document.getElementById(section);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            if (rect.top <= 200 && rect.bottom >= 100) {
+              setActiveSection(section);
+              break;
+            }
+          }
+        }
+      }
+    };
+
+    updateActiveSection();
+    window.addEventListener("scroll", updateActiveSection, { passive: true });
+    window.addEventListener("hashchange", updateActiveSection);
+
+    return () => {
+      window.removeEventListener("scroll", updateActiveSection);
+      window.removeEventListener("hashchange", updateActiveSection);
+    };
+  }, []);
 
   useEffect(() => {
     async function checkUser() {
@@ -51,9 +92,11 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { href: "/", label: "Home", icon: Home, exact: true },
-    { href: "/#pillars", label: "Pillars", icon: Dumbbell, exact: false },
-    { href: "/#demo", label: "Science Demo", icon: LineChart, exact: false },
+    { href: "/#home", label: "Home", icon: Home, id: "home" },
+    { href: "/#meals", label: "Meals", icon: Utensils, id: "meals" },
+    { href: "/#workouts", label: "Workouts", icon: Dumbbell, id: "workouts" },
+    { href: "/#progress", label: "Progress", icon: TrendingUp, id: "progress" },
+    { href: "/#coach", label: "Coach", icon: Sparkles, id: "coach" },
   ];
 
   return (
@@ -96,12 +139,13 @@ export function Navbar() {
           <div className="hidden md:block px-2 text-[10px] uppercase font-bold tracking-wider text-neutral-500 mb-1">
             Navigation
           </div>
-          {navLinks.map(({ href, label, icon: Icon, exact }) => {
-            const isActive = exact ? pathname === href : pathname.startsWith(href) && href !== "/";
+          {navLinks.map(({ href, label, icon: Icon, id }) => {
+            const isActive = activeSection === id;
             return (
               <Link
                 key={href}
                 href={href}
+                onClick={() => setActiveSection(id)}
                 title={label}
                 className={`group flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-xs font-semibold transition ${
                   isActive
@@ -109,7 +153,11 @@ export function Navbar() {
                     : "text-neutral-400 hover:text-white hover:bg-neutral-900/50"
                 }`}
               >
-                <Icon className={`h-[18px] w-[18px] shrink-0 ${isActive ? "text-emerald-400" : "text-neutral-400 group-hover:text-white"}`} />
+                <Icon
+                  className={`h-[18px] w-[18px] shrink-0 ${
+                    isActive ? "text-emerald-400" : "text-neutral-400 group-hover:text-white"
+                  }`}
+                />
                 <span className="hidden md:block whitespace-nowrap">{label}</span>
               </Link>
             );
