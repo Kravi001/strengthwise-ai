@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, Home, LogOut, User as UserIcon } from "lucide-react";
+import { Dumbbell, Home, LineChart, LogOut, User as UserIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -52,7 +52,8 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: "Home", icon: Home, exact: true },
-    { href: "/profile", label: "Profile", icon: UserIcon, exact: false },
+    { href: "/#pillars", label: "Pillars", icon: Dumbbell, exact: false },
+    { href: "/#demo", label: "Science Demo", icon: LineChart, exact: false },
   ];
 
   return (
@@ -96,7 +97,7 @@ export function Navbar() {
             Navigation
           </div>
           {navLinks.map(({ href, label, icon: Icon, exact }) => {
-            const isActive = exact ? pathname === href : pathname.startsWith(href);
+            const isActive = exact ? pathname === href : pathname.startsWith(href) && href !== "/";
             return (
               <Link
                 key={href}
@@ -123,10 +124,9 @@ export function Navbar() {
         ) : user ? (
           <>
             {/* User avatar / email */}
-            <Link
-              href="/profile"
-              title={user.email}
-              className="flex items-center gap-2.5 rounded-xl border border-neutral-800 bg-neutral-900/60 px-2 py-1.5 hover:border-neutral-700 transition"
+            <div
+              title={user.email || "Athlete"}
+              className="flex items-center gap-2.5 rounded-xl border border-neutral-800 bg-neutral-900/60 px-2 py-1.5"
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-bold text-xs uppercase shadow-sm">
                 {(user.email ?? "A").charAt(0)}
@@ -134,7 +134,7 @@ export function Navbar() {
               <span className="hidden md:block max-w-[130px] truncate text-xs text-neutral-300 font-medium">
                 {user.email}
               </span>
-            </Link>
+            </div>
 
             {/* Sign Out */}
             <button

@@ -104,8 +104,8 @@ function LoginForm() {
 
           // If session is already created (email confirmation is off in Supabase)
           if (data.session) {
-            setSuccessMsg("Account created! Redirecting to your profile...");
-            router.push("/profile");
+            setSuccessMsg("Account created! Redirecting to StrengthWise AI...");
+            router.push("/");
             router.refresh();
           } else {
             // Email confirmation is required
@@ -131,7 +131,7 @@ function LoginForm() {
           }
 
           if (data.session) {
-            router.push("/profile");
+            router.push("/");
             router.refresh();
           }
         }
@@ -171,7 +171,7 @@ function LoginForm() {
           });
 
         if (!signError && signData.session) {
-          router.push("/profile");
+          router.push("/");
           router.refresh();
           return;
         }

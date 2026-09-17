@@ -82,14 +82,14 @@ export default function AboutPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <Link
-              href="/profile"
+            <a
+              href="#demo"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 hover:scale-[1.02] transition active:scale-[0.98]"
             >
-              <UserIcon className="h-4 w-4" />
-              <span>Go to Profile Setup</span>
+              <Zap className="h-4 w-4" />
+              <span>Explore Interactive Demo</span>
               <ArrowRight className="h-4 w-4" />
-            </Link>
+            </a>
             <Link
               href="/login"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900/90 px-6 py-3 text-sm font-semibold text-neutral-200 hover:bg-neutral-800 hover:text-white transition"
@@ -118,7 +118,7 @@ export default function AboutPage() {
       </section>
 
       {/* 2. What We Do — 4 Core Pillars */}
-      <section className="space-y-6">
+      <section id="pillars" className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs uppercase tracking-wider text-emerald-400 font-bold">
             What We Do
@@ -247,7 +247,7 @@ export default function AboutPage() {
       </section>
 
       {/* 3. Interactive Science Demo Widget */}
-      <section className="space-y-6">
+      <section id="demo" className="space-y-6">
         <div className="text-center max-w-xl mx-auto space-y-2">
           <div className="text-xs uppercase tracking-wider text-cyan-400 font-bold">
             Live Preview
@@ -341,13 +341,13 @@ export default function AboutPage() {
               </div>
 
               <div>
-                <Link
-                  href="/profile"
+                <a
+                  href="#demo"
                   className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition"
                 >
-                  <span>Ready to calculate your own metrics? Set up your profile</span>
+                  <span>Adjust the sliders and goals above to see live recalculations</span>
                   <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
+                </a>
               </div>
             </div>
 
@@ -411,10 +411,10 @@ export default function AboutPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 font-mono font-bold text-sm border border-emerald-500/20">
               01
             </div>
-            <h3 className="text-base font-bold text-white">Create Your Profile</h3>
+            <h3 className="text-base font-bold text-white">Configure Your Targets</h3>
             <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
-              Navigate to the <span className="text-emerald-400 font-semibold">Profile</span> tab.
-              Input your age, gender, height (ft/in or cm), weight (lbs or kg), and training goals.
+              Use the interactive sports-science engine below to calculate your customized Mifflin-St
+              Jeor caloric targets and macronutrient distribution.
             </p>
           </div>
 
@@ -422,10 +422,10 @@ export default function AboutPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 font-mono font-bold text-sm border border-cyan-500/20">
               02
             </div>
-            <h3 className="text-base font-bold text-white">Unlock Live Targets</h3>
+            <h3 className="text-base font-bold text-white">Adaptive Metabolic Math</h3>
             <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
-              Save your profile to PostgreSQL via Supabase. Once saved, your personalized Athlete
-              Command Center activates with custom nutritional targets and tracking.
+              Dynamically calibrate your nutritional benchmarks whether you are in an aggressive fat-loss
+              deficit, maintenance phase, or muscle-building surplus.
             </p>
           </div>
 
@@ -594,14 +594,14 @@ export default function AboutPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link
-            href="/profile"
+          <a
+            href="#demo"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-7 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition"
           >
-            <UserIcon className="h-4 w-4" />
-            <span>Open Profile Tab</span>
+            <Sparkles className="h-4 w-4" />
+            <span>Try Interactive Calculator</span>
             <ArrowRight className="h-4 w-4" />
-          </Link>
+          </a>
           <Link
             href="/login"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 px-6 py-3 text-sm font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 transition"
