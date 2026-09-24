@@ -85,45 +85,47 @@ Return ONLY valid JSON matching this exact structure with no markdown backticks,
   "notes": "Short explanation of detected values and Atwater validation"
 }`;
 
-    // Call Gemini 2.5 Flash via REST API
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // Call Gemini 3.5 Flash (with fallback to 3.1-flash-lite)
+    const geminiModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite"];
+    let candidateText = "";
 
-    const geminiRes = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: prompt },
+    for (const model of geminiModels) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const geminiRes = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
               {
-                inline_data: {
-                  mime_type: detectedMime,
-                  data: base64Data,
-                },
+                parts: [
+                  { text: prompt },
+                  {
+                    inline_data: {
+                      mime_type: detectedMime,
+                      data: base64Data,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
+            generationConfig: {
+              temperature: 0.1,
+              responseMimeType: "application/json",
+            },
+          }),
+        });
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error("Gemini API error:", errText);
-      return NextResponse.json(
-        { error: "AI Vision Scanner temporarily unavailable. Please try again or search database." },
-        { status: 502 }
-      );
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          candidateText =
+            geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+          if (candidateText) break;
+        }
+      } catch (callErr) {
+        console.warn(`Model ${model} failed, trying next:`, callErr);
+      }
     }
-
-    const geminiData = await geminiRes.json();
-    const candidateText =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 
     if (!candidateText) {
       return NextResponse.json(

@@ -134,7 +134,7 @@ export function FoodScannerModal({
   // 1. Initial Popular Food Presets when opening Search
   useEffect(() => {
     if (activeTab === "search" && searchResults.length === 0 && !searchQuery) {
-      handleSearch("chicken");
+      performSearch("chicken");
     }
   }, [activeTab]);
 
@@ -285,21 +285,56 @@ export function FoodScannerModal({
     reader.readAsDataURL(file);
   };
 
-  // 7. Live Food Search Query Handler
-  const handleSearch = async (term: string) => {
-    setSearchQuery(term);
-    if (!term.trim()) return;
+  // 7. Live Food Search Query Handler with AbortController & Debounce
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const performSearch = useCallback(async (term: string) => {
+    const cleanTerm = term.trim();
+    if (!cleanTerm) {
+      setSearchResults([]);
+      setIsSearchingQuery(false);
+      return;
+    }
+
+    // Cancel any previous in-flight request to prevent race conditions
+    if (searchAbortRef.current) {
+      searchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
 
     setIsSearchingQuery(true);
+    setScanError(null);
+
     try {
-      const res = await fetch(`/api/foods/search?q=${encodeURIComponent(term.trim())}`);
+      const res = await fetch(`/api/foods/search?q=${encodeURIComponent(cleanTerm)}`, {
+        signal: controller.signal,
+      });
       const data = await res.json();
       setSearchResults(data.results || []);
-    } catch (err) {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return; // Ignore aborted requests
+      }
       console.warn("Food search error:", err);
     } finally {
       setIsSearchingQuery(false);
     }
+  }, []);
+
+  const handleSearchInputChange = (val: string) => {
+    setSearchQuery(val);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (!val.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      performSearch(val);
+    }, 300);
   };
 
   // 8. 100% Scientific Precision Gram-Ratio Calculations
@@ -692,52 +727,136 @@ export function FoodScannerModal({
         {/* ================================================================= */}
         {activeTab === "search" && (
           <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Search USDA FoodData Central & Open Food Facts (e.g. Chicken Breast, Salmon, Oatmeal, Rice, Protein Bar)..."
-                className="w-full rounded-xl border border-neutral-800 bg-neutral-900 pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:outline-none"
-              />
-            </div>
+            {/* Search Input Bar with Submit Button */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                performSearch(searchQuery);
+              }}
+              className="space-y-3"
+            >
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchInputChange(e.target.value)}
+                    placeholder="Search USDA FoodData Central & Open Food Facts (e.g. Chicken Thigh, Salmon, Oatmeal, Rice)..."
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-900 pl-10 pr-9 py-2.5 text-xs text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSearchResults([]);
+                      }}
+                      className="absolute right-3 top-3 text-neutral-500 hover:text-white"
+                      title="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
 
+                <button
+                  type="submit"
+                  disabled={isSearchingQuery || !searchQuery.trim()}
+                  className="rounded-xl bg-cyan-500 hover:bg-cyan-400 px-4 py-2.5 text-xs font-bold text-neutral-950 transition disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-md shadow-cyan-500/20"
+                >
+                  {isSearchingQuery ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Search className="h-3.5 w-3.5" />
+                  )}
+                  <span>Search</span>
+                </button>
+              </div>
+
+              {/* Popular Food Filter Chips */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-neutral-500">Popular:</span>
+                {[
+                  "Chicken Thigh",
+                  "Chicken Breast",
+                  "Sirloin Steak",
+                  "Atlantic Salmon",
+                  "Whole Eggs",
+                  "Jasmine Rice",
+                  "Rolled Oats",
+                  "Greek Yogurt",
+                  "Sweet Potato",
+                  "Whey Protein",
+                ].map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(term);
+                      performSearch(term);
+                    }}
+                    className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${
+                      searchQuery.toLowerCase() === term.toLowerCase()
+                        ? "border-cyan-500 bg-cyan-500/20 text-cyan-300 font-bold"
+                        : "border-neutral-800 bg-neutral-900/60 text-neutral-400 hover:text-white hover:border-neutral-700"
+                    }`}
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </form>
+
+            {/* Loading Indicator */}
             {isSearchingQuery && (
-              <div className="text-center py-4 text-xs text-neutral-500 flex items-center justify-center gap-2">
+              <div className="text-center py-4 text-xs text-neutral-400 flex items-center justify-center gap-2">
                 <RefreshCw className="h-4 w-4 animate-spin text-cyan-400" />
                 <span>Querying USDA FoodData Central &amp; Open Food Facts...</span>
               </div>
             )}
 
-            <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
-              {searchResults.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => loadFoodIntoCalibration(item)}
-                  className={`w-full text-left p-3 rounded-xl border transition flex items-center justify-between gap-3 ${
-                    selectedFood?.id === item.id
-                      ? "border-cyan-500 bg-cyan-500/15"
-                      : "border-neutral-800 bg-neutral-900/60 hover:border-neutral-700"
-                  }`}
-                >
-                  <div>
-                    <div className="text-xs font-bold text-white line-clamp-1">{item.name}</div>
-                    <div className="text-[10px] text-neutral-400 mt-0.5">
-                      Serving: {item.serving} • {item.source}
+            {/* Results or Empty State */}
+            {!isSearchingQuery && searchResults.length === 0 ? (
+              <div className="text-center py-8 text-xs text-neutral-400 rounded-2xl border border-neutral-800/80 bg-neutral-900/30 p-6 space-y-2">
+                <div className="text-xs font-semibold text-neutral-300">
+                  {searchQuery ? `No records found for "${searchQuery}"` : "Search for any food, ingredient, or cut"}
+                </div>
+                <p className="text-[11px] text-neutral-500 max-w-sm mx-auto">
+                  Click any of the popular food tags above like <strong className="text-neutral-400">Chicken Thigh</strong> or <strong className="text-neutral-400">Salmon</strong>, or add custom macros directly.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {searchResults.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => loadFoodIntoCalibration(item)}
+                    className={`w-full text-left p-3 rounded-xl border transition flex items-center justify-between gap-3 ${
+                      selectedFood?.id === item.id
+                        ? "border-cyan-500 bg-cyan-500/15"
+                        : "border-neutral-800 bg-neutral-900/60 hover:border-neutral-700"
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-white line-clamp-1">{item.name}</div>
+                      <div className="text-[10px] text-neutral-400 mt-0.5">
+                        Serving: {item.serving} • {item.source}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="text-right shrink-0">
-                    <div className="text-xs font-bold text-emerald-400 font-mono">{item.calories} kcal</div>
-                    <div className="text-[9px] text-neutral-500 font-mono">
-                      P: {item.protein}g • C: {item.carbs}g • F: {item.fat}g
+                    <div className="text-right shrink-0">
+                      <div className="text-xs font-bold text-emerald-400 font-mono">{item.calories} kcal</div>
+                      <div className="text-[9px] text-neutral-500 font-mono">
+                        P: {item.protein}g • C: {item.carbs}g • F: {item.fat}g
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
