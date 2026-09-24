@@ -33,6 +33,7 @@ interface FoodScannerModalProps {
   onClose: () => void;
   onMealLogged: () => void;
   initialMealType?: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
+  initialTab?: "scan" | "search" | "quick";
   preSelectedFood?: FoodItem | null;
 }
 
@@ -41,9 +42,10 @@ export function FoodScannerModal({
   onClose,
   onMealLogged,
   initialMealType = "LUNCH",
+  initialTab = "scan",
   preSelectedFood = null,
 }: FoodScannerModalProps) {
-  const [activeTab, setActiveTab] = useState<"scan" | "search" | "quick">("scan");
+  const [activeTab, setActiveTab] = useState<"scan" | "search" | "quick">(initialTab);
   const [mealType, setMealType] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">(initialMealType);
 
   // Live Camera Stream State
@@ -61,10 +63,12 @@ export function FoodScannerModal({
   const [scannedImagePreview, setScannedImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Search State
+  // Search State & Refs (MUST BE AT TOP TO PREVENT HOOK ERRORS)
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<FoodItem[]>([]);
   const [isSearchingQuery, setIsSearchingQuery] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Selected Food & Portion Multiplier (100% Precision)
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(preSelectedFood);
@@ -103,6 +107,62 @@ export function FoodScannerModal({
     setIsCameraActive(false);
   }, []);
 
+  // Live Food Search Query Handler with AbortController & Debounce
+  const performSearch = useCallback(async (term: string) => {
+    const cleanTerm = term.trim();
+    if (!cleanTerm) {
+      setSearchResults([]);
+      setIsSearchingQuery(false);
+      return;
+    }
+
+    // Cancel any previous in-flight request to prevent race conditions
+    if (searchAbortRef.current) {
+      searchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+
+    setIsSearchingQuery(true);
+    setScanError(null);
+
+    try {
+      const res = await fetch(`/api/foods/search?q=${encodeURIComponent(cleanTerm)}`, {
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      setSearchResults(data.results || []);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return; // Ignore aborted requests
+      }
+      console.warn("Food search error:", err);
+    } finally {
+      setIsSearchingQuery(false);
+    }
+  }, []);
+
+  const handleSearchInputChange = (val: string) => {
+    setSearchQuery(val);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (!val.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      performSearch(val);
+    }, 300);
+  };
+
+  // Sync activeTab when modal is opened with initialTab
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
+
   // Sync state if preSelectedFood changes
   useEffect(() => {
     if (preSelectedFood) {
@@ -117,6 +177,13 @@ export function FoodScannerModal({
     }
   }, [isOpen, stopCamera]);
 
+  // Initial Popular Food Presets when opening Search
+  useEffect(() => {
+    if (isOpen && activeTab === "search" && searchResults.length === 0 && !searchQuery) {
+      performSearch("chicken");
+    }
+  }, [isOpen, activeTab, performSearch]);
+
   // Helper to load food into 100% calibration panel
   const loadFoodIntoCalibration = (food: FoodItem) => {
     setSelectedFood(food);
@@ -130,15 +197,6 @@ export function FoodScannerModal({
     setBaseServingGrams(sGrams);
     setPortionGrams(sGrams);
   };
-
-  // 1. Initial Popular Food Presets when opening Search
-  useEffect(() => {
-    if (activeTab === "search" && searchResults.length === 0 && !searchQuery) {
-      performSearch("chicken");
-    }
-  }, [activeTab]);
-
-  if (!isOpen) return null;
 
   // 2. Start Live Device Camera
   const startCamera = async () => {
@@ -285,57 +343,7 @@ export function FoodScannerModal({
     reader.readAsDataURL(file);
   };
 
-  // 7. Live Food Search Query Handler with AbortController & Debounce
-  const searchAbortRef = useRef<AbortController | null>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const performSearch = useCallback(async (term: string) => {
-    const cleanTerm = term.trim();
-    if (!cleanTerm) {
-      setSearchResults([]);
-      setIsSearchingQuery(false);
-      return;
-    }
-
-    // Cancel any previous in-flight request to prevent race conditions
-    if (searchAbortRef.current) {
-      searchAbortRef.current.abort();
-    }
-    const controller = new AbortController();
-    searchAbortRef.current = controller;
-
-    setIsSearchingQuery(true);
-    setScanError(null);
-
-    try {
-      const res = await fetch(`/api/foods/search?q=${encodeURIComponent(cleanTerm)}`, {
-        signal: controller.signal,
-      });
-      const data = await res.json();
-      setSearchResults(data.results || []);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return; // Ignore aborted requests
-      }
-      console.warn("Food search error:", err);
-    } finally {
-      setIsSearchingQuery(false);
-    }
-  }, []);
-
-  const handleSearchInputChange = (val: string) => {
-    setSearchQuery(val);
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    if (!val.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    debounceTimerRef.current = setTimeout(() => {
-      performSearch(val);
-    }, 300);
-  };
 
   // 8. 100% Scientific Precision Gram-Ratio Calculations
   const ratio = portionGrams / (baseServingGrams || 100);
@@ -436,6 +444,9 @@ export function FoodScannerModal({
       setIsLogging(false);
     }
   };
+
+  // Unconditional hook execution complete; now safely return null if closed
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto">

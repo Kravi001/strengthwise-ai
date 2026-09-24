@@ -113,6 +113,7 @@ export default function LandingPage() {
   // --- Meal Logging & Food Scanner State ---
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerInitialMeal, setScannerInitialMeal] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">("LUNCH");
+  const [scannerInitialTab, setScannerInitialTab] = useState<"scan" | "search" | "quick">("scan");
   const [loggedMealsData, setLoggedMealsData] = useState<{
     meals: any[];
     grouped: { BREAKFAST: any[]; LUNCH: any[]; DINNER: any[]; SNACK: any[] };
@@ -1709,6 +1710,7 @@ export default function LandingPage() {
                 type="button"
                 onClick={() => {
                   setScannerInitialMeal("LUNCH");
+                  setScannerInitialTab("scan");
                   setIsScannerOpen(true);
                 }}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-4 py-2 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition active:scale-[0.98]"
@@ -1721,6 +1723,7 @@ export default function LandingPage() {
                 type="button"
                 onClick={() => {
                   setScannerInitialMeal("LUNCH");
+                  setScannerInitialTab("search");
                   setIsScannerOpen(true);
                 }}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
@@ -2305,6 +2308,7 @@ export default function LandingPage() {
         onClose={() => setIsScannerOpen(false)}
         onMealLogged={fetchLoggedMeals}
         initialMealType={scannerInitialMeal}
+        initialTab={scannerInitialTab}
       />
     </div>
   );
