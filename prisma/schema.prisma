@@ -88,6 +88,8 @@ model MealLog {
   protein   Float    @default(0)
   carbs     Float    @default(0)
   fat       Float    @default(0)
+  fiber     Float    @default(0)
+  serving   String?
   
   loggedAt  DateTime @default(now())
   createdAt DateTime @default(now())

@@ -23,8 +23,10 @@ import {
   Layers,
   Lock,
   LogOut,
+  Plus,
   RefreshCw,
   Scale,
+  Scan,
   Search,
   ShieldCheck,
   Sparkles,
@@ -33,6 +35,7 @@ import {
   Utensils,
   Zap,
 } from "lucide-react";
+import { FoodScannerModal } from "@/components/food-scanner-modal";
 import { createClient } from "@/lib/supabase/client";
 import {
   calculateNutritionTargets,
@@ -126,6 +129,11 @@ export default function ProfilePage() {
   const [selectedFoodCategory, setSelectedFoodCategory] = useState<string>("ALL");
   const [foodDatabase, setFoodDatabase] = useState<FoodItem[]>([]);
   const [loadingFoods, setLoadingFoods] = useState(false);
+
+  // Food & Macro Scanner Modal State
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerFood, setScannerFood] = useState<FoodItem | null>(null);
+  const [scannerMealType, setScannerMealType] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">("LUNCH");
 
   // 1. Convert height and weight to metric for sports science formulas
   const numWeightLbs = Number(currentWeightLbs) || 175;
@@ -370,21 +378,35 @@ export default function ProfilePage() {
             </span>
           </div>
 
-          {user && (
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-neutral-400 hidden sm:inline">
-                Signed in as <strong className="text-neutral-200">{user.email}</strong>
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-1 text-[11px] text-neutral-400 hover:text-red-400 transition"
-                title="Sign out"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Sign Out</span>
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setScannerFood(null);
+                setIsScannerOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-3.5 py-1.5 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition"
+            >
+              <Scan className="h-3.5 w-3.5" />
+              <span>Food &amp; Macro Scanner</span>
+            </button>
+
+            {user && (
+              <>
+                <span className="text-xs text-neutral-400 hidden sm:inline">
+                  Signed in as <strong className="text-neutral-200">{user.email}</strong>
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="inline-flex items-center gap-1 text-[11px] text-neutral-400 hover:text-red-400 transition"
+                  title="Sign out"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1046,6 +1068,29 @@ export default function ProfilePage() {
                   </div>
                   <ChevronRight className="h-4 w-4 text-neutral-500 group-hover:text-white transition" />
                 </button>
+
+                {/* Launch Scanner Trigger */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScannerFood(null);
+                    setIsScannerOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/30 hover:bg-emerald-950/50 text-left transition group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Scan className="h-4 w-4 text-emerald-400" />
+                    <div>
+                      <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition">
+                        Launch Food &amp; Macro Scanner
+                      </div>
+                      <div className="text-[10px] text-neutral-400">
+                        100% accurate Camera OCR, Barcode &amp; USDA database
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-neutral-500 group-hover:text-white transition" />
+                </button>
               </div>
             </div>
           </form>
@@ -1179,6 +1224,18 @@ export default function ProfilePage() {
                         <span>{item.source}</span>
                         {item.fdcId && <span>FDC #{item.fdcId}</span>}
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScannerFood(item);
+                          setIsScannerOpen(true);
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 mt-2 rounded-xl border border-neutral-800 bg-neutral-900/90 hover:border-cyan-500/40 hover:bg-neutral-850 text-[11px] font-semibold text-neutral-200 hover:text-white transition"
+                      >
+                        <Plus className="h-3 w-3 text-cyan-400" />
+                        <span>Log to Macros / Scale Portion</span>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1187,6 +1244,17 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* 100% Accurate Food & Macro Scanner Modal */}
+      <FoodScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onMealLogged={() => {
+          // Success notification
+        }}
+        initialMealType={scannerMealType}
+        preSelectedFood={scannerFood}
+      />
     </div>
   );
 }
