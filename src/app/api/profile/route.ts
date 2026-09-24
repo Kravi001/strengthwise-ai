@@ -27,6 +27,8 @@ export async function GET() {
           activityLevel: profile.activityLevel,
           goal: profile.goal,
           dietPreference: profile.dietPreference,
+          equipment: profile.equipment,
+          splitDays: profile.splitDays,
         })
       : calculateNutritionTargets({});
 
@@ -60,26 +62,36 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
+      firstName,
+      lastName,
       fullName,
       name,
-      avatar,
       age,
       gender,
       heightCm,
       weightKg,
       goalWeightKg,
+      equipment,
+      splitDays,
+      splitType,
       activityLevel,
       goal,
       dietPreference,
       experienceLevel,
     } = body;
 
+    const resolvedFullName =
+      fullName ||
+      (firstName && lastName ? `${firstName} ${lastName}`.trim() : null) ||
+      firstName ||
+      name;
+
     // Update user name in database if provided
-    if (fullName || name) {
+    if (resolvedFullName) {
       try {
         await prisma.user.update({
           where: { id: auth.dbUser.id },
-          data: { name: fullName || name },
+          data: { name: resolvedFullName },
         });
       } catch (err) {
         console.warn("Could not update user name:", err);
@@ -91,8 +103,9 @@ export async function POST(request: NextRequest) {
     const parsedHeight = heightCm ? parseFloat(String(heightCm)) : null;
     const parsedWeight = weightKg ? parseFloat(String(weightKg)) : null;
     const parsedGoalWeight = goalWeightKg ? parseFloat(String(goalWeightKg)) : null;
+    const parsedSplitDays = splitDays ? parseInt(String(splitDays), 10) : 4;
 
-    // Calculate scientifically backed targets
+    // Calculate scientifically backed targets with USDA benchmarks
     const targets = calculateNutritionTargets({
       age: parsedAge,
       gender,
@@ -102,17 +115,24 @@ export async function POST(request: NextRequest) {
       activityLevel,
       goal,
       dietPreference,
+      equipment,
+      splitDays: parsedSplitDays,
     });
 
     // Guaranteed upsert into PostgreSQL via Prisma
     const profile = await prisma.profile.upsert({
       where: { userId: auth.dbUser.id },
       update: {
+        firstName: firstName || null,
+        lastName: lastName || null,
         age: parsedAge,
         gender: gender || "MALE",
         heightCm: parsedHeight,
         weightKg: parsedWeight,
         goalWeightKg: parsedGoalWeight,
+        equipment: equipment || "COMMERCIAL_GYM",
+        splitDays: parsedSplitDays,
+        splitType: splitType || targets.splitInfo.name,
         activityLevel: activityLevel || "MODERATE",
         goal: goal || "MAINTAIN",
         dietPreference: dietPreference || "STANDARD",
@@ -121,14 +141,21 @@ export async function POST(request: NextRequest) {
         targetProtein: targets.targetProtein,
         targetCarbs: targets.targetCarbs,
         targetFat: targets.targetFat,
+        targetFiber: targets.targetFiber,
+        targetWaterLiters: targets.targetWaterLiters,
       },
       create: {
         userId: auth.dbUser.id,
+        firstName: firstName || null,
+        lastName: lastName || null,
         age: parsedAge,
         gender: gender || "MALE",
         heightCm: parsedHeight,
         weightKg: parsedWeight,
         goalWeightKg: parsedGoalWeight,
+        equipment: equipment || "COMMERCIAL_GYM",
+        splitDays: parsedSplitDays,
+        splitType: splitType || targets.splitInfo.name,
         activityLevel: activityLevel || "MODERATE",
         goal: goal || "MAINTAIN",
         dietPreference: dietPreference || "STANDARD",
@@ -137,6 +164,8 @@ export async function POST(request: NextRequest) {
         targetProtein: targets.targetProtein,
         targetCarbs: targets.targetCarbs,
         targetFat: targets.targetFat,
+        targetFiber: targets.targetFiber,
+        targetWaterLiters: targets.targetWaterLiters,
       },
     });
 

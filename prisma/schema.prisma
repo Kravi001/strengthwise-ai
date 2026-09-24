@@ -28,22 +28,30 @@ model Profile {
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  firstName       String?
+  lastName        String?
   age             Int?
   gender          String?
   heightCm        Float?
   weightKg        Float?
   goalWeightKg    Float?
   
+  equipment       String?  // COMMERCIAL_GYM | BARBELL_HOME | DUMBBELLS | BANDS_BODYWEIGHT | BODYWEIGHT
+  splitDays       Int?     // 3 | 4 | 5 | 6
+  splitType       String?  // FULL_BODY | UPPER_LOWER | PPL_5 | PPL_6 | ARNOLD
+  
   activityLevel   String?  // SEDENTARY | LIGHT | MODERATE | ACTIVE | VERY_ACTIVE
   goal            String?  // LOSE_WEIGHT | MAINTAIN | BUILD_MUSCLE
-  dietPreference  String?  // STANDARD | VEGETARIAN | VEGAN | KETO
+  dietPreference  String?  // STANDARD | HIGH_PROTEIN | VEGETARIAN | VEGAN | KETO
   experienceLevel String?  // BEGINNER | INTERMEDIATE | ADVANCED
 
   // Calorie & macro targets
-  targetCalories  Int?
-  targetProtein   Float?
-  targetCarbs     Float?
-  targetFat       Float?
+  targetCalories    Int?
+  targetProtein     Float?
+  targetCarbs       Float?
+  targetFat         Float?
+  targetFiber       Float?
+  targetWaterLiters Float?
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

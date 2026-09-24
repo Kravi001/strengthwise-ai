@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
-import type { User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 const AVATAR_PRESETS = ["🏋️‍♂️", "🦾", "🥗", "⚡", "🧘", "🏆", "🔥", "🥇"];
 
@@ -62,6 +62,7 @@ export default function LandingPage() {
   const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
   const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
   const [isVerifyingDev, setIsVerifyingDev] = useState(false);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
 
   // --- Profile State ---
   const [hasProfile, setHasProfile] = useState(false);
@@ -103,6 +104,58 @@ export default function LandingPage() {
     { name: "Fats", value: calculated.targetFat, color: "#f59e0b" },
   ];
 
+  // Helper to load profile for an authenticated user
+  const loadProfileForUser = async (user: User) => {
+    try {
+      const res = await fetch("/api/profile");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile) {
+          setHasProfile(true);
+          setShowProfileForm(false);
+          if (data.profile.avatar) setAvatar(data.profile.avatar);
+          if (data.profile.name) setFullName(data.profile.name);
+          if (data.profile.age) setAge(data.profile.age);
+          if (data.profile.gender) setGender(data.profile.gender);
+          if (data.profile.weightKg) setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
+          if (data.profile.goalWeightKg) setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
+          if (data.profile.goal) setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
+          if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+          return true;
+        }
+      }
+    } catch {
+      // Fallback to local storage
+    }
+
+    const stored = typeof window !== "undefined" ? localStorage.getItem("sw_athlete_profile") : null;
+    if (stored) {
+      try {
+        const p = JSON.parse(stored);
+        if (p.isCompleted || p.age || p.weightLbs) {
+          setHasProfile(true);
+          setShowProfileForm(false);
+          if (p.avatar) setAvatar(p.avatar);
+          if (p.fullName) setFullName(p.fullName);
+          if (p.email) setEmail(p.email);
+          if (p.age) setAge(p.age);
+          if (p.gender) setGender(p.gender);
+          if (p.heightFt) setHeightFt(p.heightFt);
+          if (p.heightIn) setHeightIn(p.heightIn);
+          if (p.weightLbs) setCurrentWeightLbs(p.weightLbs);
+          if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
+          if (p.goal) setGoal(p.goal);
+          if (p.activityLevel) setActivityLevel(p.activityLevel);
+          return true;
+        }
+      } catch {}
+    }
+
+    setHasProfile(false);
+    setShowProfileForm(true);
+    return false;
+  };
+
   // 1. Check current Supabase session & load existing profile on mount
   useEffect(() => {
     async function initSessionAndProfile() {
@@ -115,69 +168,15 @@ export default function LandingPage() {
         if (currentUser) {
           if (currentUser.email) setEmail(currentUser.email);
           if (currentUser.user_metadata?.full_name) setFullName(currentUser.user_metadata.full_name);
-
-          // Check if there is a pending draft to save from Google OAuth return
-          const draft = localStorage.getItem("sw_athlete_profile_draft");
-          if (draft) {
-            try {
-              const draftData = JSON.parse(draft);
-              await fetch("/api/profile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(draftData),
-              });
-              localStorage.removeItem("sw_athlete_profile_draft");
-              localStorage.setItem("sw_athlete_profile", JSON.stringify({ ...draftData, isCompleted: true }));
-              window.dispatchEvent(new Event("sw_profile_updated"));
-              setHasProfile(true);
-              setShowProfileForm(false);
-              setSaveSuccessMsg("🎉 Google Account connected and athlete profile saved!");
-              return;
-            } catch (err) {
-              console.warn("Could not save draft after OAuth:", err);
-            }
-          }
-
-          // Fetch profile from backend database
-          try {
-            const res = await fetch("/api/profile");
-            if (res.ok) {
-              const data = await res.json();
-              if (data.profile) {
-                setHasProfile(true);
-                setShowProfileForm(false);
-                if (data.profile.age) setAge(data.profile.age);
-                if (data.profile.gender) setGender(data.profile.gender);
-                if (data.profile.weightKg) setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
-                if (data.profile.goalWeightKg) setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
-                if (data.profile.goal) setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
-                if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
-                return;
-              }
-            }
-          } catch {
-            // Fallback to local storage
-          }
-        }
-
-        // Fallback: check localStorage for offline/cached profile
-        const stored = localStorage.getItem("sw_athlete_profile");
-        if (stored) {
-          const p = JSON.parse(stored);
-          if (p.isCompleted || p.age || p.weightLbs) {
-            setHasProfile(true);
-            setShowProfileForm(false);
-            if (p.avatar) setAvatar(p.avatar);
-            if (p.fullName) setFullName(p.fullName);
-            if (p.email) setEmail(p.email);
-            if (p.age) setAge(p.age);
-            if (p.gender) setGender(p.gender);
-            if (p.heightFt) setHeightFt(p.heightFt);
-            if (p.heightIn) setHeightIn(p.heightIn);
-            if (p.weightLbs) setCurrentWeightLbs(p.weightLbs);
-            if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
-            if (p.goal) setGoal(p.goal);
-            if (p.activityLevel) setActivityLevel(p.activityLevel);
+          await loadProfileForUser(currentUser);
+        } else {
+          // Guest state: no profile allowed without an account
+          setHasProfile(false);
+          setShowProfileForm(false);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("sw_athlete_profile");
+            document.cookie = "sw_athlete_profile=; path=/; max-age=0";
+            window.dispatchEvent(new Event("sw_profile_updated"));
           }
         }
       } catch (err) {
@@ -186,35 +185,43 @@ export default function LandingPage() {
     }
 
     initSessionAndProfile();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
+      if (session?.user) {
+        setAuthUser(session.user);
+        if (session.user.email) setEmail(session.user.email);
+        if (session.user.user_metadata?.full_name) setFullName(session.user.user_metadata.full_name);
+        await loadProfileForUser(session.user);
+      } else {
+        setAuthUser(null);
+        setHasProfile(false);
+        setShowProfileForm(false);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("sw_athlete_profile");
+          document.cookie = "sw_athlete_profile=; path=/; max-age=0";
+          window.dispatchEvent(new Event("sw_profile_updated"));
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [supabase]);
 
-  // 2. Google OAuth Handler
+  // 2. Google OAuth Handler (Step 1)
   const handleGoogleSignIn = async () => {
     setAuthErrorMsg(null);
     setGoogleLoading(true);
 
-    // Prepare profile draft so that once user returns from Google, it's immediately saved
-    const profileDraft = {
-      fullName: fullName || "StrengthWise Athlete",
-      avatar,
-      age: Number(age),
-      gender,
-      heightCm,
-      weightKg: numWeightKg,
-      weightLbs: numWeightLbs,
-      goalWeightKg: (Number(goalWeightLbs) || 145) / 2.20462,
-      goalWeightLbs: Number(goalWeightLbs),
-      activityLevel,
-      goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
-    };
-
     try {
-      localStorage.setItem("sw_athlete_profile_draft", JSON.stringify(profileDraft));
       const origin = window.location.origin;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback`,
+          redirectTo: `${origin}/auth/callback?next=/profile`,
         },
       });
 
@@ -228,7 +235,90 @@ export default function LandingPage() {
     }
   };
 
-  // 3. Instant Dev Verification Handler
+  // 3. Step 1: Account Creation & Sign In Handler
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthErrorMsg(null);
+    setSaveSuccessMsg(null);
+    setAuthSubmitting(true);
+
+    try {
+      if (!email || !password) {
+        setAuthErrorMsg("Please enter both an email and password.");
+        setAuthSubmitting(false);
+        return;
+      }
+
+      if (password.length < 6) {
+        setAuthErrorMsg("Password must be at least 6 characters long.");
+        setAuthSubmitting(false);
+        return;
+      }
+
+      const origin = window.location.origin;
+
+      if (authMode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName || email.split("@")[0],
+            },
+            emailRedirectTo: `${origin}/auth/callback`,
+          },
+        });
+
+        if (error) {
+          setAuthErrorMsg(error.message);
+          setAuthSubmitting(false);
+          return;
+        }
+
+        if (data.session?.user) {
+          setAuthUser(data.session.user);
+          setSaveSuccessMsg("Account created! Now complete Step 2 below to set up your athlete profile.");
+          setShowProfileForm(true);
+          setHasProfile(false);
+        } else {
+          setEmailConfirmationSent(true);
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          if (error.message.toLowerCase().includes("email not confirmed")) {
+            setEmailConfirmationSent(true);
+            setAuthErrorMsg("Email address has not been confirmed yet. Click 'Instant Verify' to activate.");
+          } else {
+            setAuthErrorMsg(error.message);
+          }
+          setAuthSubmitting(false);
+          return;
+        }
+
+        if (data.session?.user) {
+          setAuthUser(data.session.user);
+          const hasExisting = await loadProfileForUser(data.session.user);
+          if (hasExisting) {
+            setSaveSuccessMsg("Signed in successfully! Welcome back.");
+          } else {
+            setSaveSuccessMsg("Signed in successfully! Please complete your athlete profile in Step 2 below.");
+            setShowProfileForm(true);
+          }
+        }
+      }
+    } catch (err: unknown) {
+      setAuthErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred.");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  // 4. Instant Dev Verification Handler
   const handleInstantVerify = async () => {
     if (!email) return;
     setIsVerifyingDev(true);
@@ -250,13 +340,19 @@ export default function LandingPage() {
         if (!signError && signData.session) {
           setAuthUser(signData.session.user);
           setEmailConfirmationSent(false);
-          await commitProfileToDatabase(signData.session.user);
+          const hasExisting = await loadProfileForUser(signData.session.user);
+          if (hasExisting) {
+            setSaveSuccessMsg("Account verified and signed in! Welcome back.");
+          } else {
+            setSaveSuccessMsg("Account verified! Now proceed with Step 2 below to configure your athlete profile.");
+            setShowProfileForm(true);
+          }
           return;
         }
       }
       setEmailConfirmationSent(false);
       setAuthMode("signin");
-      setSaveSuccessMsg("Account verified! Click 'Sign In & Save Profile' below.");
+      setSaveSuccessMsg("Account verified! Enter your password and click 'Sign In' below.");
     } catch (err: unknown) {
       setAuthErrorMsg(err instanceof Error ? err.message : "Verification failed.");
     } finally {
@@ -264,12 +360,28 @@ export default function LandingPage() {
     }
   };
 
-  // 4. Commit Profile to Supabase & Database
-  const commitProfileToDatabase = async (userObj?: User | null) => {
-    const activeUser = userObj || authUser;
+  // 5. Sign Out Handler
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      setAuthUser(null);
+      setHasProfile(false);
+      setShowProfileForm(false);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("sw_athlete_profile");
+        document.cookie = "sw_athlete_profile=; path=/; max-age=0";
+        window.dispatchEvent(new Event("sw_profile_updated"));
+      }
+    } catch (err) {
+      console.warn("Sign out error:", err);
+    }
+  };
+
+  // 6. Commit Profile to Supabase & Database (Step 2)
+  const commitProfileToDatabase = async (activeUser: User) => {
     const profilePayload = {
-      fullName,
-      name: fullName,
+      fullName: fullName || activeUser.email?.split("@")[0] || "Athlete",
+      name: fullName || activeUser.email?.split("@")[0] || "Athlete",
       avatar,
       age: Number(age),
       gender,
@@ -283,8 +395,8 @@ export default function LandingPage() {
     const localProfileData = {
       isCompleted: true,
       avatar,
-      fullName: fullName || (activeUser?.email ? activeUser.email.split("@")[0] : "Athlete"),
-      email: email || activeUser?.email || "",
+      fullName: fullName || (activeUser.email ? activeUser.email.split("@")[0] : "Athlete"),
+      email: activeUser.email || email || "",
       age: Number(age),
       gender,
       heightFt: Number(heightFt),
@@ -320,7 +432,7 @@ export default function LandingPage() {
 
     setHasProfile(true);
     setShowProfileForm(false);
-    setSaveSuccessMsg("🎉 Profile saved to your Supabase account! Meals, Workouts, Progress, and AI Coach unlocked.");
+    setSaveSuccessMsg("🎉 Athlete profile created & saved to your account! Meals, Workouts, Progress, and AI Coach unlocked.");
 
     setTimeout(() => {
       const mealsEl = document.getElementById("meals");
@@ -330,88 +442,22 @@ export default function LandingPage() {
     }, 600);
   };
 
-  // 5. Handle Form Submit (Creates account if needed, then saves profile)
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  // 7. Handle Step 2 Athlete Profile Form Submit
+  const handleSaveAthleteProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthErrorMsg(null);
     setSaveSuccessMsg(null);
+
+    if (!authUser) {
+      setAuthErrorMsg("Please create an account or sign in first (Step 1) before configuring your athlete profile.");
+      return;
+    }
+
     setIsSaving(true);
-
     try {
-      // CASE A: User is already signed in -> just save profile to Supabase/DB
-      if (authUser) {
-        await commitProfileToDatabase(authUser);
-        return;
-      }
-
-      // CASE B: User needs to create an account or sign in with Email & Password
-      if (!email || !password) {
-        setAuthErrorMsg("Please enter both an email and a password to create your account and save your profile.");
-        setIsSaving(false);
-        return;
-      }
-
-      if (password.length < 6) {
-        setAuthErrorMsg("Password must be at least 6 characters long.");
-        setIsSaving(false);
-        return;
-      }
-
-      const origin = window.location.origin;
-
-      if (authMode === "signup") {
-        // Create Supabase Account
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName || email.split("@")[0],
-              avatar_url: avatar,
-            },
-            emailRedirectTo: `${origin}/auth/callback`,
-          },
-        });
-
-        if (error) {
-          setAuthErrorMsg(error.message);
-          setIsSaving(false);
-          return;
-        }
-
-        if (data.session?.user) {
-          setAuthUser(data.session.user);
-          await commitProfileToDatabase(data.session.user);
-        } else {
-          // Email confirmation is required by Supabase
-          setEmailConfirmationSent(true);
-          setIsSaving(false);
-        }
-      } else {
-        // Sign In with existing password
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          if (error.message.toLowerCase().includes("email not confirmed")) {
-            setEmailConfirmationSent(true);
-            setAuthErrorMsg("Email address has not been confirmed yet. Click 'Instant Verify' to activate.");
-          } else {
-            setAuthErrorMsg(error.message);
-          }
-          setIsSaving(false);
-          return;
-        }
-
-        if (data.session?.user) {
-          setAuthUser(data.session.user);
-          await commitProfileToDatabase(data.session.user);
-        }
-      }
+      await commitProfileToDatabase(authUser);
     } catch (err: unknown) {
-      setAuthErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setAuthErrorMsg(err instanceof Error ? err.message : "Failed to save athlete profile.");
     } finally {
       setIsSaving(false);
     }
@@ -543,7 +589,13 @@ export default function LandingPage() {
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 hover:scale-[1.02] transition active:scale-[0.98]"
             >
               <UserIcon className="h-4 w-4" />
-              <span>{hasProfile ? "View / Edit Athlete Profile" : "Create Profile & Account to Unlock"}</span>
+              <span>
+                {hasProfile
+                  ? "View / Edit Athlete Profile"
+                  : authUser
+                  ? "Complete Athlete Profile (Step 2)"
+                  : "Create Account to Get Started"}
+              </span>
               <ArrowRight className="h-4 w-4" />
             </a>
             {!authUser && (
@@ -652,6 +704,71 @@ export default function LandingPage() {
             )}
           </div>
 
+          {/* 2-Step Workflow Progress Stepper */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-2xl bg-neutral-950/60 border border-neutral-800/80">
+            {/* Step 1 Pill */}
+            <div className={`flex items-center gap-3 p-3 rounded-xl border transition ${
+              authUser
+                ? "bg-emerald-950/30 border-emerald-500/30"
+                : "bg-emerald-500/10 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
+            }`}>
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold font-mono transition ${
+                authUser
+                  ? "bg-emerald-500 text-neutral-950"
+                  : "bg-emerald-500 text-neutral-950 animate-pulse"
+              }`}>
+                {authUser ? <CheckCircle2 className="h-4 w-4" /> : "1"}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Step 1: Account Authentication</span>
+                  {authUser ? (
+                    <span className="text-[10px] text-emerald-400 font-semibold">(Complete)</span>
+                  ) : (
+                    <span className="text-[10px] text-emerald-400 font-semibold">(Current Step)</span>
+                  )}
+                </div>
+                <div className="text-[11px] text-neutral-400 truncate">
+                  {authUser ? authUser.email : "Create account or sign in first"}
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2 Pill */}
+            <div className={`flex items-center gap-3 p-3 rounded-xl border transition ${
+              hasProfile
+                ? "bg-emerald-950/30 border-emerald-500/30"
+                : authUser
+                ? "bg-emerald-500/10 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
+                : "bg-neutral-950 border-neutral-800/60 opacity-60"
+            }`}>
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold font-mono transition ${
+                hasProfile
+                  ? "bg-emerald-500 text-neutral-950"
+                  : authUser
+                  ? "bg-emerald-500 text-neutral-950 animate-pulse"
+                  : "bg-neutral-800 text-neutral-500"
+              }`}>
+                {hasProfile ? <CheckCircle2 className="h-4 w-4" /> : !authUser ? <Lock className="h-3.5 w-3.5" /> : "2"}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Step 2: Athlete Profile &amp; Biometrics</span>
+                  {hasProfile ? (
+                    <span className="text-[10px] text-emerald-400 font-semibold">(Active)</span>
+                  ) : authUser ? (
+                    <span className="text-[10px] text-emerald-400 font-semibold">(Next Step)</span>
+                  ) : (
+                    <span className="text-[10px] text-neutral-500 font-normal">Locked</span>
+                  )}
+                </div>
+                <div className="text-[11px] text-neutral-400">
+                  {hasProfile ? "Macros & training calibrated" : !authUser ? "Requires account created in Step 1" : "Configure biometrics & macros"}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Success Message Banner */}
           {saveSuccessMsg && (
             <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-xs font-medium text-emerald-300">
@@ -708,453 +825,666 @@ export default function LandingPage() {
             </div>
           )}
 
-          {/* Form Content */}
-          {showProfileForm && !emailConfirmationSent ? (
-            <form onSubmit={handleSaveProfile} className="space-y-8">
-
-              {/* 1. GOOGLE OAUTH FAST ACTION (If not logged in) */}
-              {!authUser && (
-                <div className="space-y-3 rounded-2xl border border-neutral-800 bg-neutral-950/80 p-5">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="space-y-0.5 text-center sm:text-left">
-                      <div className="text-xs font-bold text-white flex items-center justify-center sm:justify-start gap-1.5">
-                        <Zap className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>Quick Connect via Google</span>
+          {/* Main 2-Step Interactive Flow */}
+          {!emailConfirmationSent && (
+            <>
+              {/* ============================================================== */}
+              {/* CASE 1: GUEST USER (NOT AUTHENTICATED)                         */}
+              {/* Step 1 is ACTIVE, Step 2 is LOCKED                             */}
+              {/* ============================================================== */}
+              {!authUser ? (
+                <div className="space-y-8">
+                  {/* Step 1: Account Creation & Sign In Box */}
+                  <div className="space-y-6 rounded-2xl border border-emerald-500/30 bg-neutral-950/70 p-5 sm:p-6 shadow-xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800/80 pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-400 uppercase">
+                            Step 1 of 2
+                          </span>
+                          <h3 className="text-base font-bold text-white">Create Account or Sign In</h3>
+                        </div>
+                        <p className="text-xs text-neutral-400 mt-1">
+                          An account is required first because your athlete profile and metabolic data are securely linked to your account.
+                        </p>
                       </div>
-                      <div className="text-[11px] text-neutral-400">
-                        Authenticate with Google and save your profile to Supabase in one click.
+
+                      <div className="flex rounded-lg bg-neutral-900 p-1 border border-neutral-800 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode("signup")}
+                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                            authMode === "signup" ? "bg-emerald-500 text-neutral-950 shadow-sm" : "text-neutral-400 hover:text-white"
+                          }`}
+                        >
+                          Create Account
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode("signin")}
+                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                            authMode === "signin" ? "bg-emerald-500 text-neutral-950 shadow-sm" : "text-neutral-400 hover:text-white"
+                          }`}
+                        >
+                          Sign In
+                        </button>
                       </div>
                     </div>
 
+                    {/* Google OAuth Quick Connect */}
+                    <div className="space-y-3 rounded-xl border border-neutral-800/80 bg-neutral-900/60 p-4">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="space-y-0.5 text-center sm:text-left">
+                          <div className="text-xs font-bold text-white flex items-center justify-center sm:justify-start gap-1.5">
+                            <Zap className="h-3.5 w-3.5 text-emerald-400" />
+                            <span>Quick Sign-In with Google</span>
+                          </div>
+                          <div className="text-[11px] text-neutral-400">
+                            Instantly authenticate and advance to Step 2 profile configuration.
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleGoogleSignIn}
+                          disabled={googleLoading}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-950 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-neutral-800 hover:border-neutral-600 transition disabled:opacity-50"
+                        >
+                          {googleLoading ? (
+                            <>
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-400" />
+                              <span>Connecting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-4 w-4" viewBox="0 0 24 24">
+                                <path
+                                  fill="#4285F4"
+                                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                                />
+                                <path
+                                  fill="#34A853"
+                                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                                />
+                                <path
+                                  fill="#FBBC05"
+                                  d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                                />
+                                <path
+                                  fill="#EA4335"
+                                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                                />
+                              </svg>
+                              <span>Continue with Google</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="relative flex items-center justify-center pt-2">
+                        <div className="w-full border-t border-neutral-800" />
+                        <span className="absolute bg-neutral-900 px-2.5 text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">
+                          Or Continue with Email &amp; Password
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Email/Password Auth Form */}
+                    <form onSubmit={handleAuthSubmit} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {authMode === "signup" && (
+                          <div className="space-y-1.5 sm:col-span-2">
+                            <label className="text-xs font-semibold text-neutral-300">Your Full Name</label>
+                            <input
+                              type="text"
+                              required
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              placeholder="e.g. Alex Smith"
+                              className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
+                            />
+                          </div>
+                        )}
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Email Address</label>
+                          <input
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="alex.smith@example.com"
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold text-neutral-300">
+                              {authMode === "signup" ? "Set Account Password" : "Password"}
+                            </label>
+                            {authMode === "signup" && <span className="text-[11px] text-neutral-500">Min 6 chars</span>}
+                          </div>
+                          <div className="relative">
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              required
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              placeholder="••••••••"
+                              className="w-full rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 pl-3.5 pr-10 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-2.5 text-neutral-500 hover:text-neutral-300"
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="text-xs text-neutral-400">
+                          {authMode === "signup"
+                            ? "Step 1 of 2: Create your account, then calibrate your athlete profile in Step 2."
+                            : "Sign in to access your linked athlete profile and training dashboard."}
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={authSubmitting}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/25 hover:bg-emerald-400 hover:scale-[1.02] transition active:scale-[0.98] disabled:opacity-50"
+                        >
+                          {authSubmitting ? (
+                            <>
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin text-neutral-950" />
+                              <span>{authMode === "signup" ? "Creating Account..." : "Signing In..."}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>{authMode === "signup" ? "Create Account & Proceed to Step 2" : "Sign In & Continue"}</span>
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Step 2: Locked Athlete Profile Preview Box */}
+                  <div className="relative rounded-2xl border border-neutral-800 bg-neutral-950/40 p-6 overflow-hidden">
+                    {/* Glassmorphic Lock Overlay */}
+                    <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-neutral-950/70 flex flex-col items-center justify-center p-6 text-center">
+                      <div className="max-w-md space-y-3">
+                        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                          <Lock className="h-5 w-5" />
+                        </div>
+                        <h4 className="text-base font-bold text-white">Step 2: Athlete Profile &amp; Biometrics (Locked)</h4>
+                        <p className="text-xs text-neutral-300 leading-relaxed">
+                          Your athlete profile can only be created once an account is established. Complete Step 1 above to unlock this section.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const el = document.getElementById("profile-setup");
+                            if (el) el.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 transition"
+                        >
+                          <span>Complete Step 1 Above to Unlock</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Dimmed Preview of Step 2 Content */}
+                    <div className="opacity-25 pointer-events-none space-y-6 select-none">
+                      <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md bg-neutral-800 px-2 py-0.5 text-[10px] font-mono text-neutral-400">
+                            Step 2 of 2
+                          </span>
+                          <span className="text-sm font-bold text-neutral-400">Athlete Profile &amp; Biometrics</span>
+                        </div>
+                        <span className="text-xs text-neutral-500">Mifflin-St Jeor Engine</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-1">
+                          <div className="text-[10px] text-neutral-500">Age</div>
+                          <div className="text-sm font-bold text-neutral-300">26 yrs</div>
+                        </div>
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-1">
+                          <div className="text-[10px] text-neutral-500">Biological Sex</div>
+                          <div className="text-sm font-bold text-neutral-300">Female / Male</div>
+                        </div>
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-1">
+                          <div className="text-[10px] text-neutral-500">Height &amp; Weight</div>
+                          <div className="text-sm font-bold text-neutral-300">5&apos;8&quot; • 155 lbs</div>
+                        </div>
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-1">
+                          <div className="text-[10px] text-neutral-500">Calorie Target</div>
+                          <div className="text-sm font-bold text-emerald-400">Calculated on Unlock</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : showProfileForm ? (
+                /* ============================================================== */
+                /* CASE 2: AUTHENTICATED USER CONFIGURING OR EDITING PROFILE       */
+                /* Step 1 is COMPLETED, Step 2 Form is ACTIVE                     */
+                /* ============================================================== */
+                <div className="space-y-6">
+                  {/* Step 1 Completed Ribbon */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3.5 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <span className="text-neutral-300">
+                        <strong className="text-white">Step 1 Complete:</strong> Signed in as{" "}
+                        <span className="font-mono text-emerald-400 font-semibold">{authUser.email}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href="/profile"
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/30 transition"
+                      >
+                        <UserIcon className="h-3 w-3" />
+                        <span>Open Profile & Split Studio</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="text-[11px] font-medium text-neutral-400 hover:text-white underline underline-offset-2 transition ml-2"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Step 2 Form */}
+                  <form onSubmit={handleSaveAthleteProfile} className="space-y-8">
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-neutral-800/80 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-400 uppercase">
+                          Step 2 of 2
+                        </span>
+                        <h3 className="text-base font-bold text-white">Athlete Biometrics &amp; Metabolic Calibration</h3>
+                      </div>
+                      <span className="text-xs text-neutral-500 hidden sm:inline">Linked to {authUser.email}</span>
+                    </div>
+
+                    {/* Profile Picture & Identity */}
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
+                        Profile Avatar &amp; Identity
+                      </h4>
+
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                        {/* Avatar Circle Display */}
+                        <div className="relative group shrink-0">
+                          <div className="h-20 w-20 rounded-full border-2 border-emerald-500/40 bg-neutral-950 flex items-center justify-center overflow-hidden text-3xl shadow-lg">
+                            {avatar.startsWith("data:") || avatar.startsWith("http") ? (
+                              <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
+                            ) : (
+                              <span>{avatar}</span>
+                            )}
+                          </div>
+                          <label
+                            htmlFor="avatar-upload"
+                            className="absolute bottom-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-emerald-500 text-neutral-950 shadow-md hover:bg-emerald-400 transition"
+                            title="Upload custom photo"
+                          >
+                            <Camera className="h-3.5 w-3.5" />
+                            <input
+                              id="avatar-upload"
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+
+                        {/* Avatar Controls */}
+                        <div className="space-y-2">
+                          <div className="text-xs font-semibold text-white">Custom Profile Picture</div>
+                          <div className="text-[11px] text-neutral-400">
+                            Upload your photo or choose an avatar preset below:
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            <label
+                              htmlFor="avatar-upload-btn"
+                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800/80 px-2.5 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
+                            >
+                              <Upload className="h-3.5 w-3.5 text-emerald-400" />
+                              <span>Upload Photo</span>
+                              <input
+                                id="avatar-upload-btn"
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePhotoUpload}
+                                className="hidden"
+                              />
+                            </label>
+
+                            {AVATAR_PRESETS.map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setAvatar(preset)}
+                                className={`h-8 w-8 rounded-lg border text-base flex items-center justify-center transition ${
+                                  avatar === preset
+                                    ? "border-emerald-500 bg-emerald-500/20 scale-110 shadow-sm shadow-emerald-500/30"
+                                    : "border-neutral-800 bg-neutral-950 hover:border-neutral-700 hover:scale-105"
+                                }`}
+                              >
+                                {preset}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Name & Linked Email */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Athlete Display Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            placeholder="e.g. Alex Smith"
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Linked Account Email</label>
+                          <input
+                            type="email"
+                            disabled
+                            value={authUser.email || email}
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-400 opacity-70 cursor-not-allowed font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Biometrics Inputs */}
+                    <div className="space-y-4 pt-4 border-t border-neutral-800/80">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
+                        Biometrics &amp; Physiological Parameters
+                      </h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Age */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Age (years)</label>
+                          <input
+                            type="number"
+                            min={14}
+                            max={99}
+                            required
+                            value={age}
+                            onChange={(e) => setAge(e.target.value)}
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition font-mono"
+                          />
+                        </div>
+
+                        {/* Biological Sex */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Biological Sex</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setGender("FEMALE")}
+                              className={`rounded-xl py-2.5 text-xs font-bold transition border ${
+                                gender === "FEMALE"
+                                  ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm"
+                                  : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
+                              }`}
+                            >
+                              Female
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setGender("MALE")}
+                              className={`rounded-xl py-2.5 text-xs font-bold transition border ${
+                                gender === "MALE"
+                                  ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm"
+                                  : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
+                              }`}
+                            >
+                              Male
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Height ft & in */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Height (ft)</label>
+                          <input
+                            type="number"
+                            min={3}
+                            max={7}
+                            required
+                            value={heightFt}
+                            onChange={(e) => setHeightFt(e.target.value)}
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Height (in)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={11}
+                            required
+                            value={heightIn}
+                            onChange={(e) => setHeightIn(e.target.value)}
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
+                          />
+                        </div>
+
+                        {/* Weights */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Current Weight (lbs)</label>
+                          <input
+                            type="number"
+                            min={70}
+                            max={450}
+                            required
+                            value={currentWeightLbs}
+                            onChange={(e) => setCurrentWeightLbs(e.target.value)}
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-neutral-300">Goal Weight (lbs)</label>
+                          <input
+                            type="number"
+                            min={70}
+                            max={450}
+                            required
+                            value={goalWeightLbs}
+                            onChange={(e) => setGoalWeightLbs(e.target.value)}
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Primary Training Goal */}
+                      <div className="space-y-1.5 pt-2">
+                        <label className="text-xs font-semibold text-neutral-300">Primary Goal Phase</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setGoal("CUT")}
+                            className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
+                              goal === "CUT"
+                                ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm"
+                                : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            Fat Loss (-20%)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGoal("MAINTAIN")}
+                            className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
+                              goal === "MAINTAIN"
+                                ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-sm"
+                                : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            Maintenance
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGoal("BULK")}
+                            className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
+                              goal === "BULK"
+                                ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
+                                : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            Muscle Surplus (+10%)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Metabolic Preview Card */}
+                    <div className="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-4 space-y-3">
+                      <div className="flex items-center justify-between text-xs font-bold text-white">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>Live Mifflin-St Jeor Engine Calculations</span>
+                        </span>
+                        <span className="font-mono text-emerald-400 font-bold">
+                          {calculated.targetCalories} kcal / day
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-2">
+                          <div className="text-[10px] text-neutral-400">Protein (40%)</div>
+                          <div className="text-xs font-bold text-emerald-400 font-mono">{calculated.targetProtein}g</div>
+                        </div>
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-2">
+                          <div className="text-[10px] text-neutral-400">Carbs (35%)</div>
+                          <div className="text-xs font-bold text-cyan-400 font-mono">{calculated.targetCarbs}g</div>
+                        </div>
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-2">
+                          <div className="text-[10px] text-neutral-400">Fats (25%)</div>
+                          <div className="text-xs font-bold text-amber-400 font-mono">{calculated.targetFat}g</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="pt-4 border-t border-neutral-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="text-xs text-neutral-400 text-center sm:text-left">
+                        Saves biometrics and target macros to your account and database.
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-7 py-3 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-emerald-300 hover:scale-[1.02] transition active:scale-[0.98] disabled:opacity-50"
+                      >
+                        {isSaving ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin text-neutral-950" />
+                            <span>Saving Athlete Profile...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-4 w-4 fill-current" />
+                            <span>{hasProfile ? "Update Athlete Profile & Save" : "Save Athlete Profile & Unlock Dashboard"}</span>
+                            <ArrowRight className="h-4 w-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                /* ============================================================== */
+                /* CASE 3: AUTHENTICATED USER WITH PROFILE SAVED (COLLAPSED VIEW)  */
+                /* ============================================================== */
+                <div className="space-y-6">
+                  {/* Step 1 Completed Ribbon */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3.5 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <span className="text-neutral-300">
+                        <strong className="text-white">Step 1 Complete:</strong> Signed in as{" "}
+                        <span className="font-mono text-emerald-400 font-semibold">{authUser.email}</span>
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      onClick={handleGoogleSignIn}
-                      disabled={googleLoading}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-neutral-800 hover:border-neutral-600 transition disabled:opacity-50"
+                      onClick={handleSignOut}
+                      className="text-[11px] font-medium text-neutral-400 hover:text-white underline underline-offset-2 transition"
                     >
-                      {googleLoading ? (
-                        <>
-                          <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                          <span>Connecting...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="h-4 w-4" viewBox="0 0 24 24">
-                            <path
-                              fill="#4285F4"
-                              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                            />
-                            <path
-                              fill="#34A853"
-                              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                            />
-                            <path
-                              fill="#FBBC05"
-                              d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                            />
-                            <path
-                              fill="#EA4335"
-                              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                            />
-                          </svg>
-                          <span>Continue with Google</span>
-                        </>
-                      )}
+                      Sign out / Switch account
                     </button>
                   </div>
 
-                  <div className="relative flex items-center justify-center pt-2">
-                    <div className="w-full border-t border-neutral-800" />
-                    <span className="absolute bg-neutral-950 px-2.5 text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">
-                      Or Create with Email &amp; Password
-                    </span>
+                  {/* Collapsed Profile Summary Card */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-neutral-950/70 border border-neutral-800 p-5">
+                    <div className="flex items-center gap-4">
+                      <div className="h-14 w-14 rounded-full border border-emerald-500/40 bg-neutral-900 flex items-center justify-center overflow-hidden text-2xl shadow-md">
+                        {avatar.startsWith("data:") || avatar.startsWith("http") ? (
+                          <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
+                        ) : (
+                          <span>{avatar}</span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          {fullName || (authUser?.email ? authUser.email.split("@")[0] : "Athlete")}
+                          <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                            Profile Active
+                          </span>
+                          <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                            Supabase Synced
+                          </span>
+                        </div>
+                        <div className="text-xs text-neutral-400 mt-0.5">
+                          {currentWeightLbs} lbs • {heightFt}&apos;{heightIn}&quot; • {gender.toLowerCase()} • {goal === "CUT" ? "Fat Loss" : goal === "BULK" ? "Muscle Surplus" : "Maintenance"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowProfileForm(true)}
+                        className="rounded-xl border border-neutral-700 bg-neutral-800/80 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
+                      >
+                        Edit Profile
+                      </button>
+                      <a
+                        href="#meals"
+                        className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition"
+                      >
+                        View Your Targets &darr;
+                      </a>
+                    </div>
                   </div>
                 </div>
               )}
-
-              {/* 2. PROFILE PICTURE & ACCOUNT SECTION */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
-                    Profile Picture &amp; Account
-                  </h3>
-                  {!authUser && (
-                    <div className="flex rounded-lg bg-neutral-950 p-1 border border-neutral-800">
-                      <button
-                        type="button"
-                        onClick={() => setAuthMode("signup")}
-                        className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                          authMode === "signup"
-                            ? "bg-neutral-800 text-white shadow-xs"
-                            : "text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Create Account
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAuthMode("signin")}
-                        className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                          authMode === "signin"
-                            ? "bg-neutral-800 text-white shadow-xs"
-                            : "text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Sign In
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                  {/* Avatar Circle Display */}
-                  <div className="relative group shrink-0">
-                    <div className="h-20 w-20 rounded-full border-2 border-emerald-500/40 bg-neutral-950 flex items-center justify-center overflow-hidden text-3xl shadow-lg">
-                      {avatar.startsWith("data:") || avatar.startsWith("http") ? (
-                        <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
-                      ) : (
-                        <span>{avatar}</span>
-                      )}
-                    </div>
-                    <label
-                      htmlFor="avatar-upload"
-                      className="absolute bottom-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-emerald-500 text-neutral-950 shadow-md hover:bg-emerald-400 transition"
-                      title="Upload custom photo"
-                    >
-                      <Camera className="h-3.5 w-3.5" />
-                      <input
-                        id="avatar-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-
-                  {/* Avatar Controls */}
-                  <div className="space-y-2">
-                    <div className="text-xs font-semibold text-white">Custom Profile Picture</div>
-                    <div className="text-[11px] text-neutral-400">
-                      Upload your own photo or choose a fitness avatar preset below:
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <label
-                        htmlFor="avatar-upload-btn"
-                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800/80 px-2.5 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
-                      >
-                        <Upload className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>Upload Photo</span>
-                        <input
-                          id="avatar-upload-btn"
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoUpload}
-                          className="hidden"
-                        />
-                      </label>
-
-                      {AVATAR_PRESETS.map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setAvatar(preset)}
-                          className={`h-8 w-8 rounded-lg border text-base flex items-center justify-center transition ${
-                            avatar === preset
-                              ? "border-emerald-500 bg-emerald-500/20 scale-110 shadow-sm shadow-emerald-500/30"
-                              : "border-neutral-800 bg-neutral-950 hover:border-neutral-700 hover:scale-105"
-                          }`}
-                        >
-                          {preset}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account credentials */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Alex Smith"
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Email Address</label>
-                    <input
-                      type="email"
-                      required
-                      disabled={Boolean(authUser)}
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="alex.smith@example.com"
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition disabled:opacity-60 disabled:cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Password field if not authenticated */}
-                  {!authUser && (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-semibold text-neutral-300">
-                          {authMode === "signup" ? "Set Account Password" : "Enter Password"}
-                        </label>
-                        <span className="text-[11px] text-neutral-500">Minimum 6 characters</span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          required
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 pl-3.5 pr-10 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-2.5 text-neutral-500 hover:text-neutral-300"
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 3. ABOUT YOU SECTION (Biometrics) */}
-              <div className="space-y-4 pt-4 border-t border-neutral-800/80">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
-                  About You (Biometrics)
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Age */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Age</label>
-                    <input
-                      type="number"
-                      min={14}
-                      max={99}
-                      required
-                      value={age}
-                      onChange={(e) => setAge(e.target.value)}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition font-mono"
-                    />
-                  </div>
-
-                  {/* Biological Sex */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Biological Sex</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setGender("FEMALE")}
-                        className={`rounded-xl py-2.5 text-xs font-bold transition border ${
-                          gender === "FEMALE"
-                            ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm"
-                            : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Female
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setGender("MALE")}
-                        className={`rounded-xl py-2.5 text-xs font-bold transition border ${
-                          gender === "MALE"
-                            ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm"
-                            : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Male
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Height ft & in */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Height (ft)</label>
-                    <input
-                      type="number"
-                      min={3}
-                      max={7}
-                      required
-                      value={heightFt}
-                      onChange={(e) => setHeightFt(e.target.value)}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Height (in)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={11}
-                      required
-                      value={heightIn}
-                      onChange={(e) => setHeightIn(e.target.value)}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
-                    />
-                  </div>
-
-                  {/* Weights */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Current Weight (lbs)</label>
-                    <input
-                      type="number"
-                      min={70}
-                      max={450}
-                      required
-                      value={currentWeightLbs}
-                      onChange={(e) => setCurrentWeightLbs(e.target.value)}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Goal Weight (lbs)</label>
-                    <input
-                      type="number"
-                      min={70}
-                      max={450}
-                      required
-                      value={goalWeightLbs}
-                      onChange={(e) => setGoalWeightLbs(e.target.value)}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Primary Training Goal */}
-                <div className="space-y-1.5 pt-2">
-                  <label className="text-xs font-semibold text-neutral-300">Primary Goal Phase</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setGoal("CUT")}
-                      className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                        goal === "CUT"
-                          ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm"
-                          : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      Fat Loss (-20%)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGoal("MAINTAIN")}
-                      className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                        goal === "MAINTAIN"
-                          ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-sm"
-                          : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      Maintenance
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGoal("BULK")}
-                      className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                        goal === "BULK"
-                          ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
-                          : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      Muscle Surplus (+10%)
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div className="pt-4 border-t border-neutral-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-xs text-neutral-400 text-center sm:text-left">
-                  {authUser
-                    ? "Saves directly to your Supabase PostgreSQL database."
-                    : "Creates your Supabase account, computes targets, and unlocks all tabs."}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-7 py-3 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-emerald-300 hover:scale-[1.02] transition active:scale-[0.98] disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin text-neutral-950" />
-                      <span>Saving Profile to Supabase...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4 fill-current" />
-                      <span>
-                        {authUser
-                          ? "Save Profile to Supabase & Unlock"
-                          : authMode === "signup"
-                          ? "Create Account & Save Profile"
-                          : "Sign In & Save Profile"}
-                      </span>
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          ) : !emailConfirmationSent ? (
-            /* Collapsed Profile Summary State */
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-neutral-950/70 border border-neutral-800 p-5">
-              <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-full border border-emerald-500/40 bg-neutral-900 flex items-center justify-center overflow-hidden text-2xl shadow-md">
-                  {avatar.startsWith("data:") || avatar.startsWith("http") ? (
-                    <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
-                  ) : (
-                    <span>{avatar}</span>
-                  )}
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-white flex items-center gap-2">
-                    {fullName || (authUser?.email ? authUser.email.split("@")[0] : "Athlete")}
-                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                      Profile Active
-                    </span>
-                    {authUser && (
-                      <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                        Supabase Synced
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-neutral-400 mt-0.5">
-                    {currentWeightLbs} lbs • {heightFt}&apos;{heightIn}&quot; • {gender.toLowerCase()} • {goal === "CUT" ? "Fat Loss" : goal === "BULK" ? "Muscle Surplus" : "Maintenance"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowProfileForm(true)}
-                  className="rounded-xl border border-neutral-700 bg-neutral-800/80 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
-                >
-                  Edit Profile
-                </button>
-                <a
-                  href="#meals"
-                  className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition"
-                >
-                  View Your Targets &darr;
-                </a>
-              </div>
-            </div>
-          ) : null}
+            </>
+          )}
         </Card>
       </section>
 
@@ -1180,7 +1510,7 @@ export default function LandingPage() {
                 href="#profile-setup"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition"
               >
-                <span>Create Profile &amp; Account to Unlock</span>
+                <span>{authUser ? "Complete Athlete Profile to Unlock" : "Create Account to Unlock"}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -1333,7 +1663,7 @@ export default function LandingPage() {
                 href="#profile-setup"
                 className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-400 transition"
               >
-                <span>Create Profile &amp; Account to Unlock</span>
+                <span>{authUser ? "Complete Athlete Profile to Unlock" : "Create Account to Unlock"}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -1450,7 +1780,7 @@ export default function LandingPage() {
                 href="#profile-setup"
                 className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition"
               >
-                <span>Create Profile &amp; Account to Unlock</span>
+                <span>{authUser ? "Complete Athlete Profile to Unlock" : "Create Account to Unlock"}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -1531,7 +1861,7 @@ export default function LandingPage() {
                 href="#profile-setup"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition"
               >
-                <span>Create Profile &amp; Account to Unlock</span>
+                <span>{authUser ? "Complete Athlete Profile to Unlock" : "Create Account to Unlock"}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
