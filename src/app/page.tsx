@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useMemo, useTransition } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -177,6 +177,8 @@ export default function LandingPage() {
           if (data.profile.goalWeightKg) setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
           if (data.profile.goal) setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
           if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+          if (data.profile.splitDays) setUserSplitDays(data.profile.splitDays);
+          if (data.profile.splitType) setUserSplitType(data.profile.splitType);
 
           // Sync local storage so other components & tabs remain perfectly aligned
           if (typeof window !== "undefined") {
@@ -200,6 +202,8 @@ export default function LandingPage() {
                 goalWeightLbs: data.profile.goalWeightKg ? Math.round(data.profile.goalWeightKg * 2.20462) : parsedExisting.goalWeightLbs,
                 goal: data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN",
                 activityLevel: data.profile.activityLevel || parsedExisting.activityLevel,
+                splitDays: data.profile.splitDays || parsedExisting.splitDays || 4,
+                splitType: data.profile.splitType || parsedExisting.splitType || "Upper / Lower Power & Hypertrophy",
                 updatedAt: new Date().toISOString(),
               };
               localStorage.setItem("sw_athlete_profile", JSON.stringify(localPayload));
@@ -230,6 +234,8 @@ export default function LandingPage() {
           if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
           if (p.goal) setGoal(p.goal);
           if (p.activityLevel) setActivityLevel(p.activityLevel);
+          if (p.splitDays) setUserSplitDays(p.splitDays);
+          if (p.splitType || p.targets?.splitInfo?.name) setUserSplitType(p.splitType || p.targets?.splitInfo?.name);
           return true;
         }
       } catch {}
@@ -580,23 +586,31 @@ export default function LandingPage() {
   };
 
   // --- Workouts Split State ---
-  const [activeSplit, setActiveSplit] = useState<"ppl" | "upper_lower" | "full_body">("ppl");
+  const [userSplitDays, setUserSplitDays] = useState<number>(4);
+  const [userSplitType, setUserSplitType] = useState<string>("Upper / Lower Power & Hypertrophy");
 
-  const splitDetails = {
-    ppl: {
-      name: "Push / Pull / Legs (PPL)",
-      frequency: "6 Days / Week",
-      description: "Gold standard for hypertrophy. Groups muscles by movement pattern, providing 48-72h recovery per muscle group.",
-      days: [
-        { name: "Push Day", lifts: "Incline DB Press (4×8 @ RPE 8), Overhead Press (3×10), Cable Lateral Raises (4×15), Tricep Pressdowns (3×12)" },
-        { name: "Pull Day", lifts: "Barbell Row (4×6-8 @ RPE 8.5), Neutral Lat Pulldown (3×10), Face Pulls (4×15), Incline Dumbbell Curls (3×12)" },
-        { name: "Legs Day", lifts: "Barbell Squat (4×6-8 @ RPE 8), Romanian Deadlift (3×8-10), Bulgarian Split Squat (3×10/leg), Standing Calf Raises (4×15)" },
-      ],
-      targetSets: 16,
-    },
+  const activeSplit = useMemo<"ppl" | "upper_lower" | "full_body" | "hybrid_ppl">(() => {
+    if (userSplitDays === 3 || userSplitType.toLowerCase().includes("full body")) return "full_body";
+    if (userSplitDays === 4 || userSplitType.toLowerCase().includes("upper") || userSplitType.toLowerCase().includes("lower")) return "upper_lower";
+    if (userSplitDays === 5 || userSplitType.toLowerCase().includes("hybrid")) return "hybrid_ppl";
+    return "ppl";
+  }, [userSplitDays, userSplitType]);
+
+  const splitDetails: Record<
+    "ppl" | "upper_lower" | "full_body" | "hybrid_ppl",
+    {
+      name: string;
+      frequency: string;
+      badge: string;
+      description: string;
+      days: { name: string; lifts: string }[];
+      targetSets: number;
+    }
+  > = {
     upper_lower: {
       name: "Upper / Lower Split",
       frequency: "4 Days / Week",
+      badge: "Upper / Lower (4-Day)",
       description: "Ideal balance of high mechanical load, heavy compound progression, and optimal systemic neurological recovery.",
       days: [
         { name: "Upper A (Strength)", lifts: "Flat Barbell Bench (4×5 @ RPE 8.5), Weighted Chin-ups (4×6), Seated Cable Row (3×8), Skull Crushers (3×10)" },
@@ -606,9 +620,36 @@ export default function LandingPage() {
       ],
       targetSets: 14,
     },
+    ppl: {
+      name: "Push / Pull / Legs (PPL)",
+      frequency: "6 Days / Week",
+      badge: "Push / Pull / Legs (PPL)",
+      description: "Gold standard for hypertrophy. Groups muscles by movement pattern, providing 48-72h recovery per muscle group.",
+      days: [
+        { name: "Push Day", lifts: "Incline DB Press (4×8 @ RPE 8), Overhead Press (3×10), Cable Lateral Raises (4×15), Tricep Pressdowns (3×12)" },
+        { name: "Pull Day", lifts: "Barbell Row (4×6-8 @ RPE 8.5), Neutral Lat Pulldown (3×10), Face Pulls (4×15), Incline Dumbbell Curls (3×12)" },
+        { name: "Legs Day", lifts: "Barbell Squat (4×6-8 @ RPE 8), Romanian Deadlift (3×8-10), Bulgarian Split Squat (3×10/leg), Standing Calf Raises (4×15)" },
+      ],
+      targetSets: 16,
+    },
+    hybrid_ppl: {
+      name: "PPL + Upper / Lower Hybrid Split",
+      frequency: "5 Days / Week",
+      badge: "Hybrid PPL (5-Day)",
+      description: "High-frequency protocol combining dedicated push/pull/legs sessions with targeted upper/lower volume.",
+      days: [
+        { name: "Push Day", lifts: "Incline Barbell Bench (4×6-8), DB Shoulder Press (3×10), Lateral Raises (4×15), Tricep Dips (3×10)" },
+        { name: "Pull Day", lifts: "Barbell Deadlift (3×5), Chest-Supported Row (4×8), Lat Pulldown (3×10), Incline DB Curls (3×12)" },
+        { name: "Legs Day", lifts: "Back Squat (4×6-8), Romanian Deadlift (3×8), Bulgarian Split Squats (3×10/leg), Calf Raises (4×15)" },
+        { name: "Upper Focus", lifts: "Overhead Press (4×6), Weighted Pull-ups (3×6), Cable Flyes (3×12), Hammer Curls (3×12)" },
+        { name: "Lower & Core", lifts: "Front Squat (3×8), Lying Hamstring Curl (4×10), Hanging Leg Raises (4×12), Ab Wheel (3×15)" },
+      ],
+      targetSets: 15,
+    },
     full_body: {
       name: "Full Body Frequency",
       frequency: "3 Days / Week",
+      badge: "Full Body Frequency (3-Day)",
       description: "High-efficiency periodization that stimulates muscle protein synthesis across the entire kinetic chain every 48 hours.",
       days: [
         { name: "Session A", lifts: "Front Squat (3×8 @ RPE 8), Flat DB Bench (3×8), Chest-Supported Row (3×10), DB Lateral Raises (3×15)" },
@@ -618,6 +659,8 @@ export default function LandingPage() {
       targetSets: 12,
     },
   };
+
+  const currentSplit = splitDetails[activeSplit] || splitDetails.upper_lower;
 
   // --- AI Coach Consultation Demo State ---
   const [selectedCoachQuestion, setSelectedCoachQuestion] = useState<number>(0);
@@ -1995,41 +2038,22 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* Split Switcher */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveSplit("ppl")}
-            className={`rounded-xl px-4 py-2.5 text-xs font-bold transition border ${
-              activeSplit === "ppl"
-                ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-lg shadow-emerald-500/20"
-                : "bg-neutral-900/80 border-neutral-800 text-neutral-400 hover:text-white"
-            }`}
+        {/* Active Split Selected in Settings */}
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold bg-emerald-500 text-neutral-950 border border-emerald-400 shadow-lg shadow-emerald-500/20">
+            <CheckCircle2 className="h-4 w-4 text-neutral-950" />
+            <span>{currentSplit.badge}</span>
+            <span className="text-[10px] bg-neutral-950/20 px-2 py-0.5 rounded text-neutral-950 font-mono">
+              Active Routine
+            </span>
+          </div>
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900/80 px-3.5 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white hover:border-neutral-700 transition"
           >
-            Push / Pull / Legs (PPL)
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSplit("upper_lower")}
-            className={`rounded-xl px-4 py-2.5 text-xs font-bold transition border ${
-              activeSplit === "upper_lower"
-                ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-lg shadow-emerald-500/20"
-                : "bg-neutral-900/80 border-neutral-800 text-neutral-400 hover:text-white"
-            }`}
-          >
-            Upper / Lower (4-Day)
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSplit("full_body")}
-            className={`rounded-xl px-4 py-2.5 text-xs font-bold transition border ${
-              activeSplit === "full_body"
-                ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-lg shadow-emerald-500/20"
-                : "bg-neutral-900/80 border-neutral-800 text-neutral-400 hover:text-white"
-            }`}
-          >
-            Full Body Frequency (3-Day)
-          </button>
+            <span>Change in Settings</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
 
         {/* Split Detail Card */}
@@ -2037,25 +2061,33 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-4">
             <div>
               <h3 className="text-xl font-bold text-white tracking-tight">
-                {splitDetails[activeSplit].name}
+                {currentSplit.name}
               </h3>
               <p className="text-xs text-neutral-400 mt-1">
-                {splitDetails[activeSplit].description}
+                {currentSplit.description}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-3 py-1 text-xs font-mono font-semibold text-cyan-400">
-                {splitDetails[activeSplit].frequency}
+                {currentSplit.frequency}
               </span>
               <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-mono font-semibold text-emerald-400">
-                ~{splitDetails[activeSplit].targetSets} Weekly Sets / Muscle
+                ~{currentSplit.targetSets} Weekly Sets / Muscle
               </span>
             </div>
           </div>
 
           {/* Routine Sessions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {splitDetails[activeSplit].days.map((day, idx) => (
+          <div
+            className={`grid grid-cols-1 gap-4 ${
+              currentSplit.days.length === 4
+                ? "sm:grid-cols-2 lg:grid-cols-4"
+                : currentSplit.days.length === 5
+                ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+                : "md:grid-cols-3"
+            }`}
+          >
+            {currentSplit.days.map((day, idx) => (
               <div key={idx} className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-4 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 font-mono">
