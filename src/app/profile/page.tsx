@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Database,
   Dumbbell,
+  Edit3,
   ExternalLink,
   Flame,
   Heart,
@@ -29,6 +30,7 @@ import {
   Scan,
   Search,
   ShieldCheck,
+  Sliders,
   Sparkles,
   TrendingUp,
   User as UserIcon,
@@ -36,6 +38,13 @@ import {
   Zap,
 } from "lucide-react";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
+import { CustomSplitModal } from "@/components/custom-split-modal";
+import {
+  CustomSplit,
+  DEFAULT_CUSTOM_SPLIT,
+  loadCustomSplit,
+  saveCustomSplit,
+} from "@/lib/custom-split";
 import { createClient } from "@/lib/supabase/client";
 import {
   calculateNutritionTargets,
@@ -114,6 +123,9 @@ export default function ProfilePage() {
   const [goalWeightLbs, setGoalWeightLbs] = useState<number | string>(175);
   const [equipment, setEquipment] = useState<string>("COMMERCIAL_GYM");
   const [splitDays, setSplitDays] = useState<number>(4);
+  const [isCustomSplit, setIsCustomSplit] = useState(false);
+  const [isCustomSplitModalOpen, setIsCustomSplitModalOpen] = useState(false);
+  const [customSplit, setCustomSplit] = useState<CustomSplit>(DEFAULT_CUSTOM_SPLIT);
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
   const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
   const [dietPreference, setDietPreference] = useState<string>("STANDARD");
@@ -203,6 +215,11 @@ export default function ProfilePage() {
             }
             if (data.profile.equipment) setEquipment(data.profile.equipment);
             if (data.profile.splitDays) setSplitDays(data.profile.splitDays);
+            if (data.profile.splitType) {
+              if (data.profile.splitType.toUpperCase().includes("CUSTOM")) {
+                setIsCustomSplit(true);
+              }
+            }
             if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
             if (data.profile.goal) {
               setGoal(
@@ -219,11 +236,16 @@ export default function ProfilePage() {
 
         // Check local storage for avatar or offline cached profile fields
         if (typeof window !== "undefined") {
+          const loadedCustom = loadCustomSplit();
+          setCustomSplit(loadedCustom);
           const stored = localStorage.getItem("sw_athlete_profile");
           if (stored) {
             try {
               const p = JSON.parse(stored);
               if (p.avatar) setAvatar(p.avatar);
+              if (p.splitType && p.splitType.toUpperCase().includes("CUSTOM")) {
+                setIsCustomSplit(true);
+              }
               if (!res?.ok && p.heightFt) setHeightFt(p.heightFt);
               if (!res?.ok && p.heightIn !== undefined && p.heightIn !== null && p.heightIn !== "") setHeightIn(p.heightIn);
             } catch {}
@@ -306,8 +328,8 @@ export default function ProfilePage() {
         weightKg: numWeightKg,
         goalWeightKg: (Number(goalWeightLbs) || 170) / 2.20462,
         equipment,
-        splitDays,
-        splitType: calculatedTargets.splitInfo.name,
+        splitDays: isCustomSplit ? (customSplit.daysCount || customSplit.days.length || 4) : splitDays,
+        splitType: isCustomSplit ? "CUSTOM" : calculatedTargets.splitInfo.name,
         activityLevel,
         goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
         dietPreference,
@@ -341,7 +363,8 @@ export default function ProfilePage() {
           weightLbs: numWeightLbs,
           goalWeightLbs: Number(goalWeightLbs),
           equipment,
-          splitDays,
+          splitDays: isCustomSplit ? (customSplit.daysCount || customSplit.days.length || 4) : splitDays,
+          splitType: isCustomSplit ? "CUSTOM" : calculatedTargets.splitInfo.name,
           activityLevel,
           goal,
           dietPreference,
@@ -869,65 +892,135 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Day Buttons */}
-                <div className="grid grid-cols-4 gap-2">
-                  {[3, 4, 5, 6].map((days) => (
+                {/* Day & Custom Split Buttons */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    { days: 3, label: "Full Body" },
+                    { days: 4, label: "Upper / Lower" },
+                    { days: 5, label: "Hybrid PPL" },
+                    { days: 6, label: "PPL x 2" },
+                  ].map((s) => (
                     <button
-                      key={days}
+                      key={s.days}
                       type="button"
-                      onClick={() => setSplitDays(days)}
+                      onClick={() => {
+                        setIsCustomSplit(false);
+                        setSplitDays(s.days);
+                      }}
                       className={`py-3 px-2 rounded-xl border text-center transition ${
-                        splitDays === days
+                        !isCustomSplit && splitDays === s.days
                           ? "border-emerald-500 bg-emerald-500/20 shadow-md shadow-emerald-500/20"
                           : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
                       }`}
                     >
-                      <div className="text-lg font-black text-white font-mono">{days} Days</div>
-                      <div className="text-[10px] text-neutral-400">
-                        {days === 3
-                          ? "Full Body"
-                          : days === 4
-                          ? "Upper / Lower"
-                          : days === 5
-                          ? "Hybrid PPL"
-                          : "PPL x 2"}
-                      </div>
+                      <div className="text-base sm:text-lg font-black text-white font-mono">{s.days} Days</div>
+                      <div className="text-[10px] text-neutral-400">{s.label}</div>
                     </button>
                   ))}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomSplit(true);
+                      setSplitDays(customSplit.daysCount || customSplit.days.length || 4);
+                    }}
+                    className={`py-3 px-2 rounded-xl border text-center transition col-span-2 sm:col-span-1 ${
+                      isCustomSplit
+                        ? "border-cyan-500 bg-cyan-500/20 shadow-md shadow-cyan-500/20"
+                        : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
+                    }`}
+                  >
+                    <div className="text-base sm:text-lg font-black text-cyan-400 font-mono flex items-center justify-center gap-1">
+                      <Sliders className="h-4 w-4" />
+                      <span>Custom</span>
+                    </div>
+                    <div className="text-[10px] text-neutral-400">
+                      {customSplit.daysCount || customSplit.days.length}D Split
+                    </div>
+                  </button>
                 </div>
 
                 {/* Selected Split Details Card */}
-                {calculatedTargets.splitInfo && (
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">
-                        {calculatedTargets.splitInfo.name}
-                      </span>
-                      <span className="text-[10px] text-neutral-400 font-mono">
-                        {calculatedTargets.splitInfo.tagline}
-                      </span>
+                {isCustomSplit ? (
+                  <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cyan-500/20 pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider font-mono">
+                            {customSplit.name}
+                          </span>
+                          <span className="text-[10px] bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded text-cyan-300 font-mono">
+                            {customSplit.frequency}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">
+                          {customSplit.description}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomSplitModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition shrink-0"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                        <span>Edit Custom Split</span>
+                      </button>
                     </div>
 
-                    <p className="text-xs text-neutral-300 leading-relaxed">
-                      {calculatedTargets.splitInfo.focus}
-                    </p>
-
-                    <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
+                    <div className="space-y-1.5">
                       <div className="text-[10px] uppercase font-mono text-neutral-400 font-bold">
-                        Weekly Microcycle Schedule
+                        Routine Days &amp; Prescriptions
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-neutral-300 font-mono">
-                        {calculatedTargets.splitInfo.schedule.map((item, idx) => (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {customSplit.days.map((day, idx) => (
                           <div
                             key={idx}
-                            className="rounded-lg bg-neutral-950/80 border border-neutral-800/80 px-2.5 py-1.5 text-[11px]"
+                            className="rounded-lg bg-neutral-950/80 border border-neutral-800/80 p-2.5 space-y-1"
                           >
-                            {item}
+                            <div className="font-bold text-emerald-400 font-mono text-[11px]">
+                              {day.name}
+                            </div>
+                            <div className="text-[10px] text-neutral-300 font-mono line-clamp-2">
+                              {day.lifts}
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
+                ) : (
+                  calculatedTargets.splitInfo && (
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">
+                          {calculatedTargets.splitInfo.name}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          {calculatedTargets.splitInfo.tagline}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-neutral-300 leading-relaxed">
+                        {calculatedTargets.splitInfo.focus}
+                      </p>
+
+                      <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
+                        <div className="text-[10px] uppercase font-mono text-neutral-400 font-bold">
+                          Weekly Microcycle Schedule
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-neutral-300 font-mono">
+                          {calculatedTargets.splitInfo.schedule.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="rounded-lg bg-neutral-950/80 border border-neutral-800/80 px-2.5 py-1.5 text-[11px]"
+                            >
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
 
@@ -1269,6 +1362,27 @@ export default function ProfilePage() {
         }}
         initialMealType={scannerMealType}
         preSelectedFood={scannerFood}
+      />
+
+      {/* Custom Split Builder Modal */}
+      <CustomSplitModal
+        isOpen={isCustomSplitModalOpen}
+        onClose={() => setIsCustomSplitModalOpen(false)}
+        initialSplit={customSplit}
+        onSplitSaved={(saved) => {
+          setCustomSplit(saved);
+          setIsCustomSplit(true);
+          setSplitDays(saved.daysCount || saved.days.length || 4);
+          try {
+            const stored = localStorage.getItem("sw_athlete_profile");
+            if (stored) {
+              const p = JSON.parse(stored);
+              p.splitType = "CUSTOM";
+              p.splitDays = saved.daysCount || saved.days.length || 4;
+              localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
+            }
+          } catch {}
+        }}
       />
     </div>
   );

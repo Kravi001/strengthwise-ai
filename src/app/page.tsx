@@ -42,6 +42,9 @@ import {
   Scan,
   Search,
   ShieldCheck,
+  Settings,
+  Shuffle,
+  Sliders,
   Sparkles,
   Trash2,
   TrendingUp,
@@ -54,6 +57,13 @@ import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
 import { WorkoutModal } from "@/components/workout-modal";
+import { CustomSplitModal } from "@/components/custom-split-modal";
+import {
+  CustomSplit,
+  DEFAULT_CUSTOM_SPLIT,
+  loadCustomSplit,
+  saveCustomSplit,
+} from "@/lib/custom-split";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 const AVATAR_PRESETS = ["🏋️‍♂️", "🦾", "🥗", "⚡", "🧘", "🏆", "🔥", "🥇"];
@@ -151,10 +161,13 @@ export default function LandingPage() {
     }
   };
 
-  // --- Workout Logging State & Handlers ---
+  // --- Workout Logging & Split Builder State ---
   const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);
   const [workoutModalPresetName, setWorkoutModalPresetName] = useState<string>("");
   const [workoutModalPresetNotes, setWorkoutModalPresetNotes] = useState<string>("");
+  const [workoutModalInitialMode, setWorkoutModalInitialMode] = useState<"routine" | "random" | "freeform">("routine");
+  const [isCustomSplitModalOpen, setIsCustomSplitModalOpen] = useState(false);
+  const [customSplit, setCustomSplit] = useState<CustomSplit>(DEFAULT_CUSTOM_SPLIT);
   const [loggedWorkoutsData, setLoggedWorkoutsData] = useState<{
     workouts: any[];
     summary: {
@@ -310,6 +323,11 @@ export default function LandingPage() {
           await loadProfileForUser(currentUser);
           await fetchLoggedMeals();
           await fetchLoggedWorkouts();
+
+          if (typeof window !== "undefined") {
+            const loadedCustom = loadCustomSplit();
+            setCustomSplit(loadedCustom);
+          }
         } else {
           // Guest state: no profile allowed without an account
           setHasProfile(false);
@@ -641,11 +659,13 @@ export default function LandingPage() {
   const [userSplitDays, setUserSplitDays] = useState<number>(4);
   const [userSplitType, setUserSplitType] = useState<string>("Upper / Lower Power & Hypertrophy");
 
-  const activeSplit = useMemo<"ppl" | "upper_lower" | "full_body" | "hybrid_ppl">(() => {
+  const activeSplit = useMemo<"ppl" | "upper_lower" | "full_body" | "hybrid_ppl" | "custom">(() => {
+    if (userSplitType.toLowerCase().includes("custom")) return "custom";
     if (userSplitDays === 3 || userSplitType.toLowerCase().includes("full body")) return "full_body";
     if (userSplitDays === 4 || userSplitType.toLowerCase().includes("upper") || userSplitType.toLowerCase().includes("lower")) return "upper_lower";
     if (userSplitDays === 5 || userSplitType.toLowerCase().includes("hybrid")) return "hybrid_ppl";
-    return "ppl";
+    if (userSplitDays === 6 || userSplitType.toLowerCase().includes("ppl")) return "ppl";
+    return "upper_lower";
   }, [userSplitDays, userSplitType]);
 
   const splitDetails: Record<
@@ -712,7 +732,57 @@ export default function LandingPage() {
     },
   };
 
-  const currentSplit = splitDetails[activeSplit] || splitDetails.upper_lower;
+  const currentSplit = useMemo(() => {
+    if (activeSplit === "custom") {
+      return {
+        name: customSplit.name || "Custom Split",
+        frequency: `${customSplit.daysCount || customSplit.days.length} Days / Week`,
+        badge: `Custom Split (${customSplit.daysCount || customSplit.days.length}-Day)`,
+        description:
+          customSplit.description ||
+          "Personalized split tailored to specific weak-points and weekly schedule.",
+        days: customSplit.days.map((d) => ({ name: d.name, lifts: d.lifts })),
+        targetSets: customSplit.targetSets || 14,
+      };
+    }
+    return splitDetails[activeSplit] || splitDetails.upper_lower;
+  }, [activeSplit, customSplit, splitDetails]);
+
+  const handleSelectSplit = (splitKey: "full_body" | "upper_lower" | "hybrid_ppl" | "ppl" | "custom") => {
+    if (splitKey === "custom") {
+      setUserSplitType("CUSTOM");
+      const d = customSplit.daysCount || customSplit.days.length || 4;
+      setUserSplitDays(d);
+      try {
+        const stored = localStorage.getItem("sw_athlete_profile");
+        if (stored) {
+          const p = JSON.parse(stored);
+          p.splitType = "CUSTOM";
+          p.splitDays = d;
+          localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
+        }
+      } catch {}
+    } else {
+      const daysMap = { full_body: 3, upper_lower: 4, hybrid_ppl: 5, ppl: 6 };
+      const nameMap = {
+        full_body: "Full Body Foundation Split",
+        upper_lower: "Upper / Lower Power & Hypertrophy",
+        hybrid_ppl: "PPL + Upper / Lower Hybrid Split",
+        ppl: "Push / Pull / Legs (PPL x 2) Elite Split",
+      };
+      setUserSplitType(nameMap[splitKey]);
+      setUserSplitDays(daysMap[splitKey]);
+      try {
+        const stored = localStorage.getItem("sw_athlete_profile");
+        if (stored) {
+          const p = JSON.parse(stored);
+          p.splitType = nameMap[splitKey];
+          p.splitDays = daysMap[splitKey];
+          localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
+        }
+      } catch {}
+    }
+  };
 
   // --- AI Coach Consultation Demo State ---
   const [selectedCoachQuestion, setSelectedCoachQuestion] = useState<number>(0);
@@ -2090,43 +2160,114 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* Active Split Selected in Settings */}
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <div className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold bg-emerald-500 text-neutral-950 border border-emerald-400 shadow-lg shadow-emerald-500/20">
-            <CheckCircle2 className="h-4 w-4 text-neutral-950" />
-            <span>{currentSplit.badge}</span>
-            <span className="text-[10px] bg-neutral-950/20 px-2 py-0.5 rounded text-neutral-950 font-mono">
-              Active Routine
-            </span>
+        {/* Split Switcher Tabs & Active Program */}
+        <div className="space-y-3">
+          {/* Split Mode Switcher Pills */}
+          <div className="flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-2xl bg-neutral-900/90 border border-neutral-800 max-w-2xl mx-auto shadow-inner">
+            {[
+              { id: "full_body", label: "Full Body", days: "3-Day" },
+              { id: "upper_lower", label: "Upper / Lower", days: "4-Day" },
+              { id: "hybrid_ppl", label: "Hybrid PPL", days: "5-Day" },
+              { id: "ppl", label: "PPL x 2", days: "6-Day" },
+              { id: "custom", label: "Custom Split", days: `${customSplit.daysCount || customSplit.days.length}D` },
+            ].map((s) => {
+              const isSelected = activeSplit === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleSelectSplit(s.id as any)}
+                  className={`flex-1 min-w-[100px] text-xs font-semibold py-2 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 ${
+                    isSelected
+                      ? "bg-emerald-500 text-neutral-950 font-bold shadow-md shadow-emerald-500/20"
+                      : "text-neutral-400 hover:text-white hover:bg-neutral-800/60"
+                  }`}
+                >
+                  <span>{s.label}</span>
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                      isSelected ? "bg-neutral-950/20 text-neutral-950" : "bg-neutral-800 text-neutral-400"
+                    }`}
+                  >
+                    {s.days}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <Link
-            href="/profile"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900/80 px-3.5 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white hover:border-neutral-700 transition"
-          >
-            <span>Change in Settings</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-          <button
-            type="button"
-            onClick={() => {
-              setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
-              setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
-              setIsWorkoutModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20"
-          >
-            <Plus className="h-3.5 w-3.5 stroke-[3]" />
-            <span>Track Workout</span>
-          </button>
+
+          {/* Quick Actions Bar */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+            {activeSplit === "custom" ? (
+              <button
+                type="button"
+                onClick={() => setIsCustomSplitModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-4 py-2.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/25 transition shadow-sm"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                <span>Customize Split &amp; Days</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  handleSelectSplit("custom");
+                  setIsCustomSplitModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900/80 px-3.5 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white hover:border-neutral-700 transition"
+              >
+                <Sliders className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Build Custom Split</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
+                setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
+                setWorkoutModalInitialMode("routine");
+                setIsWorkoutModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20"
+            >
+              <Plus className="h-3.5 w-3.5 stroke-[3]" />
+              <span>Track Routine Split</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setWorkoutModalInitialMode("random");
+                setIsWorkoutModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900/90 px-4 py-2.5 text-xs font-bold text-neutral-200 hover:text-white hover:border-cyan-500/50 hover:bg-neutral-800 transition shadow-sm"
+            >
+              <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
+              <span>Log Random / Freeform</span>
+            </button>
+          </div>
         </div>
 
         {/* Split Detail Card */}
         <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-4">
             <div>
-              <h3 className="text-xl font-bold text-white tracking-tight">
-                {currentSplit.name}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-bold text-white tracking-tight">
+                  {currentSplit.name}
+                </h3>
+                {activeSplit === "custom" && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomSplitModalOpen(true)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-400 hover:underline bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 rounded-lg"
+                  >
+                    <Edit3 className="h-3 w-3" />
+                    <span>Edit</span>
+                  </button>
+                )}
+              </div>
               <p className="text-xs text-neutral-400 mt-1">
                 {currentSplit.description}
               </p>
@@ -2199,18 +2340,32 @@ export default function LandingPage() {
                 Real-time volume accumulation, training duration, and caloric output logged to your account.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
-                setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
-                setIsWorkoutModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20 shrink-0 self-start sm:self-auto"
-            >
-              <Plus className="h-3.5 w-3.5 stroke-[3]" />
-              <span>Track Workout</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
+                  setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
+                  setWorkoutModalInitialMode("routine");
+                  setIsWorkoutModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[3]" />
+                <span>Track Routine</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkoutModalInitialMode("random");
+                  setIsWorkoutModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-900/90 px-3 py-2 text-xs font-bold text-neutral-200 hover:text-white hover:border-cyan-500/50 hover:bg-neutral-800 transition shadow-sm"
+              >
+                <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Random / Freeform</span>
+              </button>
+            </div>
           </div>
 
           {/* Telemetry Summary Stats */}
@@ -2273,18 +2428,32 @@ export default function LandingPage() {
                     Track your first training session to unlock weekly volume monitoring and adherence metrics.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
-                    setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
-                    setIsWorkoutModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/25 transition"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Track First Workout</span>
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
+                      setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
+                      setWorkoutModalInitialMode("routine");
+                      setIsWorkoutModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/25 transition"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Track Split Session</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWorkoutModalInitialMode("random");
+                      setIsWorkoutModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-neutral-800/80 border border-neutral-700 px-4 py-2 text-xs font-bold text-neutral-300 hover:text-white hover:border-neutral-600 transition"
+                  >
+                    <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Roll Random Workout</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2641,6 +2810,28 @@ export default function LandingPage() {
         initialNotes={workoutModalPresetNotes}
         presetSessions={currentSplit.days}
         athleteWeightKg={numWeightKg}
+        initialMode={workoutModalInitialMode}
+      />
+
+      {/* Custom Split Builder Modal */}
+      <CustomSplitModal
+        isOpen={isCustomSplitModalOpen}
+        onClose={() => setIsCustomSplitModalOpen(false)}
+        initialSplit={customSplit}
+        onSplitSaved={(saved) => {
+          setCustomSplit(saved);
+          setUserSplitType("CUSTOM");
+          setUserSplitDays(saved.daysCount || saved.days.length || 4);
+          try {
+            const stored = localStorage.getItem("sw_athlete_profile");
+            if (stored) {
+              const p = JSON.parse(stored);
+              p.splitType = "CUSTOM";
+              p.splitDays = saved.daysCount || saved.days.length || 4;
+              localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
+            }
+          } catch {}
+        }}
       />
     </div>
   );

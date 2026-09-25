@@ -8,10 +8,13 @@ import {
   Dumbbell,
   Flame,
   Plus,
+  RotateCcw,
   Sparkles,
+  Shuffle,
   X,
   Zap,
 } from "lucide-react";
+import { getRandomWorkout, RANDOM_WORKOUTS, RandomWorkoutTemplate } from "@/lib/custom-split";
 
 interface WorkoutModalProps {
   isOpen: boolean;
@@ -21,6 +24,7 @@ interface WorkoutModalProps {
   initialNotes?: string;
   presetSessions?: { name: string; lifts: string }[];
   athleteWeightKg?: number;
+  initialMode?: "routine" | "random" | "freeform";
 }
 
 export function WorkoutModal({
@@ -31,7 +35,9 @@ export function WorkoutModal({
   initialNotes = "",
   presetSessions = [],
   athleteWeightKg = 84,
+  initialMode = "routine",
 }: WorkoutModalProps) {
+  const [activeTab, setActiveTab] = useState<"routine" | "random" | "freeform">(initialMode);
   const [workoutName, setWorkoutName] = useState(initialWorkoutName);
   const [durationMinutes, setDurationMinutes] = useState<number | string>(50);
   const [caloriesBurned, setCaloriesBurned] = useState<number | string>(380);
@@ -39,12 +45,26 @@ export function WorkoutModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [randomBanner, setRandomBanner] = useState<string | null>(null);
 
   // Sync state whenever modal opens or props change
   useEffect(() => {
     if (isOpen) {
-      setWorkoutName(initialWorkoutName || (presetSessions[0]?.name ?? "Strength Session"));
-      setNotes(initialNotes || (presetSessions[0]?.lifts ?? ""));
+      setActiveTab(initialMode);
+      if (initialMode === "freeform") {
+        setWorkoutName(initialWorkoutName || "");
+        setNotes(initialNotes || "");
+      } else if (initialMode === "random") {
+        const rolled = getRandomWorkout();
+        setWorkoutName(rolled.name);
+        setNotes(rolled.lifts);
+        setDurationMinutes(rolled.durationMinutes);
+        setRandomBanner(`Rolled: ${rolled.name} (${rolled.category})`);
+      } else {
+        setWorkoutName(initialWorkoutName || (presetSessions[0]?.name ?? "Strength Session"));
+        setNotes(initialNotes || (presetSessions[0]?.lifts ?? ""));
+      }
+
       setErrorMsg(null);
       setSuccessMsg(null);
 
@@ -54,7 +74,7 @@ export function WorkoutModal({
       const estimatedCals = Math.round((6.0 * 3.5 * weight / 200) * mins);
       setCaloriesBurned(estimatedCals);
     }
-  }, [isOpen, initialWorkoutName, initialNotes, presetSessions, athleteWeightKg]);
+  }, [isOpen, initialWorkoutName, initialNotes, presetSessions, athleteWeightKg, initialMode]);
 
   // Recalculate estimated calories when duration changes
   const handleDurationChange = (val: number | string) => {
@@ -70,6 +90,28 @@ export function WorkoutModal({
   const handleSelectPreset = (preset: { name: string; lifts: string }) => {
     setWorkoutName(preset.name);
     setNotes(preset.lifts);
+    setRandomBanner(null);
+  };
+
+  const handleSelectRandomTemplate = (template: RandomWorkoutTemplate) => {
+    setWorkoutName(template.name);
+    setNotes(template.lifts + (template.notes ? `\n\nNotes: ${template.notes}` : ""));
+    handleDurationChange(template.durationMinutes);
+    setRandomBanner(`Selected: ${template.name}`);
+  };
+
+  const handleRollRandom = () => {
+    const rolled = getRandomWorkout();
+    setWorkoutName(rolled.name);
+    setNotes(rolled.lifts + (rolled.notes ? `\n\nNotes: ${rolled.notes}` : ""));
+    handleDurationChange(rolled.durationMinutes);
+    setRandomBanner(`Rolled Random: ${rolled.name} 🔥`);
+  };
+
+  const handleClearFreeform = () => {
+    setWorkoutName("");
+    setNotes("");
+    setRandomBanner(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,9 +159,9 @@ export function WorkoutModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-neutral-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-lg rounded-3xl border border-neutral-800 bg-neutral-900/95 p-6 shadow-2xl space-y-6 text-neutral-100 max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-lg rounded-3xl border border-neutral-800 bg-neutral-900/95 p-5 sm:p-6 shadow-2xl space-y-5 text-neutral-100 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -136,7 +178,7 @@ export function WorkoutModal({
                 </span>
               </h3>
               <p className="text-xs text-neutral-400">
-                Log completed lifts, sets, training duration, and caloric load.
+                Log routine split sessions, roll random workouts, or record freeform training.
               </p>
             </div>
           </div>
@@ -146,6 +188,57 @@ export function WorkoutModal({
             className="rounded-xl p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
           >
             <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Tab Mode Switcher */}
+        <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-neutral-950/80 p-1 border border-neutral-800/80">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("routine");
+              if (presetSessions.length > 0) {
+                setWorkoutName(presetSessions[0].name);
+                setNotes(presetSessions[0].lifts);
+              }
+              setRandomBanner(null);
+            }}
+            className={`py-2 px-2 text-xs font-semibold rounded-xl transition text-center ${
+              activeTab === "routine"
+                ? "bg-neutral-800 text-white shadow-sm"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            Routine Split
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("random");
+              handleRollRandom();
+            }}
+            className={`py-2 px-2 text-xs font-semibold rounded-xl transition text-center flex items-center justify-center gap-1.5 ${
+              activeTab === "random"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
+            <span>Random Picks</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("freeform");
+              handleClearFreeform();
+            }}
+            className={`py-2 px-2 text-xs font-semibold rounded-xl transition text-center ${
+              activeTab === "freeform"
+                ? "bg-neutral-800 text-white shadow-sm"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            Custom / Freeform
           </button>
         </div>
 
@@ -163,8 +256,8 @@ export function WorkoutModal({
           </div>
         )}
 
-        {/* Quick Select Presets (From Active Split) */}
-        {presetSessions.length > 0 && (
+        {/* Tab 1: Quick Pick Presets (From Active Split) */}
+        {activeTab === "routine" && presetSessions.length > 0 && (
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider font-mono">
               Quick Pick From Routine:
@@ -188,6 +281,66 @@ export function WorkoutModal({
           </div>
         )}
 
+        {/* Tab 2: Random Workout Selector & Roll Button */}
+        {activeTab === "random" && (
+          <div className="space-y-2.5 rounded-2xl border border-neutral-800/80 bg-neutral-950/60 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-neutral-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Random Workout Generator</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleRollRandom}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500/20 border border-cyan-500/40 px-3 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition shadow-sm"
+              >
+                <Shuffle className="h-3 w-3" />
+                <span>Roll Another</span>
+              </button>
+            </div>
+
+            {randomBanner && (
+              <div className="text-xs text-cyan-300 font-medium bg-cyan-950/40 border border-cyan-800/40 px-2.5 py-1 rounded-lg flex items-center justify-between">
+                <span>{randomBanner}</span>
+                <span className="text-[10px] text-neutral-400 font-mono">Auto-populated</span>
+              </div>
+            )}
+
+            {/* Quick random pills */}
+            <div className="flex flex-wrap gap-1 pt-1 max-h-24 overflow-y-auto">
+              {RANDOM_WORKOUTS.map((rw, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectRandomTemplate(rw)}
+                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                    workoutName === rw.name
+                      ? "bg-cyan-500/25 border-cyan-400 text-white font-bold"
+                      : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700"
+                  }`}
+                >
+                  {rw.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Freeform helpers */}
+        {activeTab === "freeform" && (
+          <div className="flex items-center justify-between text-xs text-neutral-400 pb-1">
+            <span>Enter any spontaneous activity, calisthenics, or gym session:</span>
+            <button
+              type="button"
+              onClick={handleClearFreeform}
+              className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Clear Inputs</span>
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Workout Name */}
           <div className="space-y-1.5">
@@ -197,7 +350,7 @@ export function WorkoutModal({
             <input
               type="text"
               required
-              placeholder="e.g. Upper A (Strength), Legs Hypertrophy, 5km Conditioning"
+              placeholder="e.g. Upper A (Strength), Legs Hypertrophy, 5km Conditioning, BJJ Open Mat..."
               value={workoutName}
               onChange={(e) => setWorkoutName(e.target.value)}
               className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-cyan-500 focus:outline-none transition"

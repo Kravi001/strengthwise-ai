@@ -112,8 +112,8 @@ export function calculateNutritionTargets(
   const baseMultiplier = ACTIVITY_MULTIPLIERS[activityKey] || 1.55;
   
   // Split Days adjustment: higher frequency lifts burn more energy
-  const splitDays = input.splitDays && [3, 4, 5, 6].includes(input.splitDays) ? input.splitDays : 4;
-  const splitMultiplierBonus = splitDays >= 5 ? 0.05 : 0;
+  const splitDays = input.splitDays && input.splitDays >= 1 && input.splitDays <= 7 ? input.splitDays : 4;
+  const splitMultiplierBonus = splitDays >= 5 ? 0.05 : splitDays <= 2 ? -0.02 : 0;
   const effectiveMultiplier = baseMultiplier + splitMultiplierBonus;
 
   const tdee = Math.round(bmr * effectiveMultiplier);
@@ -174,7 +174,13 @@ export function calculateNutritionTargets(
     fatPercent >= 20 &&
     fatPercent <= 35;
 
-  const splitInfo = SPLIT_DETAILS[splitDays] || SPLIT_DETAILS[4];
+  const splitInfo = SPLIT_DETAILS[splitDays] || {
+    days: splitDays,
+    name: "Custom Periodic Training Split",
+    tagline: `${splitDays} Days / Week • Personalized Custom Programming`,
+    schedule: Array.from({ length: splitDays }, (_, i) => `Day ${i + 1}: Custom Training Session`),
+    focus: "Tailored resistance progression configured to your individual weekly schedule and muscle group preferences.",
+  };
 
   return {
     bmr,
