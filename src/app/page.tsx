@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock,
   Code2,
   Database,
   Dumbbell,
@@ -52,6 +53,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
+import { WorkoutModal } from "@/components/workout-modal";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 const AVATAR_PRESETS = ["🏋️‍♂️", "🦾", "🥗", "⚡", "🧘", "🏆", "🔥", "🥇"];
@@ -146,6 +148,53 @@ export default function LandingPage() {
       await fetchLoggedMeals();
     } catch (err) {
       console.warn("Failed to delete meal:", err);
+    }
+  };
+
+  // --- Workout Logging State & Handlers ---
+  const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);
+  const [workoutModalPresetName, setWorkoutModalPresetName] = useState<string>("");
+  const [workoutModalPresetNotes, setWorkoutModalPresetNotes] = useState<string>("");
+  const [loggedWorkoutsData, setLoggedWorkoutsData] = useState<{
+    workouts: any[];
+    summary: {
+      totalWorkouts: number;
+      thisWeekCount: number;
+      totalMinutes: number;
+      totalCalories: number;
+      weeklyMinutes: number;
+      weeklyCalories: number;
+    };
+  }>({
+    workouts: [],
+    summary: {
+      totalWorkouts: 0,
+      thisWeekCount: 0,
+      totalMinutes: 0,
+      totalCalories: 0,
+      weeklyMinutes: 0,
+      weeklyCalories: 0,
+    },
+  });
+
+  const fetchLoggedWorkouts = async () => {
+    try {
+      const res = await fetch("/api/workouts");
+      if (res.ok) {
+        const data = await res.json();
+        setLoggedWorkoutsData(data);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch workouts:", err);
+    }
+  };
+
+  const handleDeleteWorkout = async (id: string) => {
+    try {
+      await fetch(`/api/workouts?id=${id}`, { method: "DELETE" });
+      await fetchLoggedWorkouts();
+    } catch (err) {
+      console.warn("Failed to delete workout:", err);
     }
   };
 
@@ -260,6 +309,7 @@ export default function LandingPage() {
           if (currentUser.user_metadata?.full_name) setFullName(currentUser.user_metadata.full_name);
           await loadProfileForUser(currentUser);
           await fetchLoggedMeals();
+          await fetchLoggedWorkouts();
         } else {
           // Guest state: no profile allowed without an account
           setHasProfile(false);
@@ -286,6 +336,7 @@ export default function LandingPage() {
         if (session.user.user_metadata?.full_name) setFullName(session.user.user_metadata.full_name);
         await loadProfileForUser(session.user);
         await fetchLoggedMeals();
+        await fetchLoggedWorkouts();
       } else {
         setAuthUser(null);
         setHasProfile(false);
@@ -308,6 +359,7 @@ export default function LandingPage() {
     const handleProfileUpdate = () => {
       if (authUser) {
         loadProfileForUser(authUser);
+        fetchLoggedWorkouts();
       }
     };
 
@@ -2054,6 +2106,18 @@ export default function LandingPage() {
             <span>Change in Settings</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
+              setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
+              setIsWorkoutModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20"
+          >
+            <Plus className="h-3.5 w-3.5 stroke-[3]" />
+            <span>Track Workout</span>
+          </button>
         </div>
 
         {/* Split Detail Card */}
@@ -2088,18 +2152,186 @@ export default function LandingPage() {
             }`}
           >
             {currentSplit.days.map((day, idx) => (
-              <div key={idx} className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 font-mono">
-                    {day.name}
-                  </h4>
-                  <span className="text-[10px] text-neutral-500 font-mono">RPE 8-9</span>
+              <div key={idx} className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-4 space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 font-mono">
+                      {day.name}
+                    </h4>
+                    <span className="text-[10px] text-neutral-500 font-mono">RPE 8-9</span>
+                  </div>
+                  <p className="text-xs text-neutral-300 leading-relaxed">
+                    {day.lifts}
+                  </p>
                 </div>
-                <p className="text-xs text-neutral-300 leading-relaxed">
-                  {day.lifts}
-                </p>
+                <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between">
+                  <span className="text-[10px] text-neutral-500 font-mono">Autoregulated</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWorkoutModalPresetName(day.name);
+                      setWorkoutModalPresetNotes(day.lifts);
+                      setIsWorkoutModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg bg-cyan-500/10 border border-cyan-500/25 px-2.5 py-1 text-[11px] font-semibold text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 transition"
+                  >
+                    <Plus className="h-3 w-3 stroke-[2.5]" />
+                    <span>Track Session</span>
+                  </button>
+                </div>
               </div>
             ))}
+          </div>
+        </Card>
+
+        {/* Logged Workouts & Activity Telemetry Card */}
+        <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-4">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-cyan-400 font-bold mb-1">
+                <Dumbbell className="h-3.5 w-3.5" />
+                <span>Training Telemetry &amp; Log</span>
+              </div>
+              <h3 className="text-xl font-bold text-white tracking-tight">
+                Logged Workouts
+              </h3>
+              <p className="text-xs text-neutral-400 mt-1">
+                Real-time volume accumulation, training duration, and caloric output logged to your account.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
+                setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
+                setIsWorkoutModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20 shrink-0 self-start sm:self-auto"
+            >
+              <Plus className="h-3.5 w-3.5 stroke-[3]" />
+              <span>Track Workout</span>
+            </button>
+          </div>
+
+          {/* Telemetry Summary Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-1">
+              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
+                Sessions This Week
+              </div>
+              <div className="text-2xl font-black text-white font-mono flex items-baseline gap-1.5">
+                <span>{loggedWorkoutsData.summary.thisWeekCount}</span>
+                <span className="text-xs text-neutral-500 font-normal">/ {userSplitDays} target</span>
+              </div>
+              <div className="text-[10px] text-cyan-400 font-mono">
+                {loggedWorkoutsData.summary.thisWeekCount >= userSplitDays
+                  ? "Weekly Target Reached! 🔥"
+                  : `${Math.max(0, userSplitDays - loggedWorkoutsData.summary.thisWeekCount)} sessions remaining`}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-1">
+              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
+                Weekly Training Time
+              </div>
+              <div className="text-2xl font-black text-white font-mono flex items-baseline gap-1.5">
+                <span>{loggedWorkoutsData.summary.weeklyMinutes}</span>
+                <span className="text-xs text-neutral-500 font-normal">minutes</span>
+              </div>
+              <div className="text-[10px] text-neutral-500 font-mono">
+                {loggedWorkoutsData.summary.totalMinutes} total minutes recorded
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-1">
+              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
+                Energy Expended
+              </div>
+              <div className="text-2xl font-black text-white font-mono flex items-baseline gap-1.5">
+                <span>{loggedWorkoutsData.summary.weeklyCalories}</span>
+                <span className="text-xs text-neutral-500 font-normal">kcal</span>
+              </div>
+              <div className="text-[10px] text-amber-400 font-mono">
+                Resistance expenditure calculated
+              </div>
+            </div>
+          </div>
+
+          {/* Logged Workouts Feed */}
+          <div className="space-y-2.5">
+            <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">
+              Recent Training Sessions
+            </div>
+            {loggedWorkoutsData.workouts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-neutral-800 bg-neutral-950/40 p-8 text-center space-y-3">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                  <Dumbbell className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-white">No workouts recorded yet</h4>
+                  <p className="text-xs text-neutral-400 max-w-sm mx-auto">
+                    Track your first training session to unlock weekly volume monitoring and adherence metrics.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
+                    setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
+                    setIsWorkoutModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/25 transition"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Track First Workout</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {loggedWorkoutsData.workouts.map((w) => (
+                  <div
+                    key={w.id}
+                    className="group rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-2.5 hover:border-neutral-700 transition"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          <span>{w.name}</span>
+                          {w.caloriesBurned && (
+                            <span className="text-[10px] text-amber-400 font-mono bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                              {w.caloriesBurned} kcal
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-neutral-500 font-mono mt-0.5 flex items-center gap-2">
+                          <span>{new Date(w.loggedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                          {w.durationMinutes && (
+                            <>
+                              <span>•</span>
+                              <span className="text-cyan-400">{w.durationMinutes} mins</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWorkout(w.id)}
+                        className="rounded-lg p-1.5 text-neutral-600 hover:text-red-400 hover:bg-neutral-800/80 transition opacity-80 group-hover:opacity-100"
+                        title="Delete workout"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {w.notes && (
+                      <div className="rounded-xl bg-neutral-900/90 border border-neutral-800/80 p-2.5 text-xs text-neutral-300 font-mono leading-relaxed whitespace-pre-line text-[11px]">
+                        {w.notes}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Card>
       </section>
@@ -2398,6 +2630,17 @@ export default function LandingPage() {
         onMealLogged={fetchLoggedMeals}
         initialMealType={scannerInitialMeal}
         initialTab={scannerInitialTab}
+      />
+
+      {/* Interactive Workout Tracking Modal */}
+      <WorkoutModal
+        isOpen={isWorkoutModalOpen}
+        onClose={() => setIsWorkoutModalOpen(false)}
+        onWorkoutLogged={fetchLoggedWorkouts}
+        initialWorkoutName={workoutModalPresetName}
+        initialNotes={workoutModalPresetNotes}
+        presetSessions={currentSplit.days}
+        athleteWeightKg={numWeightKg}
       />
     </div>
   );
