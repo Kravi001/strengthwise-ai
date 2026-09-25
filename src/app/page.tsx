@@ -81,18 +81,20 @@ export default function LandingPage() {
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [age, setAge] = useState<number | string>(26);
-  const [gender, setGender] = useState<"FEMALE" | "MALE">("FEMALE");
-  const [heightFt, setHeightFt] = useState<number | string>(5);
-  const [heightIn, setHeightIn] = useState<number | string>(8);
-  const [currentWeightLbs, setCurrentWeightLbs] = useState<number | string>(155);
-  const [goalWeightLbs, setGoalWeightLbs] = useState<number | string>(145);
-  const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("CUT");
+  const [gender, setGender] = useState<"FEMALE" | "MALE">("MALE");
+  const [heightFt, setHeightFt] = useState<number | string>(6);
+  const [heightIn, setHeightIn] = useState<number | string>(3);
+  const [currentWeightLbs, setCurrentWeightLbs] = useState<number | string>(185);
+  const [goalWeightLbs, setGoalWeightLbs] = useState<number | string>(175);
+  const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
 
   // Calculations
-  const numWeightLbs = Number(currentWeightLbs) || 155;
+  const numWeightLbs = Number(currentWeightLbs) || 185;
   const numWeightKg = numWeightLbs / 2.20462;
-  const totalInches = (Number(heightFt) || 5) * 12 + (Number(heightIn) || 8);
+  const parsedFt = Number(heightFt) > 0 ? Number(heightFt) : 6;
+  const parsedIn = !isNaN(Number(heightIn)) && Number(heightIn) >= 0 ? Number(heightIn) : 0;
+  const totalInches = parsedFt * 12 + parsedIn;
   const heightCm = totalInches * 2.54;
 
   const calculated = calculateNutritionTargets({
@@ -157,13 +159,52 @@ export default function LandingPage() {
           setHasProfile(true);
           setShowProfileForm(false);
           if (data.profile.avatar) setAvatar(data.profile.avatar);
-          if (data.profile.name) setFullName(data.profile.name);
+          if (data.user?.name) {
+            setFullName(data.user.name);
+          } else if (data.profile.name) {
+            setFullName(data.profile.name);
+          } else if (data.profile.firstName) {
+            setFullName(`${data.profile.firstName} ${data.profile.lastName || ""}`.trim());
+          }
           if (data.profile.age) setAge(data.profile.age);
           if (data.profile.gender) setGender(data.profile.gender);
+          if (data.profile.heightCm) {
+            const totalIn = Math.round(data.profile.heightCm / 2.54);
+            setHeightFt(Math.floor(totalIn / 12));
+            setHeightIn(totalIn % 12);
+          }
           if (data.profile.weightKg) setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
           if (data.profile.goalWeightKg) setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
           if (data.profile.goal) setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
           if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+
+          // Sync local storage so other components & tabs remain perfectly aligned
+          if (typeof window !== "undefined") {
+            try {
+              const currentStored = localStorage.getItem("sw_athlete_profile");
+              const parsedExisting = currentStored ? JSON.parse(currentStored) : {};
+              const totalIn = data.profile.heightCm ? Math.round(data.profile.heightCm / 2.54) : 75;
+              const hFt = data.profile.heightCm ? Math.floor(totalIn / 12) : (parsedExisting.heightFt || 6);
+              const hIn = data.profile.heightCm ? (totalIn % 12) : (parsedExisting.heightIn ?? 3);
+              const localPayload = {
+                ...parsedExisting,
+                isCompleted: true,
+                fullName: data.user?.name || (data.profile.firstName ? `${data.profile.firstName} ${data.profile.lastName || ""}`.trim() : parsedExisting.fullName),
+                avatar: parsedExisting.avatar || avatar,
+                age: data.profile.age || parsedExisting.age,
+                gender: data.profile.gender || parsedExisting.gender,
+                heightFt: hFt,
+                heightIn: hIn,
+                heightCm: data.profile.heightCm || (hFt * 12 + hIn) * 2.54,
+                weightLbs: data.profile.weightKg ? Math.round(data.profile.weightKg * 2.20462) : parsedExisting.weightLbs,
+                goalWeightLbs: data.profile.goalWeightKg ? Math.round(data.profile.goalWeightKg * 2.20462) : parsedExisting.goalWeightLbs,
+                goal: data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN",
+                activityLevel: data.profile.activityLevel || parsedExisting.activityLevel,
+                updatedAt: new Date().toISOString(),
+              };
+              localStorage.setItem("sw_athlete_profile", JSON.stringify(localPayload));
+            } catch {}
+          }
           return true;
         }
       }
@@ -184,7 +225,7 @@ export default function LandingPage() {
           if (p.age) setAge(p.age);
           if (p.gender) setGender(p.gender);
           if (p.heightFt) setHeightFt(p.heightFt);
-          if (p.heightIn) setHeightIn(p.heightIn);
+          if (p.heightIn !== undefined && p.heightIn !== null && p.heightIn !== "") setHeightIn(p.heightIn);
           if (p.weightLbs) setCurrentWeightLbs(p.weightLbs);
           if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
           if (p.goal) setGoal(p.goal);
@@ -255,6 +296,22 @@ export default function LandingPage() {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  // Real-time synchronization when profile is updated from /profile or another tab
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      if (authUser) {
+        loadProfileForUser(authUser);
+      }
+    };
+
+    window.addEventListener("sw_profile_updated", handleProfileUpdate);
+    window.addEventListener("storage", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("sw_profile_updated", handleProfileUpdate);
+      window.removeEventListener("storage", handleProfileUpdate);
+    };
+  }, [authUser]);
 
   // 2. Google OAuth Handler (Step 1)
   const handleGoogleSignIn = async () => {

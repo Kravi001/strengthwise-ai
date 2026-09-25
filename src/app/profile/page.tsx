@@ -108,15 +108,15 @@ export default function ProfilePage() {
   const [avatar, setAvatar] = useState("🏋️‍♂️");
   const [age, setAge] = useState<number | string>(26);
   const [gender, setGender] = useState<"MALE" | "FEMALE">("MALE");
-  const [heightFt, setHeightFt] = useState<number | string>(5);
-  const [heightIn, setHeightIn] = useState<number | string>(10);
-  const [currentWeightLbs, setCurrentWeightLbs] = useState<number | string>(175);
-  const [goalWeightLbs, setGoalWeightLbs] = useState<number | string>(170);
+  const [heightFt, setHeightFt] = useState<number | string>(6);
+  const [heightIn, setHeightIn] = useState<number | string>(3);
+  const [currentWeightLbs, setCurrentWeightLbs] = useState<number | string>(185);
+  const [goalWeightLbs, setGoalWeightLbs] = useState<number | string>(175);
   const [equipment, setEquipment] = useState<string>("COMMERCIAL_GYM");
   const [splitDays, setSplitDays] = useState<number>(4);
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
-  const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("MAINTAIN");
-  const [dietPreference, setDietPreference] = useState<string>("HIGH_PROTEIN");
+  const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
+  const [dietPreference, setDietPreference] = useState<string>("STANDARD");
 
   // Status & Notifications
   const [isSaving, setIsSaving] = useState(false);
@@ -136,9 +136,11 @@ export default function ProfilePage() {
   const [scannerMealType, setScannerMealType] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">("LUNCH");
 
   // 1. Convert height and weight to metric for sports science formulas
-  const numWeightLbs = Number(currentWeightLbs) || 175;
+  const numWeightLbs = Number(currentWeightLbs) || 185;
   const numWeightKg = numWeightLbs / 2.20462;
-  const totalInches = (Number(heightFt) || 5) * 12 + (Number(heightIn) || 10);
+  const parsedFt = Number(heightFt) > 0 ? Number(heightFt) : 6;
+  const parsedIn = !isNaN(Number(heightIn)) && Number(heightIn) >= 0 ? Number(heightIn) : 0;
+  const totalInches = parsedFt * 12 + parsedIn;
   const heightCm = totalInches * 2.54;
 
   // 2. Compute live scientific macro recommendations
@@ -212,6 +214,19 @@ export default function ProfilePage() {
               );
             }
             if (data.profile.dietPreference) setDietPreference(data.profile.dietPreference);
+          }
+        }
+
+        // Check local storage for avatar or offline cached profile fields
+        if (typeof window !== "undefined") {
+          const stored = localStorage.getItem("sw_athlete_profile");
+          if (stored) {
+            try {
+              const p = JSON.parse(stored);
+              if (p.avatar) setAvatar(p.avatar);
+              if (!res?.ok && p.heightFt) setHeightFt(p.heightFt);
+              if (!res?.ok && p.heightIn !== undefined && p.heightIn !== null && p.heightIn !== "") setHeightIn(p.heightIn);
+            } catch {}
           }
         }
       } catch (err) {
