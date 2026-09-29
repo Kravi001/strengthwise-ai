@@ -109,8 +109,8 @@ I have full contextual integration with your biometric profile, training split, 
 
 *Select a quick consultation below or type your specific question!*`,
   timestamp: "Just now",
-  source: "claude",
-  model: "claude-3-5-sonnet",
+  source: "gemini",
+  model: "gemini-flash (Free)",
 };
 
 export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps) {
@@ -498,7 +498,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 </span>
               ) : activeProvider === "gemini" ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 font-mono">
-                  Gemini Flash
+                  Gemini Flash (Free AI)
                 </span>
               ) : null}
             </div>
