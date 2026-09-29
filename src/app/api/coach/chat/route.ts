@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import { getAuthenticatedUser } from "@/lib/user";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +32,50 @@ interface AthleteContext {
   injuryNotes?: string;
 }
 
+// 10 requests per 60-second sliding window
+const RATE_LIMIT_CONFIG = {
+  limit: 10,
+  windowSeconds: 60,
+};
+
 export async function POST(request: NextRequest) {
   try {
+    // 1. Enforce Rate Limiting
+    const clientIp = getClientIp(request);
+    let rateLimitId = `ip:${clientIp}`;
+
+    let authUser = null;
+    try {
+      authUser = await getAuthenticatedUser();
+      if (authUser?.dbUser?.id) {
+        rateLimitId = `user:${authUser.dbUser.id}`;
+      }
+    } catch {
+      // Continue with IP-based rate limiting
+    }
+
+    const rateLimit = checkRateLimit(rateLimitId, RATE_LIMIT_CONFIG);
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        {
+          error: `Rate limit reached. You can send up to ${RATE_LIMIT_CONFIG.limit} coaching queries per minute. Please wait ${rateLimit.retryAfterSeconds}s before asking another question.`,
+          retryAfterSeconds: rateLimit.retryAfterSeconds,
+          limit: rateLimit.limit,
+          remaining: 0,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(rateLimit.resetTime),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const { messages = [], athleteContext = {} } = body as {
       messages: ChatMessage[];
@@ -45,22 +89,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Attempt to enrich context from authenticated database session
+    // 2. Enrich context from authenticated database session
     let enrichedContext: AthleteContext = { ...athleteContext };
-    try {
-      const auth = await getAuthenticatedUser();
-      if (auth?.dbUser) {
+    if (authUser?.dbUser) {
+      try {
         const dbProfile = await prisma.profile.findUnique({
-          where: { userId: auth.dbUser.id },
+          where: { userId: authUser.dbUser.id },
         });
 
         if (dbProfile) {
           enrichedContext = {
-            fullName: dbProfile.firstName ? `${dbProfile.firstName} ${dbProfile.lastName || ""}`.trim() : enrichedContext.fullName,
+            fullName: dbProfile.firstName
+              ? `${dbProfile.firstName} ${dbProfile.lastName || ""}`.trim()
+              : enrichedContext.fullName,
             age: dbProfile.age || enrichedContext.age,
             gender: dbProfile.gender || enrichedContext.gender,
             weightKg: dbProfile.weightKg || enrichedContext.weightKg,
-            weightLbs: dbProfile.weightKg ? Math.round(dbProfile.weightKg * 2.20462) : enrichedContext.weightLbs,
+            weightLbs: dbProfile.weightKg
+              ? Math.round(dbProfile.weightKg * 2.20462)
+              : enrichedContext.weightLbs,
             heightCm: dbProfile.heightCm || enrichedContext.heightCm,
             goal: dbProfile.goal || enrichedContext.goal,
             activityLevel: dbProfile.activityLevel || enrichedContext.activityLevel,
@@ -73,64 +120,147 @@ export async function POST(request: NextRequest) {
             equipment: dbProfile.equipment || enrichedContext.equipment,
           };
         }
+      } catch {
+        // Fallback to client context
       }
-    } catch {
-      // Unauthenticated or optional DB lookup failure; continue with client context
     }
 
     // Build athlete biographical description
-    const athleteDescription = [
-      enrichedContext.fullName ? `Athlete Name: ${enrichedContext.fullName}` : "Athlete: Registered Member",
-      enrichedContext.weightLbs ? `Body Weight: ${enrichedContext.weightLbs} lbs (${enrichedContext.weightKg ? Math.round(enrichedContext.weightKg) : Math.round(enrichedContext.weightLbs / 2.20462)} kg)` : null,
-      enrichedContext.heightCm ? `Height: ${Math.round(enrichedContext.heightCm)} cm` : null,
+    const athleteLines = [
+      enrichedContext.fullName ? `Name: ${enrichedContext.fullName}` : "Athlete: Registered Member",
+      enrichedContext.weightLbs
+        ? `Bodyweight: ${enrichedContext.weightLbs} lbs (${
+            enrichedContext.weightKg
+              ? Math.round(enrichedContext.weightKg)
+              : Math.round(enrichedContext.weightLbs / 2.20462)
+          } kg)`
+        : null,
+      enrichedContext.heightCm
+        ? `Height: ${Math.round(enrichedContext.heightCm)} cm (${Math.floor(
+            enrichedContext.heightCm / 30.48
+          )}'${Math.round((enrichedContext.heightCm % 30.48) / 2.54)}")`
+        : null,
       enrichedContext.age ? `Age: ${enrichedContext.age}` : null,
       enrichedContext.gender ? `Gender: ${enrichedContext.gender}` : null,
-      enrichedContext.goal ? `Primary Goal: ${enrichedContext.goal}` : null,
-      enrichedContext.splitType ? `Current Training Split: ${enrichedContext.splitType} (${enrichedContext.splitDays || 4} days/week)` : null,
-      enrichedContext.equipment ? `Equipment Access: ${enrichedContext.equipment}` : "Commercial Gym Access",
-      enrichedContext.targetCalories ? `Target Nutrition: ${enrichedContext.targetCalories} kcal (Protein: ${enrichedContext.targetProtein || 160}g, Carbs: ${enrichedContext.targetCarbs || 250}g, Fat: ${enrichedContext.targetFat || 70}g)` : null,
-    ]
-      .filter(Boolean)
-      .join("\n- ");
+      enrichedContext.goal ? `Primary Goal: ${enrichedContext.goal}` : "Strength & Muscle Building",
+      enrichedContext.splitType
+        ? `Active Training Split: ${enrichedContext.splitType} (${enrichedContext.splitDays || 4} days/week)`
+        : null,
+      enrichedContext.equipment ? `Equipment: ${enrichedContext.equipment}` : "Commercial Gym Access",
+      enrichedContext.targetCalories
+        ? `Daily Targets: ${enrichedContext.targetCalories} kcal (Protein: ${
+            enrichedContext.targetProtein || 160
+          }g, Carbs: ${enrichedContext.targetCarbs || 250}g, Fat: ${
+            enrichedContext.targetFat || 70
+          }g)`
+        : null,
+    ].filter(Boolean);
 
-    const systemPrompt = `You are the StrengthWise AI Coach — a world-renowned clinical exercise physiologist, biomechanist, and elite strength & conditioning specialist (CSCS, PhD Biomechanics & Clinical Sports Nutrition).
+    const systemPrompt = `You are the StrengthWise AI Coach — an elite, world-class clinical exercise physiologist, biomechanist, and sports nutrition specialist (CSCS, PhD Biomechanics & Clinical Sports Nutrition).
+You communicate with athletes directly. Your style is modeled after Claude: articulate, empathetic, evidence-based, scientifically accurate, and immediately actionable.
 
-You are consulting directly with the athlete below:
-- ${athleteDescription}
+Current Athlete Profile:
+${athleteLines.map((l) => `- ${l}`).join("\n")}
 
-CORE COACHING PRINCIPLES:
-1. Ground every recommendation in clinical exercise science, neuromuscular mechanics, and metabolic biochemistry.
-2. Directly address the athlete's specific biometric stats, split, and equipment.
-3. For pain or biomechanical discomfort:
-   - Identify the exact joint angle, shear force, subacromial/patellar stress, or lever arm causing the issue.
-   - Prescribe immediate acute substitutions with exact setup cues (grip angle, bench angle, stance, tempo, RPE).
-   - Provide an estimated biomechanical impact comparison (e.g. "Joint Shear: -40% | Target Hypertrophy: Equal or Superior").
-4. For plateaus and programming:
-   - Prescribe progressive overload strategies (pause variations, rate of force development RFD, eccentric tempo, volume autoregulation).
-5. For nutrition:
-   - Reference energy balance, peri-workout carbohydrate timing, and the leucine threshold (~2.5-3.5g per meal for muscle protein synthesis).
-6. FORMATTING:
-   - Use clear markdown with bold headings and concise bullet points.
-   - Keep answers dense with actionable insight, avoid vague fluff or generic medical disclaimer spam.
-   - Always conclude with a short "💡 Prescription & Action Item" bulleted list for their next workout or meal.`;
-
-    // Retrieve clean Gemini API Key
-    const rawKey = process.env.GEMINI_API_KEY || "";
-    const apiKey = rawKey.replace(/^["'\s]+|["'\s]+$/g, "");
+CRITICAL COACHING INSTRUCTIONS:
+1. Always directly and thoroughly address the user's question first. Never stop mid-thought or cut off abruptly. Provide complete, comprehensive explanations.
+2. For Joint Discomfort or Exercise Substitutions (e.g. shoulder pain on barbell bench press, knee pain on squats, lumbar pain on deadlifts):
+   - Explain the specific biomechanical mechanism (e.g., fixed internal rotation, excessive horizontal abduction stretch, long humerus lever, subacromial impingement).
+   - Prescribe 2-3 joint-friendly acute movement substitutions that preserve or exceed target muscle hypertrophy (e.g., 30° Incline Dumbbell Press with 45° neutral grip, Floor Press, Converging Machine Chest Press, Ring Push-ups).
+   - Provide concrete technical cues (scapular depression/retraction, elbow tuck angle at 45°-60°, controlled 3-second eccentric tempo).
+   - Give an impact metric (e.g., "Joint Shear Stress: -40% | Pectoralis Major Activation: Maintained").
+3. For Training Plateaus & Progressive Overload:
+   - Prescribe specific mechanisms (pause variations, concentric rate of force development RFD, autoregulation, unilateral balances).
+4. For Nutrition & Fueling:
+   - Provide exact gram amounts based on their body weight, meal timing (peri-workout windows), and the leucine threshold (~3g/meal).
+5. FORMATTING:
+   - Use clean, structured Markdown with bold titles and bullet points.
+   - Always conclude with a dedicated "### 💡 Prescription & Action Item" section outlining exact movements, sets, reps, and RPE for their next session.`;
 
     const latestUserMessage = messages[messages.length - 1]?.content || "";
 
-    if (apiKey) {
-      // Models prioritizing high stability & speed
-      const candidateModels = [
+    // 3. Try Anthropic Claude API First
+    const rawAnthropicKey = process.env.ANTHROPIC_API_KEY || "";
+    const anthropicApiKey = rawAnthropicKey.replace(/^["'\s]+|["'\s]+$/g, "");
+
+    if (anthropicApiKey) {
+      try {
+        const anthropic = new Anthropic({
+          apiKey: anthropicApiKey,
+        });
+
+        // Ensure messages alternate properly and start with user
+        const anthropicMessages: Anthropic.MessageParam[] = [];
+        for (const msg of messages) {
+          anthropicMessages.push({
+            role: msg.role === "assistant" ? "assistant" : "user",
+            content: msg.content,
+          });
+        }
+
+        const candidateModels = [
+          "claude-3-5-sonnet-20241022",
+          "claude-3-5-haiku-20241022",
+          "claude-3-haiku-20240307",
+        ];
+
+        for (const model of candidateModels) {
+          try {
+            const response = await anthropic.messages.create({
+              model,
+              max_tokens: 2048,
+              temperature: 0.3,
+              system: systemPrompt,
+              messages: anthropicMessages,
+            });
+
+            const replyText = response.content
+              .filter((block): block is Anthropic.TextBlock => block.type === "text")
+              .map((block) => block.text)
+              .join("\n")
+              .trim();
+
+            if (replyText) {
+              return NextResponse.json(
+                {
+                  message: replyText,
+                  source: "claude",
+                  model,
+                  rateLimit: {
+                    limit: rateLimit.limit,
+                    remaining: rateLimit.remaining,
+                  },
+                },
+                {
+                  headers: {
+                    "X-RateLimit-Limit": String(rateLimit.limit),
+                    "X-RateLimit-Remaining": String(rateLimit.remaining),
+                  },
+                }
+              );
+            }
+          } catch (modelErr: unknown) {
+            console.warn(`Anthropic model ${model} attempt failed:`, modelErr);
+            // Try next Anthropic model
+          }
+        }
+      } catch (anthropicErr) {
+        console.error("Anthropic API error:", anthropicErr);
+      }
+    }
+
+    // 4. Secondary Fallback: Google Gemini API (with generous 2048 maxOutputTokens)
+    const rawGeminiKey = process.env.GEMINI_API_KEY || "";
+    const geminiApiKey = rawGeminiKey.replace(/^["'\s]+|["'\s]+$/g, "");
+
+    if (geminiApiKey) {
+      const geminiCandidateModels = [
         "gemini-3.7-flash",
         "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
         "gemini-flash-lite-latest",
-        "gemini-3.8-flash",
       ];
 
-      // Convert conversation history into Gemini format
       const formattedContents = [
         {
           role: "user",
@@ -140,7 +270,11 @@ CORE COACHING PRINCIPLES:
           role: "model",
           parts: [
             {
-              text: `Understood. I am StrengthWise AI Coach, ready with clinical sports science and biomechanics calibrated to ${enrichedContext.fullName || "the athlete"} (${enrichedContext.weightLbs || "185"} lbs, ${enrichedContext.splitType || "Strength & Hypertrophy Split"}). How can I optimize your training or nutrition today?`,
+              text: `Understood. I am StrengthWise AI Coach, ready with clinical sports science and biomechanics calibrated to ${
+                enrichedContext.fullName || "the athlete"
+              } (${enrichedContext.weightLbs || "185"} lbs, ${
+                enrichedContext.splitType || "Strength & Hypertrophy Split"
+              }). How can I optimize your training or nutrition today?`,
             },
           ],
         },
@@ -150,9 +284,9 @@ CORE COACHING PRINCIPLES:
         })),
       ];
 
-      for (const model of candidateModels) {
+      for (const model of geminiCandidateModels) {
         try {
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
           const res = await fetch(geminiUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -160,7 +294,7 @@ CORE COACHING PRINCIPLES:
               contents: formattedContents,
               generationConfig: {
                 temperature: 0.3,
-                maxOutputTokens: 1024,
+                maxOutputTokens: 2048,
               },
             }),
           });
@@ -169,28 +303,51 @@ CORE COACHING PRINCIPLES:
             const data = await res.json();
             const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (reply && reply.trim()) {
-              return NextResponse.json({
-                message: reply.trim(),
-                source: "gemini",
-                model,
-              });
+              return NextResponse.json(
+                {
+                  message: reply.trim(),
+                  source: "gemini",
+                  model,
+                  rateLimit: {
+                    limit: rateLimit.limit,
+                    remaining: rateLimit.remaining,
+                  },
+                },
+                {
+                  headers: {
+                    "X-RateLimit-Limit": String(rateLimit.limit),
+                    "X-RateLimit-Remaining": String(rateLimit.remaining),
+                  },
+                }
+              );
             }
           }
         } catch {
-          // Model error or timeout; fallback to next model
+          // Continue to next fallback
         }
       }
     }
 
-    // Autonomous Clinical Sports Science Fallback Engine
-    // Guarantees high-precision scientific advice even if API quota is reached
+    // 5. Autonomous Clinical Sports Science Fallback (Zero-Downtime Guarantee)
     const fallbackResponse = generateSportsScienceResponse(latestUserMessage, enrichedContext);
 
-    return NextResponse.json({
-      message: fallbackResponse,
-      source: "sports-science-engine",
-      model: "strengthwise-specialist",
-    });
+    return NextResponse.json(
+      {
+        message: fallbackResponse,
+        source: "sports-science-engine",
+        model: "strengthwise-specialist-v2",
+        rateLimit: {
+          limit: rateLimit.limit,
+          remaining: rateLimit.remaining,
+        },
+      },
+      {
+        headers: {
+          "X-RateLimit-Limit": String(rateLimit.limit),
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+        },
+      }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal coaching error";
     return NextResponse.json(
@@ -201,147 +358,110 @@ CORE COACHING PRINCIPLES:
 }
 
 /**
- * High-precision sports science reasoning engine for deterministic, zero-downtime coaching.
+ * Deterministic sports science reasoning generator.
  */
 function generateSportsScienceResponse(query: string, context: AthleteContext): string {
   const q = query.toLowerCase();
   const weight = context.weightLbs || 185;
   const goal = context.goal || "BUILD_MUSCLE";
   const split = context.splitType || "Upper / Lower Split";
+  const heightDesc = context.heightCm
+    ? `${Math.round(context.heightCm)} cm (${Math.floor(context.heightCm / 30.48)}'${Math.round(
+        (context.heightCm % 30.48) / 2.54
+      )}")`
+    : "6'3\"";
 
-  if (q.includes("shoulder") || q.includes("bench") || q.includes("impingement") || q.includes("rotator")) {
-    return `### 🔬 Biomechanical Diagnosis & Joint Angle Adaptation
-When experiencing anterior shoulder discomfort during the barbell bench press, the primary culprit is **excessive internal humeral rotation paired with anterior humeral head migration** at terminal horizontal abduction (the bottom 2-3 inches of the lift).
+  if (
+    q.includes("shoulder") ||
+    q.includes("bench") ||
+    q.includes("joint") ||
+    q.includes("hurting") ||
+    q.includes("impingement") ||
+    q.includes("rotator")
+  ) {
+    return `### 🔬 Biomechanical Diagnosis: Why Barbell Bench Strains the Shoulders
+At **${heightDesc}** and **${weight} lbs**, you possess relatively long humerus bones. During a standard flat barbell bench press, the straight barbell locks your hands in pronation and forces the humerus into excessive internal rotation at terminal horizontal abduction (the bottom 2-3 inches of the descent). This drastically narrows the subacromial space, causing the supraspinatus tendon and subacromial bursa to rub against the acromion process.
 
-### 🛠️ Immediate Biomechanical Adjustments
-1. **Switch to 30° Incline Dumbbell Press (Semi-Neutral Grip)**:
-   - Rotate dumbbells 45° inward to open the subacromial space and drastically reduce supraspinatus tendon compression.
-   - Stop descent 1 inch above chest level rather than forcing exaggerated passive tissue hyperextension.
-2. **Scapular Retraction & Depression Cue**:
-   - Pack your shoulder blades into your back pockets (*lats engaged, thoracic extension active*).
-3. **Pre-Press Activation**:
-   - 2 sets × 15 reps of Standing Banded External Rotations (elbows tucked at 90°) to activate infraspinatus and teres minor.
+---
+
+### 🛠️ 3 Superior Joint-Friendly Substitutions
+
+#### 1. 30° Incline Dumbbell Press (Semi-Neutral 45° Grip)
+* **Biomechanical Advantage:** Turning the dumbbells to a 45° angle places the shoulder in the **scapular plane (scaption)**. This opens the subacromial space by ~35% while fully recruiting the sternal and clavicular heads of the pectoralis major.
+* **Setup Cue:** Stop the descent when your elbows reach the level of your torso—do not over-stretch passively into the bottom position.
+
+#### 2. Dumbbell or Barbell Floor Press
+* **Biomechanical Advantage:** The floor provides a biomechanical hard stop when the upper arm is perpendicular to the ground (elbows at ~90°). This completely eliminates the dangerous bottom portion where anterior glenohumeral shear forces spike by up to 60%.
+* **Setup Cue:** Pause for a full 1-second count on the floor to eliminate momentum, then press up with explosive intent.
+
+#### 3. Neutral-Grip Converging Machine Chest Press
+* **Biomechanical Advantage:** Machine paths converge inward, which matches the natural diagonal orientation of your pectoral muscle fibers without forcing the joint to stabilize free weight in compromising angles.
+
+---
 
 ### ⚡ Expected Biomechanical Impact
-- **Subacromial Shear Stress**: **-42% reduction**
-- **Pectoralis Clavicular & Sternal Activation**: **Equal to barbell bench (100%)**
-- **Anterior Glenohumeral Joint Pressure**: **Normalized**
+* **Subacromial Shear Stress:** **-42% reduction**
+* **Pectoralis Major Recruitment:** **100% maintained (equal or superior hypertrophy)**
+* **Anterior Glenohumeral Joint Pressure:** **Normalized**
 
-### 💡 Prescription & Action Item for ${weight} lbs Athlete:
-- **Movement**: 30° Incline Dumbbell Press
-- **Loading**: 3-4 working sets × 8-10 reps @ RPE 7.5 (keep 2-3 reps in reserve)
-- **Tempo**: 3-second controlled eccentric, 1-second pause at bottom, explosive concentric drive.`;
+---
+
+### 💡 Prescription & Action Item for Next Session
+* **Primary Movement:** 30° Incline Dumbbell Press (Semi-Neutral Grip) — **3-4 working sets × 8-10 reps @ RPE 7-8** (leave 2 clean reps in reserve).
+* **Warmup Protocol:** 2 sets × 15 reps of Standing Band External Rotations + 10 Scapular Push-ups before pressing.
+* **Controlled Tempo:** 3 seconds down, 1 second pause, 1 second press.`;
   }
 
   if (q.includes("squat") || q.includes("knee") || q.includes("plateau") || q.includes("sticking point")) {
-    return `### 🔬 Neuromuscular Analysis: Squat Sticking Point & RFD
-Sticking points 3-5 inches above parallel are predominantly caused by a breakdown in **concentric Rate of Force Development (RFD)** and disproportionate hip extensor vs. knee extensor recruitment as the torso angles forward.
+    return `### 🔬 Neuromuscular Analysis: Squat Mechanics & RFD
+Sticking points 3-5 inches above parallel are typically caused by a breakdown in **concentric Rate of Force Development (RFD)** and knee extensor fatigue shifting load excessively into the hips.
 
-### 🛠️ Programming & Technical Corrections
-1. **Introduce 2-Second Pause Squats at Parallel**:
-   - Eliminate stretch-shortening cycle (SSC) elastic rebound from the Achilles and patellar tendons.
-   - Forces pure voluntary motor unit recruitment from the vastus medialis and gluteus maximus at zero bar velocity.
-2. **Elevated Heels / Squat Wedges (5-10°)**:
-   - Increases available ankle dorsiflexion, allowing deeper upright knee flexion and shifting axial load away from the lumbar spine.
-3. **Unilateral Quad Reinforcement**:
-   - Add Bulgarian Split Squats (Dumbbells at sides) for 3 sets × 8 reps per leg to eradicate side-to-side pelvic torque discrepancies.
+---
 
-### ⚡ Expected Impact Metrics
-- **Concentric Rate of Force Development (RFD)**: **+18-24% improvement**
-- **Lumbar Shear Force**: **-30% reduction with upright trunk**
-- **Plateau Breakout Window**: **2-3 training microcycles**
+### 🛠️ Technical Adjustments for a ${weight} lbs Athlete
+1. **2-Second Pause Squats at Parallel**: Eliminates the stretch-shortening cycle (SSC), forcing pure motor unit recruitment from a dead stop.
+2. **5-10° Squat Wedges / Elevated Heels**: Increases ankle dorsiflexion, keeping the torso more upright and reducing lumbar shear stress by up to 30%.
+3. **Unilateral Quad Reinforcement**: Add Bulgarian Split Squats to correct side-to-side pelvic torque discrepancies.
 
-### 💡 Prescription & Action Item:
-- **First Working Lift**: 2-Second Pause Barbell Back Squats — 3 sets × 4 reps @ 72.5% 1RM (RPE 7.5)
-- **Secondary Unilateral**: Bulgarian Split Squats — 3 sets × 8-10 reps per leg
-- **Recovery Focus**: Maintain minimum 1.0g protein/lb body weight (${weight}g) to support myofibrillar repair.`;
+---
+
+### 💡 Prescription & Action Item
+* **Working Sets:** 2-Second Pause Back Squats — 3 sets × 4 reps @ 72.5% 1RM (RPE 7.5).
+* **Assistance Lift:** Dumbbell Bulgarian Split Squats — 3 sets × 8 reps per leg.
+* **Nutrition Anchor:** Maintain daily protein target (${weight}g) to support myofibrillar protein synthesis.`;
   }
 
-  if (q.includes("calorie") || q.includes("nutrition") || q.includes("missed") || q.includes("meal") || q.includes("fuel")) {
-    const proteinTarget = context.targetProtein || Math.round(weight * 1.0);
+  if (q.includes("calorie") || q.includes("protein") || q.includes("nutrition") || q.includes("macro") || q.includes("meal")) {
     const dailyKcal = context.targetCalories || 2600;
+    const proteinTarget = context.targetProtein || Math.round(weight * 1.0);
 
-    return `### 🔬 Metabolic Nutrition & Glycogen Dynamics
-Missing caloric intake on a high-volume training day compromises **glycogen resynthesis rates** and risks transient net negative nitrogen balance, which delays muscle recovery.
+    return `### 🔬 Clinical Sports Nutrition Prescription
+For an athlete at **${weight} lbs** striving for **${goal}**:
 
-### 🛠️ Acute Strategic Replenishment Protocol
-1. **Next-Morning Glycogen Supercompensation**:
-   - Front-load **+45g of complex carbohydrates** with low fiber (e.g. rolled oats or cream of rice with banana) into your breakfast to restore liver and intramuscular glycogen without triggering de novo lipogenesis.
-2. **Preserve Muscle Protein Synthesis (MPS)**:
-   - Ensure a bolus of **35-40g leucine-rich protein** (whey isolate or Greek yogurt) before sleep to stimulate overnight myofibrillar protein synthesis.
-3. **Avoid Massive Single-Meal Calorie Dumping**:
-   - Distribute the missed energy across the next 24-36 hours rather than consuming an excessive late-night surplus that disrupts sleep architecture and REM recovery.
+1. **Total Daily Protein Target**: **${proteinTarget}g to ${Math.round(weight * 1.15)}g** (1.0 - 1.15g/lb body weight).
+2. **Leucine Threshold**: Ensure every meal contains at least **2.7g - 3.5g of leucine** (found in 35-45g of quality animal protein or whey isolate) to trigger the mTORC1 pathway for muscle protein synthesis.
+3. **Peri-Workout Nutrition**: Consume 35-50g of easily digestible carbohydrates (e.g. rice cakes, bananas, or cream of rice) 60-90 minutes prior to heavy sessions to saturate glycogen stores.
 
-### ⚡ Projected Metabolic Balance
-- **Muscle Glycogen Supercompensation**: **100% restored within 24 hours**
-- **Daily Target Reminder**: **${dailyKcal} kcal | ${proteinTarget}g Protein**
-- **Systemic Cortisol Regulation**: **Stabilized**
+---
 
-### 💡 Prescription & Action Item:
-- Add a recovery smoothie tomorrow morning: 1.5 cups almond/skim milk, 1 scoop whey protein, 1 banana, 40g oats, 1 tbsp peanut butter (~480 kcal, 38g protein, 52g carbs).`;
+### 💡 Prescription & Action Item
+* **Daily Caloric Intake:** Target **${dailyKcal} kcal**.
+* **Meal Distribution:** 4 meals of ~45-50g protein each, spaced 3.5 to 4.5 hours apart.
+* **Hydration:** Consume a minimum of 1 gallon (3.8L) of water daily.`;
   }
 
-  if (q.includes("deload") || q.includes("fatigue") || q.includes("sore") || q.includes("tired") || q.includes("recovery")) {
-    return `### 🔬 Central Nervous System & Peripheral Fatigue Indicators
-Systemic fatigue manifests as reduced bar velocity during standard warmup sets, elevated resting morning heart rate (>5-8 bpm over baseline), and prolonged joint stiffness.
-
-### 🛠️ Clinical Autoregulated Deload Structure
-1. **Volume Reduction (-50%)**:
-   - Reduce working sets by half (perform 2 sets instead of 4).
-2. **Intensity Maintenance (Keep Loads Moderate @ RPE 6-7)**:
-   - Do **not** drop barbell weight drastically; keep loads at ~70-75% 1RM so neural motor patterns and motor unit recruitment thresholds remain sharp.
-3. **Eliminate All Sets to Failure**:
-   - Stop every set strictly with 3-4 repetitions in reserve (RIR 3-4).
-4. **Active Tissue Flushes**:
-   - Perform 20 minutes of Zone 2 steady-state cardio (walking or stationary cycling at 120-130 bpm) to drive nutrient-rich blood flow through tendons.
-
-### ⚡ Expected Physiological Recovery
-- **CNS Neural Fatigue**: **-60% dissipation in 7 days**
-- **Connective Tissue Remodeling**: **Enhanced collagen cross-linking**
-- **Supercompensation Rebound**: **Peak strength surge in week 2 post-deload**
-
-### 💡 Prescription & Action Item:
-- Take a 5-7 day deload starting your next microcycle.
-- Maintain your daily protein intake (${weight}g) to prevent muscle catabolism during volume down-regulation.`;
-  }
-
-  if (q.includes("deadlift") || q.includes("back") || q.includes("spine") || q.includes("lumbar")) {
-    return `### 🔬 Biomechanics: Lumbar Shear Reduction on Pulling Movements
-Lumbar discomfort during deadlifts typically occurs when the barbell drifts anteriorly away from the center of mass (the mid-foot), drastically multiplying the **spinal flexion moment arm**.
-
-### 🛠️ Immediate Biomechanical Fixes
-1. **Barbell Contact Cue**:
-   - The bar must remain in direct contact with your shins during the break off the floor and skim your thighs through lockout.
-2. **Lat Engagement ("Bend the Bar Around Your Shins")**:
-   - Engaging the latissimus dorsi braces the thoracolumbar fascia and locks the spine into isometric neutral.
-3. **Trap Bar (Hex Bar) Substitution**:
-   - If lower back fatigue is acute, switch immediately to a Neutral-Grip Hex Bar Deadlift. This moves the load laterally in line with the hips, reducing peak L4/L5 shear forces by **up to 28%**.
-
-### ⚡ Biomechanical Comparison
-- **L4/L5 Spinal Shear Force**: **-28% reduction with Hex Bar**
-- **Glute & Hamstring Peak Torque**: **100% maintained**
-- **Erector Spinae Strain**: **Significantly attenuated**
-
-### 💡 Prescription & Action Item:
-- Next pull session: Warm up with 3 sets × 10 reps of Bird-Dogs and McGill Big 3 Core Bracing.
-- Transition to Trap Bar or Romanian Deadlifts (RDLs) with 2-second eccentric phase @ RPE 7.`;
-  }
-
-  // General Comprehensive Sports Science Response
   return `### 🔬 Sports Science Analysis & Coaching Perspective
 Regarding your question in the context of your **${split}** routine and **${goal}** objective:
 
-Every adaptation in human strength and hypertrophy operates under the principle of **Specific Adaptations to Imposed Demands (SAID)**. When optimizing your training:
+Every athletic adaptation is governed by the principle of **Specific Adaptations to Imposed Demands (SAID)**:
 
-1. **Mechanical Tension is the Primary Driver**:
-   - Ensure your working sets are conducted within **1 to 3 Repetitions in Reserve (RPE 7-9)** to recruit high-threshold motor units.
-2. **Frequency & Volume Balancing**:
-   - Distribute 10 to 18 weekly working sets per major muscle group across your active training days for optimal muscle protein synthesis stimulation.
-3. **Nutritional Foundation**:
-   - Calibrated for your ${weight} lbs body weight: Aim for **${Math.round(weight * 0.9)}-${Math.round(weight * 1.0)}g protein daily**, distributed across 3-4 meals to maximize daytime leucine thresholds.
+1. **Mechanical Tension & Joint Safety**: Perform multi-joint compound exercises through active, pain-free ranges of motion, keeping 1-3 Reps in Reserve (RPE 7-9).
+2. **Volume Allocation**: Ensure each muscle group receives 10 to 18 high-quality working sets per microcycle.
+3. **Recovery Architecture**: Calibrated for your ${weight} lbs frame, prioritize 7.5-9 hours of sleep to facilitate growth hormone release and central nervous system dissipation.
 
-### 💡 Prescription & Next Steps:
-- Continue tracking working weights, sets, and reps in your StrengthWise Workout Log.
-- Focus on progressive overload by either adding 2.5-5 lbs to the bar or adding 1 clean rep with controlled tempo.
-- Feel free to ask about specific exercise substitutions, joint angles, or nutrition adjustments!`;
+---
+
+### 💡 Prescription & Action Item
+* Track working loads, sets, and RPE inside the StrengthWise Workout Tracker.
+* Increment loads by +2.5 to +5 lbs only when all prescribed sets hit top-of-range reps with pristine biomechanics.`;
 }

@@ -15,6 +15,12 @@ import {
   Activity,
   ShieldCheck,
   ChevronRight,
+  Key,
+  AlertCircle,
+  Clock,
+  CheckCircle2,
+  X,
+  Loader2,
 } from "lucide-react";
 
 export interface ChatMessage {
@@ -22,7 +28,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
-  source?: "gemini" | "sports-science-engine";
+  source?: "claude" | "gemini" | "sports-science-engine";
   model?: string;
 }
 
@@ -93,7 +99,7 @@ const INITIAL_WELCOME_MESSAGE: ChatMessage = {
   role: "assistant",
   content: `👋 **Welcome to your StrengthWise AI Coaching Lab!**
 
-I am your dedicated **Clinical Exercise Physiologist & Sports Science Specialist** (CSCS, Biomechanics & Sports Nutrition certified).
+I am your dedicated **Generative AI Sports Scientist & Biomechanist** (CSCS, Clinical Exercise Physiology & Sports Nutrition certified).
 
 I have full contextual integration with your biometric profile, training split, and nutritional targets. Ask me anything, including:
 - **Acute Exercise Substitutions** for joint discomfort (bench, squat, deadlift variations)
@@ -103,8 +109,8 @@ I have full contextual integration with your biometric profile, training split, 
 
 *Select a quick consultation below or type your specific question!*`,
   timestamp: "Just now",
-  source: "sports-science-engine",
-  model: "strengthwise-specialist",
+  source: "claude",
+  model: "claude-3-5-sonnet",
 };
 
 export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps) {
@@ -114,8 +120,47 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
 
+  // Rate Limiting States
+  const [rateLimitCooldown, setRateLimitCooldown] = useState<number | null>(null);
+  const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
+
+  // API Key Connection Modal
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [keySaveMsg, setKeySaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [activeProvider, setActiveProvider] = useState<string>("detecting");
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Check active provider on mount
+  useEffect(() => {
+    fetch("/api/coach/save-key")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.hasAnthropic) setActiveProvider("anthropic");
+        else if (d.hasGemini) setActiveProvider("gemini");
+        else setActiveProvider("offline");
+      })
+      .catch(() => setActiveProvider("offline"));
+  }, []);
+
+  // Rate limit cooldown countdown timer
+  useEffect(() => {
+    if (rateLimitCooldown === null || rateLimitCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setRateLimitCooldown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          setRateLimitMsg(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rateLimitCooldown]);
 
   // Load chat history from localStorage on initial render
   useEffect(() => {
@@ -140,7 +185,7 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
       try {
         localStorage.setItem("sw_coach_chat_history", JSON.stringify(messages));
       } catch {
-        // LocalStorage quota or privacy guard
+        // LocalStorage guard
       }
     }
   }, [messages]);
@@ -162,7 +207,6 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
   // Modern Web Guidance: IME-safe Enter-to-Submit
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      // Check native isComposing or Safari keyCode 229 fallback
       if (e.nativeEvent.isComposing || (e as unknown as { keyCode?: number }).keyCode === 229) {
         return;
       }
@@ -173,7 +217,7 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
 
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputValue).trim();
-    if (!query || isLoading) return;
+    if (!query || isLoading || (rateLimitCooldown !== null && rateLimitCooldown > 0)) return;
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -203,11 +247,32 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+      const data = await response.json();
+
+      // Handle 429 Rate Limit
+      if (response.status === 429) {
+        const retrySec = data.retryAfterSeconds || 15;
+        setRateLimitCooldown(retrySec);
+        setRateLimitMsg(
+          data.error || `Rate limit reached (10 queries/min). Please wait ${retrySec}s.`
+        );
+
+        const rateLimitNoticeMessage: ChatMessage = {
+          id: `rate-limit-${Date.now()}`,
+          role: "assistant",
+          content: `⚠️ **Rate Limit Notice**: You have reached the fair usage limit of **10 requests per minute**.\n\nPlease wait **${retrySec} seconds** before submitting your next question to protect AI compute availability.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          source: "sports-science-engine",
+          model: "rate-limiter",
+        };
+        setMessages((prev) => [...prev, rateLimitNoticeMessage]);
+        return;
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `Server returned ${response.status}`);
+      }
+
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
@@ -219,18 +284,18 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch {
-      // Graceful offline fallback
+      // Graceful sports-science fallback
       const fallbackMessage: ChatMessage = {
         id: `assistant-fallback-${Date.now()}`,
         role: "assistant",
         content: `### 🔬 Sports Science Analysis & Coaching Guidance
 Regarding **"${query}"**:
 
-Every athletic adaptation is governed by the **Specific Adaptations to Imposed Demands (SAID)** law. When dialing in your training:
+Every athletic adaptation is governed by the **Specific Adaptations to Imposed Demands (SAID)** law:
 
-1. **Mechanical Tension & Intensity**: Conduct your primary compound lifts within **RPE 7-8.5 (1-3 reps in reserve)** to ensure motor unit recruitment without excessive non-functional fatigue.
+1. **Mechanical Tension & Joint Safety**: Conduct compound lifts within **RPE 7-8.5 (1-3 reps in reserve)** to ensure motor unit recruitment without non-functional fatigue.
 2. **Joint Angle & Lever Optimization**: When joint discomfort arises, adjust the moment arm by rotating grips 45° or elevating joint angles to widen the subacromial or patellofemoral space.
-3. **Nutritional Architecture**: Maintain daily protein at **1.0g per lb of body weight** (${athleteContext?.weightLbs || 185}g) and time 35-50g of carbohydrates 90 minutes prior to training.
+3. **Nutritional Architecture**: Maintain daily protein at **1.0g per lb of bodyweight** (${athleteContext?.weightLbs || 185}g) and time 35-50g of carbohydrates 90 minutes prior to training.
 
 ### 💡 Prescription & Action Item:
 - Apply progressive overload incrementally (+2.5 lbs or +1 repetition per set).
@@ -265,7 +330,41 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
     }
   };
 
-  // Render markdown text cleanly with bolding, headings, and bullet points
+  // Connect AI Key submit handler
+  const handleSaveApiKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!keyInput.trim()) return;
+
+    setIsSavingKey(true);
+    setKeySaveMsg(null);
+
+    try {
+      const res = await fetch("/api/coach/save-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: keyInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save API key");
+
+      setKeySaveMsg({ type: "success", text: data.message });
+      setActiveProvider(data.provider);
+      setKeyInput("");
+      setTimeout(() => {
+        setShowKeyModal(false);
+        setKeySaveMsg(null);
+      }, 2500);
+    } catch (err: unknown) {
+      setKeySaveMsg({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to connect key",
+      });
+    } finally {
+      setIsSavingKey(false);
+    }
+  };
+
+  // Render markdown text cleanly with bolding, headings, bullet points, and prescription blocks
   const renderFormattedContent = (content: string) => {
     const lines = content.split("\n");
     return (
@@ -276,16 +375,29 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             return <div key={idx} className="h-1" />;
           }
 
-          // Heading 3: ###
-          if (trimmed.startsWith("### ")) {
+          // Heading 4 or 3: #### or ###
+          if (trimmed.startsWith("#### ") || trimmed.startsWith("### ")) {
+            const hText = trimmed.replace(/^#{3,4}\s+/, "");
             return (
               <h4
                 key={idx}
                 className="text-xs sm:text-sm font-bold text-white tracking-wide flex items-center gap-1.5 pt-2 pb-0.5 border-b border-neutral-800/80"
               >
                 <Sparkles className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                <span>{trimmed.replace(/^###\s+/, "")}</span>
+                <span>{hText}</span>
               </h4>
+            );
+          }
+
+          // Heading 2: ##
+          if (trimmed.startsWith("## ")) {
+            return (
+              <h3
+                key={idx}
+                className="text-sm sm:text-base font-extrabold text-white tracking-wide pt-2.5 pb-1 text-emerald-300"
+              >
+                {trimmed.replace(/^##\s+/, "")}
+              </h3>
             );
           }
 
@@ -318,7 +430,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             return (
               <div
                 key={idx}
-                className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 p-2.5 my-1 text-emerald-200 text-xs font-medium"
+                className="rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3 my-1.5 text-emerald-200 text-xs font-medium shadow-sm"
               >
                 {formatInlineMarkdown(trimmed)}
               </div>
@@ -332,7 +444,6 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
     );
   };
 
-  // Helper to render bolding **text** and code `text`
   const formatInlineMarkdown = (text: string) => {
     const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
     return parts.map((part, i) => {
@@ -358,7 +469,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
   };
 
   return (
-    <div className="rounded-3xl border border-neutral-800/80 bg-neutral-900/90 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col transition-all">
+    <div className="rounded-3xl border border-neutral-800/80 bg-neutral-900/90 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col transition-all relative">
       {/* 1. Sleek Chatbot Header */}
       <div className="border-b border-neutral-800 bg-neutral-950/80 px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
@@ -373,21 +484,30 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
           </div>
 
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight flex items-center gap-1.5">
                 StrengthWise AI Coach
               </h3>
               <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 font-mono">
                 <ShieldCheck className="h-3 w-3" />
-                CSCS Sports Scientist
+                Generative AI Specialist
               </span>
+              {activeProvider === "anthropic" ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300 font-mono">
+                  Anthropic Claude
+                </span>
+              ) : activeProvider === "gemini" ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 font-mono">
+                  Gemini Flash
+                </span>
+              ) : null}
             </div>
             <p className="text-[11px] text-neutral-400 flex items-center gap-1.5 mt-0.5">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-              Online &amp; Context-Calibrated
+              Rate Limited (10/min) • Real-time Sports Science
               {athleteContext?.weightLbs && (
                 <span className="hidden sm:inline text-neutral-500">
-                  • {athleteContext.weightLbs} lbs • {athleteContext.splitType || "Split Active"}
+                  • {athleteContext.weightLbs} lbs • {athleteContext.splitType || "Active Split"}
                 </span>
               )}
             </p>
@@ -396,6 +516,16 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
         {/* Header Actions */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowKeyModal(true)}
+            className="rounded-xl px-3 py-1.5 text-xs font-semibold border transition flex items-center gap-1.5 bg-neutral-800/60 border-neutral-700/60 text-neutral-300 hover:text-white hover:border-emerald-500/40"
+            title="Connect Anthropic Claude or Gemini API Key"
+          >
+            <Key className="h-3.5 w-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Connect AI Key</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowQuickPrompts(!showQuickPrompts)}
@@ -407,7 +537,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             title="Toggle consultation quick-picks"
           >
             <Zap className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Suggested Topics</span>
+            <span className="hidden sm:inline">Topics</span>
           </button>
 
           <button
@@ -420,6 +550,70 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
           </button>
         </div>
       </div>
+
+      {/* API Key Modal / Drawer */}
+      {showKeyModal && (
+        <div className="border-b border-neutral-800 bg-neutral-950 p-4 sm:p-5 space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+              <Key className="h-4 w-4 text-amber-400" />
+              <span>Connect Anthropic Claude API Key</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowKeyModal(false);
+                setKeySaveMsg(null);
+              }}
+              className="text-neutral-500 hover:text-white p-1 rounded-lg transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="text-xs text-neutral-300 leading-relaxed">
+            Enter your Anthropic API Key (<code className="text-amber-300 font-mono">sk-ant-api03-...</code>) or Google Gemini Key to power your coach with Generative AI. Keys are stored locally in your environment.
+          </p>
+
+          <form onSubmit={handleSaveApiKey} className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="password"
+              placeholder="Paste sk-ant-... or AIzaSy... key here"
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              className="h-10 rounded-xl border border-neutral-800 bg-neutral-900 px-3 text-xs font-mono text-white placeholder:text-neutral-500 focus:border-amber-400 focus:outline-none flex-1"
+            />
+            <button
+              type="submit"
+              disabled={isSavingKey || !keyInput.trim()}
+              className="h-10 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 text-xs font-bold text-neutral-950 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 flex items-center justify-center gap-1.5 shrink-0 transition"
+            >
+              {isSavingKey ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              Save &amp; Activate
+            </button>
+          </form>
+
+          {keySaveMsg && (
+            <div
+              className={`rounded-xl p-2.5 text-xs flex items-center gap-2 ${
+                keySaveMsg.type === "success"
+                  ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30"
+                  : "bg-red-500/10 text-red-300 border border-red-500/30"
+              }`}
+            >
+              {keySaveMsg.type === "success" ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              ) : (
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+              )}
+              <span>{keySaveMsg.text}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2. Biometric Active Context Bar */}
       {athleteContext && (athleteContext.weightLbs || athleteContext.targetCalories) && (
@@ -448,7 +642,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             )}
           </div>
           <span className="text-[10px] text-emerald-400/80 font-mono">
-            {hasProfile ? "Real-time Biomechanical Reasoning" : "Demo Mode • Complete Profile to Customize"}
+            {hasProfile ? "Generative Biomechanical Reasoning" : "Demo Mode • Complete Profile to Customize"}
           </span>
         </div>
       )}
@@ -458,7 +652,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
         <div className="border-b border-neutral-800/80 bg-neutral-950/60 p-3 sm:p-4">
           <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center justify-between">
             <span>Tap to Consult Coach on Core Scenarios:</span>
-            <span className="text-[10px] text-neutral-500">1-click sports science query</span>
+            <span className="text-[10px] text-neutral-500">1-click generative AI query</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {QUICK_PROMPTS.map((prompt, idx) => {
@@ -468,7 +662,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   key={idx}
                   type="button"
                   onClick={() => handleSendMessage(prompt.question)}
-                  disabled={isLoading}
+                  disabled={isLoading || (rateLimitCooldown !== null && rateLimitCooldown > 0)}
                   className="group rounded-xl border border-neutral-800 bg-neutral-900/60 hover:bg-emerald-500/10 hover:border-emerald-500/40 p-2.5 text-left transition flex items-center gap-2.5 disabled:opacity-50"
                 >
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-neutral-400 group-hover:bg-emerald-500 group-hover:text-neutral-950 transition">
@@ -492,7 +686,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
       )}
 
       {/* 4. Chat Message Feed */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 max-h-[520px] min-h-[340px]">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 max-h-[540px] min-h-[340px]">
         {messages.map((msg) => {
           const isUser = msg.role === "user";
           return (
@@ -507,6 +701,8 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-md ${
                   isUser
                     ? "bg-gradient-to-tr from-emerald-500 to-teal-400 text-neutral-950 font-bold"
+                    : msg.source === "claude"
+                    ? "bg-gradient-to-br from-amber-400 to-amber-600 text-neutral-950 font-black shadow-amber-500/20"
                     : "bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-black"
                 }`}
               >
@@ -521,13 +717,17 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   }`}
                 >
                   <span className="text-[11px] font-bold text-neutral-400">
-                    {isUser ? (athleteContext?.fullName || "You") : "StrengthWise AI Coach"}
+                    {isUser ? athleteContext?.fullName || "You" : "StrengthWise AI Coach"}
                   </span>
-                  {!isUser && msg.model && (
-                    <span className="rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-mono">
-                      {msg.model}
+                  {!isUser && msg.source === "claude" ? (
+                    <span className="rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 px-1.5 py-0.2 text-[9px] font-mono">
+                      Anthropic Claude
                     </span>
-                  )}
+                  ) : !isUser && msg.source === "gemini" ? (
+                    <span className="rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-mono">
+                      {msg.model || "Gemini Flash"}
+                    </span>
+                  ) : null}
                   <span className="text-[10px] text-neutral-500">{msg.timestamp}</span>
                 </div>
 
@@ -548,7 +748,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   {!isUser && (
                     <div className="mt-3 pt-2.5 border-t border-neutral-800/80 flex items-center justify-between text-[11px] text-neutral-400">
                       <span className="text-[10px] text-neutral-500 font-mono">
-                        Biomechanical &amp; Nutrition Specialist
+                        Biomechanical &amp; Sports Science Specialist
                       </span>
                       <button
                         type="button"
@@ -588,7 +788,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span>AI Coach analyzing biomechanical levers &amp; sports nutrition...</span>
+                <span>AI Coach reasoning with biomechanical levers &amp; sports nutrition...</span>
               </div>
               <div className="flex items-center gap-1.5 pt-1">
                 <div className="h-2 w-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.3s]"></div>
@@ -601,6 +801,22 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Rate Limit Active Notice */}
+      {rateLimitCooldown !== null && rateLimitCooldown > 0 && (
+        <div className="mx-3 sm:mx-4 mb-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <Clock className="h-4 w-4 text-amber-400 shrink-0 animate-pulse" />
+            <span>
+              {rateLimitMsg ||
+                `Rate limit active: Please wait ${rateLimitCooldown}s before sending another question.`}
+            </span>
+          </div>
+          <span className="font-mono text-[11px] bg-amber-500/20 px-2.5 py-1 rounded-lg text-amber-300 border border-amber-500/30 font-bold shrink-0">
+            {rateLimitCooldown}s cooldown
+          </span>
+        </div>
+      )}
 
       {/* 5. Modern IME-Safe Chat Input Area */}
       <form
@@ -622,14 +838,18 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            placeholder="Ask AI Coach... (e.g. 'Can I swap barbell bench for dumbbells?' or 'How much protein post-workout?')"
-            className="flex-1 max-h-36 resize-none bg-transparent text-xs sm:text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none leading-relaxed py-1"
+            disabled={isLoading || (rateLimitCooldown !== null && rateLimitCooldown > 0)}
+            placeholder={
+              rateLimitCooldown !== null && rateLimitCooldown > 0
+                ? `Rate limit active: Ready in ${rateLimitCooldown}s...`
+                : "Ask AI Coach... (e.g. 'My shoulders hurt on bench press, what can I swap to?' or 'How much protein daily?')"
+            }
+            className="flex-1 max-h-36 resize-none bg-transparent text-xs sm:text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none leading-relaxed py-1 disabled:opacity-50"
           />
 
           <button
             type="submit"
-            disabled={isLoading || !inputValue.trim()}
+            disabled={isLoading || !inputValue.trim() || (rateLimitCooldown !== null && rateLimitCooldown > 0)}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-neutral-950 font-bold shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed transition"
             title="Send message (Enter)"
           >
@@ -637,14 +857,19 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
           </button>
         </div>
 
-        <div className="mt-2 flex items-center justify-between text-[11px] text-neutral-500 px-1">
+        <div className="mt-2 flex items-center justify-between text-[11px] text-neutral-500 px-1 flex-wrap gap-2">
           <span className="flex items-center gap-1">
             <span className="font-mono text-neutral-400">Enter</span> to send •{" "}
             <span className="font-mono text-neutral-400">Shift + Enter</span> for new line
           </span>
-          <span className="hidden sm:inline font-mono text-[10px] text-emerald-400/70">
-            Powered by Sports Science + Gemini AI
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-neutral-500 border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 rounded">
+              ⚡ Rate Limit: 10/min
+            </span>
+            <span className="hidden sm:inline font-mono text-[10px] text-emerald-400/70">
+              Anthropic Claude &amp; Gemini AI
+            </span>
+          </div>
         </div>
       </form>
     </div>
