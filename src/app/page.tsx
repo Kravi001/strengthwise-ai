@@ -1,28 +1,19 @@
 "use client";
 
-import { useEffect, useState, useMemo, useTransition } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Card,
   Text,
   Title,
   DonutChart,
-  Divider,
   ProgressBar,
 } from "@/components/tremor";
 import {
-  Activity,
   AlertCircle,
   ArrowRight,
-  Barcode,
-  Bot,
-  BrainCircuit,
   Camera,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Code2,
   Database,
   Dumbbell,
   Edit3,
@@ -31,18 +22,14 @@ import {
   EyeOff,
   Flame,
   Globe,
-  Layers,
-  LineChart,
   Lock,
   Mail,
   MailCheck,
   Plus,
   RefreshCw,
-  Scale,
   Scan,
   Search,
   ShieldCheck,
-  Settings,
   Shuffle,
   Sliders,
   Sparkles,
@@ -58,11 +45,11 @@ import { calculateNutritionTargets } from "@/lib/calc";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
 import { WorkoutModal } from "@/components/workout-modal";
 import { CustomSplitModal } from "@/components/custom-split-modal";
+import { CoachChat, type CoachAthleteContext } from "@/components/coach-chat";
 import {
   CustomSplit,
   DEFAULT_CUSTOM_SPLIT,
   loadCustomSplit,
-  saveCustomSplit,
 } from "@/lib/custom-split";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -784,39 +771,23 @@ export default function LandingPage() {
     }
   };
 
-  // --- AI Coach Consultation Demo State ---
-  const [selectedCoachQuestion, setSelectedCoachQuestion] = useState<number>(0);
-
-  const coachConsultations = [
-    {
-      question: "Shoulder discomfort during barbell bench press?",
-      tag: "Biomechanical Adaptation",
-      athleteScenario: "Athlete reports anterior glenohumeral impingement during the bottom 2 inches of the barbell bench descent.",
-      recommendation: "Switch immediately to a 30° Incline Dumbbell Press with a semi-neutral grip (palms at 45°). This reduces internal subacromial rotational torque while preserving clavicular and sternal pectoral recruitment. Lower working intensity to RPE 7.5 and perform 2 sets of rotator cuff band external rotations before pressing.",
-      metricChange: "Joint stress: -42% | Pec Activation: Equal",
-    },
-    {
-      question: "Plateaued on squat for 3 consecutive weeks?",
-      tag: "Progressive Overload",
-      athleteScenario: "Athlete has been stuck at 315 lbs × 5 reps on back squats, failing at the sticking point 4 inches above parallel.",
-      recommendation: "Implement 2-second Pause Squats at parallel as your first working movement to eliminate the stretch-shortening reflex and develop true concentric rate of force development. Additionally, add 2 working sets of unilateral Bulgarian split squats to correct quad-dominance imbalances.",
-      metricChange: "RFD Output: +18% | Hypertrophy Stimulus: Optimal",
-    },
-    {
-      question: "Missed caloric intake on a heavy training day?",
-      tag: "Metabolic Nutrition",
-      athleteScenario: "Athlete completed high-volume lower body workout but fell 500 kcal short due to schedule constraints.",
-      recommendation: "Shift +40g of high-glycemic carbohydrates to your next morning breakfast to replenish liver and muscular glycogen stores without spilling over into de novo lipogenesis. Consume 35g of whey isolate or leucine-rich protein before sleeping to support myofibrillar protein synthesis.",
-      metricChange: "Glycogen Restoration: 100% | Nitrogen Balance: Positive",
-    },
-    {
-      question: "How do I know when to take an autoregulated deload?",
-      tag: "Fatigue Autoregulation",
-      athleteScenario: "Athlete has completed 5 weeks of progressive overload and feels sluggish during warmup sets.",
-      recommendation: "If bar velocity decreases by >15% during standard warmup sets for two consecutive sessions, or resting morning heart rate is elevated by >6 bpm, trigger an immediate 1-week deload: Reduce volume by 50% (perform 2 sets instead of 4) while maintaining moderate load at RPE 6-7 to dissipate systemic fatigue.",
-      metricChange: "Systemic Fatigue: -60% | CNS Recovery: Restored",
-    },
-  ];
+  // --- AI Coach Athlete Biometric & Split Context ---
+  const coachAthleteContext: CoachAthleteContext = useMemo(() => ({
+    fullName: fullName || (authUser?.email ? authUser.email.split("@")[0] : "Athlete"),
+    weightLbs: numWeightLbs,
+    weightKg: numWeightKg,
+    heightCm: heightCm,
+    age: Number(age) || undefined,
+    gender,
+    goal,
+    activityLevel,
+    splitType: userSplitType,
+    splitDays: userSplitDays,
+    targetCalories: calculated.targetCalories,
+    targetProtein: calculated.targetProtein,
+    targetCarbs: calculated.targetCarbs,
+    targetFat: calculated.targetFat,
+  }), [fullName, authUser, numWeightLbs, numWeightKg, heightCm, age, gender, goal, activityLevel, userSplitType, userSplitDays, calculated]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-20">
@@ -2619,80 +2590,15 @@ export default function LandingPage() {
             <span>Autonomous Intelligence</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            24/7 AI Strength &amp; Nutrition Specialist
+            24/7 AI Strength &amp; Nutrition Specialist Chatbot
           </h2>
           <p className="text-xs sm:text-sm text-neutral-400">
-            Instant, context-aware answers to acute exercise substitutions, joint discomfort adaptations, and intra-workout fueling.
+            Live interactive consultation for acute exercise substitutions, joint discomfort adaptations, progressive overload, and peri-workout fueling.
           </p>
         </div>
 
-        {/* Interactive Consultation Card */}
-        <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl">
-          <div className="space-y-2">
-            <div className="text-xs uppercase tracking-wider font-bold text-neutral-400">
-              Click a Question to Consult AI Coach:
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {coachConsultations.map((item, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setSelectedCoachQuestion(idx)}
-                  className={`text-left rounded-xl p-3.5 text-xs font-semibold transition border flex items-center justify-between gap-3 ${
-                    selectedCoachQuestion === idx
-                      ? "bg-emerald-500/15 border-emerald-500 text-white shadow-md shadow-emerald-500/10"
-                      : "bg-neutral-950/80 border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700"
-                  }`}
-                >
-                  <span className="truncate">{item.question}</span>
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md shrink-0 ${
-                    selectedCoachQuestion === idx
-                      ? "bg-emerald-500 text-neutral-950 font-bold"
-                      : "bg-neutral-800 text-neutral-400"
-                  }`}>
-                    {item.tag}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* AI Coach Live Answer Display */}
-          <div className="rounded-2xl border border-emerald-500/30 bg-neutral-950/90 p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-800/80 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-bold shadow-md shadow-emerald-500/20">
-                  <BrainCircuit className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-white flex items-center gap-2">
-                    StrengthWise AI Coach
-                    <span className="rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-mono">
-                      Sports Science Certified
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-neutral-400">Context: {coachConsultations[selectedCoachQuestion].athleteScenario}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider font-mono">
-                Prescription &amp; Biomechanical Rationale:
-              </div>
-              <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed">
-                {coachConsultations[selectedCoachQuestion].recommendation}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-neutral-800/80 text-xs">
-              <span className="text-neutral-400">Impact Analysis:</span>
-              <span className="font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                {coachConsultations[selectedCoachQuestion].metricChange}
-              </span>
-            </div>
-          </div>
-        </Card>
+        {/* Interactive AI Coach Chatbot */}
+        <CoachChat athleteContext={coachAthleteContext} hasProfile={hasProfile} />
       </section>
 
       {/* ========================================================================= */}
