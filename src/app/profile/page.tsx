@@ -8,6 +8,7 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  AtSign,
   Award,
   Calendar,
   CheckCircle2,
@@ -32,6 +33,7 @@ import {
   Sparkles,
   TrendingUp,
   User as UserIcon,
+  UserCheck,
   Utensils,
   Zap,
 } from "lucide-react";
@@ -111,6 +113,8 @@ export default function ProfilePage() {
 
   // Auth Form State (for landing / unauthenticated state)
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signup");
+  const [authIdentifier, setAuthIdentifier] = useState("");
+  const [authUsername, setAuthUsername] = useState("");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authFullName, setAuthFullName] = useState("");
@@ -395,27 +399,38 @@ export default function ProfilePage() {
     setAuthSubmitting(true);
 
     try {
-      if (!authEmail || !authPassword) {
-        setAuthErrorMsg("Please enter both an email and password.");
-        setAuthSubmitting(false);
-        return;
-      }
-
-      if (authPassword.length < 6) {
-        setAuthErrorMsg("Password must be at least 6 characters long.");
-        setAuthSubmitting(false);
-        return;
-      }
-
       const origin = typeof window !== "undefined" ? window.location.origin : "";
 
       if (authMode === "signup") {
+        if (!authUsername.trim()) {
+          setAuthErrorMsg("Please choose a username.");
+          setAuthSubmitting(false);
+          return;
+        }
+
+        if (!authEmail.trim() || !authPassword) {
+          setAuthErrorMsg("Please enter both an email and password.");
+          setAuthSubmitting(false);
+          return;
+        }
+
+        if (authPassword.length < 6) {
+          setAuthErrorMsg("Password must be at least 6 characters long.");
+          setAuthSubmitting(false);
+          return;
+        }
+
+        const usernameClean = authUsername.trim();
+        const fullNameClean = authFullName.trim() || usernameClean;
+
         const { data, error } = await supabase.auth.signUp({
-          email: authEmail,
+          email: authEmail.trim(),
           password: authPassword,
           options: {
             data: {
-              full_name: authFullName || authEmail.split("@")[0],
+              username: usernameClean,
+              full_name: fullNameClean,
+              name: fullNameClean,
             },
             emailRedirectTo: `${origin}/auth/callback?next=/profile`,
           },
@@ -430,19 +445,57 @@ export default function ProfilePage() {
         if (data.session?.user) {
           setUser(data.session.user);
           hydrateFromGoogle(data.session.user);
-          setAuthSuccessMsg("Account created and signed in! Calibrate your profile below.");
+          setFirstName(fullNameClean.split(" ")[0] || usernameClean);
+          setAuthSuccessMsg("Account created and profile ready to customize!");
         } else {
           setEmailConfirmationSent(true);
-          setAuthSuccessMsg("Verification email sent! Check your inbox or click 'Instant Dev Verify' below.");
+          setAuthSuccessMsg("Account created! Check your email or use Instant Dev Verify below.");
         }
       } else {
+        // Sign In mode: Username or Email + Password
+        if (!authIdentifier.trim() || !authPassword) {
+          setAuthErrorMsg("Please enter your username or email and password.");
+          setAuthSubmitting(false);
+          return;
+        }
+
+        let targetEmail = authIdentifier.trim();
+
+        // If it doesn't contain '@', resolve the registered email for this username
+        if (!targetEmail.includes("@")) {
+          try {
+            const res = await fetch("/api/auth/resolve-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ identifier: targetEmail }),
+            });
+            const lookup = await res.json();
+            if (!res.ok || !lookup.email) {
+              setAuthErrorMsg(lookup.error || `No registered account found with username "${targetEmail}".`);
+              setAuthSubmitting(false);
+              return;
+            }
+            targetEmail = lookup.email;
+          } catch {
+            setAuthErrorMsg("Could not verify username. Please enter your email address.");
+            setAuthSubmitting(false);
+            return;
+          }
+        }
+
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: authEmail,
+          email: targetEmail,
           password: authPassword,
         });
 
         if (error) {
-          setAuthErrorMsg(error.message);
+          if (error.message.toLowerCase().includes("email not confirmed")) {
+            setEmailConfirmationSent(true);
+            setAuthEmail(targetEmail);
+            setAuthErrorMsg("Email address has not been confirmed yet. Click 'Instant Dev Verify' below.");
+          } else {
+            setAuthErrorMsg(error.message);
+          }
           setAuthSubmitting(false);
           return;
         }
@@ -450,7 +503,7 @@ export default function ProfilePage() {
         if (data.user) {
           setUser(data.user);
           hydrateFromGoogle(data.user);
-          setAuthSuccessMsg("Welcome back! Your athlete profile is loaded.");
+          setAuthSuccessMsg("Signed in! Loading your profile...");
         }
       }
     } catch (err: unknown) {
@@ -461,8 +514,9 @@ export default function ProfilePage() {
   };
 
   const handleDevVerify = async () => {
-    if (!authEmail) {
-      setAuthErrorMsg("Please enter the email address to verify.");
+    const emailToVerify = authEmail.trim() || authIdentifier.trim();
+    if (!emailToVerify || !emailToVerify.includes("@")) {
+      setAuthErrorMsg("Please provide a valid email address to verify.");
       return;
     }
 
@@ -473,7 +527,7 @@ export default function ProfilePage() {
       const res = await fetch("/api/auth/dev-verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: authEmail }),
+        body: JSON.stringify({ email: emailToVerify }),
       });
 
       const data = await res.json();
@@ -484,7 +538,7 @@ export default function ProfilePage() {
       setAuthSuccessMsg("Email verified! Signing you in now...");
       // Auto sign-in
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: authEmail,
+        email: emailToVerify,
         password: authPassword,
       });
 
@@ -494,6 +548,7 @@ export default function ProfilePage() {
         setEmailConfirmationSent(false);
       } else {
         setAuthMode("signin");
+        setAuthIdentifier(emailToVerify);
         setEmailConfirmationSent(false);
       }
     } catch (err: unknown) {
@@ -615,18 +670,20 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setScannerFood(null);
-                setIsScannerOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-3.5 py-1.5 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition"
-            >
-              <Scan className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Barcode &amp; Macro Scanner</span>
-              <span className="sm:hidden">Scanner</span>
-            </button>
+            {user && (
+              <button
+                type="button"
+                onClick={() => {
+                  setScannerFood(null);
+                  setIsScannerOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-3.5 py-1.5 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition"
+              >
+                <Scan className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Barcode &amp; Macro Scanner</span>
+                <span className="sm:hidden">Scanner</span>
+              </button>
+            )}
 
             {user && (
               <div className="flex items-center gap-2">
@@ -651,148 +708,150 @@ export default function ProfilePage() {
       <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8 space-y-8">
 
         {/* ========================================================================= */}
-        {/* UNAUTHENTICATED / LANDING STATE: SUPABASE AUTH PORTAL & SHOWCASE         */}
+        {/* UNAUTHENTICATED STATE: PROFILE SIGN IN & ACCOUNT CREATION BOX           */}
         {/* ========================================================================= */}
         {!user && !authLoading && (
-          <div className="space-y-12">
-            {/* Landing Hero */}
-            <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="max-w-md mx-auto py-8 sm:py-16 space-y-6">
+            {/* Header */}
+            <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold text-emerald-400 shadow-sm">
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Supabase Cloud Authentication • Athlete Identity</span>
+                <span>Supabase Cloud Authentication</span>
               </div>
-              <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
-                Your Personal Strength &amp; Nutrition Command Center
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                {authMode === "signup" ? "Create Your Athlete Profile" : "Sign In to Your Profile"}
               </h1>
-              <p className="text-sm sm:text-base text-neutral-300 leading-relaxed max-w-2xl mx-auto">
-                Sign in to calibrate your clinical Mifflin-St Jeor metabolic math, save custom split periodization, and link your biometrics to your 24/7 AI sports science coach.
+              <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                {authMode === "signup"
+                  ? "Create your account to configure your biometrics, custom split periodization, and metabolic targets."
+                  : "Sign in with Google, username, or email to access and customize your athlete profile."}
               </p>
             </div>
 
-            {/* Main Auth & Interactive Preview Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Profile Auth Card */}
+            <Card className="bg-neutral-900/90 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur-xl rounded-2xl">
+              {/* Google OAuth Button */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={googleLoading}
+                  className="w-full flex items-center justify-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 hover:border-emerald-500/40 px-5 py-3 text-sm font-semibold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
+                >
+                  {googleLoading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin text-emerald-400" />
+                  ) : (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                      />
+                    </svg>
+                  )}
+                  <span>{googleLoading ? "Connecting with Google..." : "Sign in with Google"}</span>
+                </button>
+              </div>
 
-              {/* Left Column: Supabase Sign In with Google & Email Form */}
-              <div className="lg:col-span-6 space-y-6">
-                <Card className="bg-neutral-900/90 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur-xl relative overflow-hidden">
-                  <div className="space-y-2 border-b border-neutral-800 pb-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          <UserIcon className="h-4 w-4" />
-                        </div>
-                        <h2 className="text-xl font-bold text-white tracking-tight">
-                          {authMode === "signup" ? "Create Athlete Profile" : "Welcome Back Athlete"}
-                        </h2>
-                      </div>
-                      <span className="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
-                        Supabase Auth
-                      </span>
+              {/* Divider */}
+              <div className="relative flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-neutral-800" />
+                </div>
+                <span className="relative bg-neutral-900 px-3 text-[11px] text-neutral-500 uppercase tracking-wider font-mono font-semibold">
+                  or continue with credentials
+                </span>
+              </div>
+
+              {/* Auth Mode Toggle */}
+              <div className="flex rounded-xl bg-neutral-950 p-1 border border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signin");
+                    setAuthErrorMsg(null);
+                    setAuthSuccessMsg(null);
+                  }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+                    authMode === "signin"
+                      ? "bg-neutral-800 text-white shadow-sm border border-neutral-700"
+                      : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setAuthErrorMsg(null);
+                    setAuthSuccessMsg(null);
+                  }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+                    authMode === "signup"
+                      ? "bg-neutral-800 text-white shadow-sm border border-neutral-700"
+                      : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  Create Account
+                </button>
+              </div>
+
+              {/* Auth Form */}
+              <form onSubmit={handleEmailAuthSubmit} className="space-y-4">
+                {/* Sign In Mode: Username or Email */}
+                {authMode === "signin" ? (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-neutral-300">
+                      Username or Email
+                    </label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. alex_lifts or athlete@domain.com"
+                        value={authIdentifier}
+                        onChange={(e) => setAuthIdentifier(e.target.value)}
+                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
+                      />
                     </div>
-                    <p className="text-xs text-neutral-400">
-                      Sign in with Google for instantaneous 1-click access or enter your email credentials below.
-                    </p>
                   </div>
-
-                  {/* Primary Option: One-Click Google OAuth */}
-                  <div className="space-y-3">
-                    <button
-                      type="button"
-                      onClick={handleGoogleSignIn}
-                      disabled={googleLoading}
-                      className="w-full flex items-center justify-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800/90 hover:bg-neutral-700 hover:border-emerald-500/40 px-5 py-3 text-sm font-semibold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
-                    >
-                      {googleLoading ? (
-                        <RefreshCw className="h-4 w-4 animate-spin text-emerald-400" />
-                      ) : (
-                        <svg className="h-5 w-5" viewBox="0 0 24 24">
-                          <path
-                            fill="#4285F4"
-                            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                          />
-                          <path
-                            fill="#34A853"
-                            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                          />
-                          <path
-                            fill="#FBBC05"
-                            d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                          />
-                          <path
-                            fill="#EA4335"
-                            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                          />
-                        </svg>
-                      )}
-                      <span>{googleLoading ? "Redirecting to Google..." : "Continue with Google"}</span>
-                    </button>
-                    <p className="text-[11px] text-center text-neutral-500 font-mono">
-                      Fast, secure Google OAuth authenticated with Supabase
-                    </p>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="relative flex items-center justify-center my-2">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-neutral-800" />
-                    </div>
-                    <span className="relative bg-neutral-900 px-3 text-[11px] text-neutral-500 uppercase tracking-wider font-mono font-semibold">
-                      or continue with email
-                    </span>
-                  </div>
-
-                  {/* Auth Mode Toggle */}
-                  <div className="flex rounded-xl bg-neutral-950 p-1 border border-neutral-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode("signup");
-                        setAuthErrorMsg(null);
-                      }}
-                      className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
-                        authMode === "signup"
-                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm"
-                          : "text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      Create Account
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode("signin");
-                        setAuthErrorMsg(null);
-                      }}
-                      className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
-                        authMode === "signin"
-                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm"
-                          : "text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      Sign In
-                    </button>
-                  </div>
-
-                  {/* Form */}
-                  <form onSubmit={handleEmailAuthSubmit} className="space-y-4">
-                    {authMode === "signup" && (
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-neutral-300">Athlete Name</label>
-                        <div className="relative">
-                          <UserIcon className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
-                          <input
-                            type="text"
-                            placeholder="e.g. Alex Miller"
-                            value={authFullName}
-                            onChange={(e) => setAuthFullName(e.target.value)}
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
-                          />
-                        </div>
+                ) : (
+                  /* Sign Up Mode: Username, Email, and Name */
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-neutral-300">
+                        Username
+                      </label>
+                      <div className="relative">
+                        <AtSign className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. alex_lifts"
+                          value={authUsername}
+                          onChange={(e) => setAuthUsername(e.target.value)}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
+                        />
                       </div>
-                    )}
+                    </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-neutral-300">Email Address</label>
+                      <label className="text-xs font-semibold text-neutral-300">
+                        Email Address
+                      </label>
                       <div className="relative">
                         <Mail className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
                         <input
@@ -807,247 +866,143 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-neutral-300">Password</label>
+                      <label className="text-xs font-semibold text-neutral-300">
+                        Display Name <span className="text-neutral-500 font-normal">(Optional)</span>
+                      </label>
                       <div className="relative">
-                        <Lock className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                        <UserCheck className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
                         <input
-                          type={showPassword ? "text" : "password"}
-                          required
-                          placeholder="At least 6 characters"
-                          value={authPassword}
-                          onChange={(e) => setAuthPassword(e.target.value)}
-                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-10 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
+                          type="text"
+                          placeholder="e.g. Alex Morgan"
+                          value={authFullName}
+                          onChange={(e) => setAuthFullName(e.target.value)}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 top-3 text-neutral-500 hover:text-neutral-300"
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
                       </div>
                     </div>
+                  </>
+                )}
 
-                    {/* Messages */}
-                    {authErrorMsg && (
-                      <div className="rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300 flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
-                        <span>{authErrorMsg}</span>
-                      </div>
-                    )}
-
-                    {authSuccessMsg && (
-                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs text-emerald-300 flex items-start gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{authSuccessMsg}</span>
-                      </div>
-                    )}
-
-                    {/* Dev Verify Bypass */}
-                    {emailConfirmationSent && (
-                      <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-3.5 space-y-2">
-                        <div className="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
-                          <MailCheck className="h-4 w-4" />
-                          <span>Confirmation link sent to your email</span>
-                        </div>
-                        <p className="text-[11px] text-neutral-400 leading-relaxed">
-                          In local development or testing mode, you can bypass email clicking with one click:
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleDevVerify}
-                          disabled={isVerifyingDev}
-                          className="w-full rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-2 transition shadow"
-                        >
-                          {isVerifyingDev ? "Verifying..." : "Instant Dev Verify & Continue"}
-                        </button>
-                      </div>
-                    )}
-
+                {/* Password field */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-neutral-300">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder={authMode === "signup" ? "At least 6 characters" : "Your password"}
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-10 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
+                    />
                     <button
-                      type="submit"
-                      disabled={authSubmitting}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 px-5 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-50"
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-3 text-neutral-500 hover:text-neutral-300"
                     >
-                      {authSubmitting ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ArrowRight className="h-4 w-4" />
-                      )}
-                      <span>
-                        {authSubmitting
-                          ? "Authenticating with Supabase..."
-                          : authMode === "signup"
-                          ? "Create Account & Setup Profile"
-                          : "Sign In to Your Profile"}
-                      </span>
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
-                  </form>
-                </Card>
-              </div>
+                  </div>
+                </div>
 
-              {/* Right Column: Live Interactive Sandbox / Formula Preview */}
-              <div className="lg:col-span-6 space-y-6">
-                <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur-xl">
-                  <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-                    <div>
-                      <div className="inline-flex items-center gap-1.5 text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold mb-1">
-                        <Zap className="h-3.5 w-3.5" />
-                        <span>Interactive Calculation Engine</span>
-                      </div>
-                      <h3 className="text-xl font-bold text-white tracking-tight">
-                        Live Sports Science Calculator
-                      </h3>
+                {/* Status Messages */}
+                {authErrorMsg && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                    <span>{authErrorMsg}</span>
+                  </div>
+                )}
+
+                {authSuccessMsg && (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs text-emerald-300 flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <span>{authSuccessMsg}</span>
+                  </div>
+                )}
+
+                {/* Dev Verify Bypass */}
+                {emailConfirmationSent && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-3.5 space-y-2">
+                    <div className="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
+                      <MailCheck className="h-4 w-4" />
+                      <span>Confirmation email sent</span>
                     </div>
-                    <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-400">
-                      Mifflin-St Jeor
+                    <p className="text-[11px] text-neutral-400 leading-relaxed">
+                      In development mode, verify instantly without checking your email:
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleDevVerify}
+                      disabled={isVerifyingDev}
+                      className="w-full rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-2 transition shadow"
+                    >
+                      {isVerifyingDev ? "Verifying..." : "Instant Dev Verify & Continue"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={authSubmitting}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 px-5 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-50"
+                >
+                  {authSubmitting ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4" />
+                  )}
+                  <span>
+                    {authSubmitting
+                      ? "Connecting to Supabase..."
+                      : authMode === "signup"
+                      ? "Create Profile & Get Started"
+                      : "Sign In to Profile"}
+                  </span>
+                </button>
+              </form>
+
+              {/* Bottom Toggle */}
+              <div className="text-center pt-2 border-t border-neutral-800/80">
+                {authMode === "signin" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("signup");
+                      setAuthErrorMsg(null);
+                      setAuthSuccessMsg(null);
+                    }}
+                    className="text-xs text-neutral-400 hover:text-emerald-400 transition"
+                  >
+                    Don&apos;t have a profile yet?{" "}
+                    <span className="font-bold text-emerald-400 underline underline-offset-2">
+                      Create an account
                     </span>
-                  </div>
-
-                  <p className="text-xs text-neutral-400 leading-relaxed">
-                    Test the clinical calculation engine right now. Adjust weight and phase below to watch calorie targets and macro splits compute in real time:
-                  </p>
-
-                  {/* Interactive Inputs */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-neutral-400">Current Weight (lbs)</label>
-                      <input
-                        type="number"
-                        min="80"
-                        max="400"
-                        value={currentWeightLbs}
-                        onChange={(e) => setCurrentWeightLbs(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-neutral-400">Biological Sex</label>
-                      <select
-                        value={gender}
-                        onChange={(e) => setGender(e.target.value as "MALE" | "FEMALE")}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                      >
-                        <option value="MALE">Male (+5 kcal)</option>
-                        <option value="FEMALE">Female (-161 kcal)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Goal Phase Toggle */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-neutral-400">Training Phase Goal</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: "CUT", label: "Cut (-20%)" },
-                        { id: "MAINTAIN", label: "Maintain (0%)" },
-                        { id: "BULK", label: "Bulk (+10%)" },
-                      ].map((g) => (
-                        <button
-                          key={g.id}
-                          type="button"
-                          onClick={() => setGoal(g.id as any)}
-                          className={`py-2 text-xs font-bold rounded-xl border transition ${
-                            goal === g.id
-                              ? "border-emerald-500 bg-emerald-500/15 text-emerald-400"
-                              : "border-neutral-800 bg-neutral-950/60 text-neutral-400"
-                          }`}
-                        >
-                          {g.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Computed Results Box */}
-                  <div className="rounded-2xl border border-emerald-500/20 bg-neutral-950/80 p-4 space-y-4">
-                    <div className="flex items-baseline justify-between border-b border-neutral-800 pb-3">
-                      <span className="text-xs text-neutral-400">Target Daily Intake:</span>
-                      <div className="text-right">
-                        <span className="text-2xl font-black font-mono text-emerald-400">
-                          {calculatedTargets.targetCalories}
-                        </span>
-                        <span className="text-xs text-neutral-500 font-mono ml-1">kcal / day</span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2">
-                        <div className="text-[10px] text-neutral-400 font-mono">Protein</div>
-                        <div className="text-base font-bold text-white font-mono">{calculatedTargets.targetProtein}g</div>
-                        <div className="text-[9px] text-emerald-400 font-mono">{calculatedTargets.usdaBenchmark.proteinPercent}% kcal</div>
-                      </div>
-                      <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-2">
-                        <div className="text-[10px] text-neutral-400 font-mono">Carbs</div>
-                        <div className="text-base font-bold text-white font-mono">{calculatedTargets.targetCarbs}g</div>
-                        <div className="text-[9px] text-cyan-400 font-mono">{calculatedTargets.usdaBenchmark.carbsPercent}% kcal</div>
-                      </div>
-                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-2">
-                        <div className="text-[10px] text-neutral-400 font-mono">Fats</div>
-                        <div className="text-base font-bold text-white font-mono">{calculatedTargets.targetFat}g</div>
-                        <div className="text-[9px] text-amber-400 font-mono">{calculatedTargets.usdaBenchmark.fatPercent}% kcal</div>
-                      </div>
-                    </div>
-
-                    <div className="pt-1">
-                      <DonutChart
-                        data={macroChartData}
-                        label="Macro Split"
-                        valueFormatter={(number: number) => `${number}g`}
-                        className="h-32 w-full"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3 text-[11px] text-neutral-400 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <span>Signing in saves your personalized targets to your account and syncs them with the Meals &amp; Coach pages.</span>
-                  </div>
-                </Card>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("signin");
+                      setAuthErrorMsg(null);
+                      setAuthSuccessMsg(null);
+                    }}
+                    className="text-xs text-neutral-400 hover:text-emerald-400 transition"
+                  >
+                    Already have a profile?{" "}
+                    <span className="font-bold text-emerald-400 underline underline-offset-2">
+                      Sign in
+                    </span>
+                  </button>
+                )}
               </div>
-            </div>
+            </Card>
 
-            {/* Feature Value Props Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <Utensils className="h-5 w-5" />
-                </div>
-                <h4 className="text-sm font-bold text-white">Mifflin-St Jeor Precision</h4>
-                <p className="text-xs text-neutral-400 leading-relaxed">
-                  Clinical Basal Metabolic Rate calculations tailored to biological sex, height, weight, and activity.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  <Dumbbell className="h-5 w-5" />
-                </div>
-                <h4 className="text-sm font-bold text-white">Custom Split Periodization</h4>
-                <p className="text-xs text-neutral-400 leading-relaxed">
-                  3, 4, 5, or 6-day routines automatically filtered to match your home gym or commercial access.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <h4 className="text-sm font-bold text-white">24/7 AI Coach Context</h4>
-                <p className="text-xs text-neutral-400 leading-relaxed">
-                  Your AI coach reads your exact calorie targets, split routines, and weight trajectory in every reply.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  <Database className="h-5 w-5" />
-                </div>
-                <h4 className="text-sm font-bold text-white">Supabase Cloud Sync</h4>
-                <p className="text-xs text-neutral-400 leading-relaxed">
-                  Instant real-time sync across your phone, tablet, and laptop with zero data loss.
-                </p>
-              </div>
+            <div className="text-center">
+              <p className="text-[11px] text-neutral-500 font-mono">
+                Secured by Supabase PostgreSQL Auth • Instant Multi-Device Sync
+              </p>
             </div>
           </div>
         )}
