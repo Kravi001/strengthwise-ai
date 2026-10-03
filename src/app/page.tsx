@@ -26,7 +26,6 @@ import {
   RefreshCw,
   Scan,
   Search,
-  ShieldCheck,
   Shuffle,
   Sliders,
   Sparkles,
@@ -788,99 +787,8 @@ export default function LandingPage() {
   }), [fullName, authUser, numWeightLbs, numWeightKg, heightCm, age, gender, goal, activityLevel, userSplitType, userSplitDays, calculated]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-20">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-12">
 
-      {/* ========================================================================= */}
-      {/* 1. HOME SECTION                                                           */}
-      {/* ========================================================================= */}
-      <section
-        id="home"
-        className="scroll-mt-6 relative overflow-hidden rounded-3xl border border-neutral-800/80 bg-gradient-to-b from-neutral-900/90 via-neutral-950 to-neutral-950 p-6 sm:p-12 text-center shadow-2xl"
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.12),transparent_60%)] pointer-events-none" />
-
-        <div className="relative z-10 max-w-3xl mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-400 backdrop-blur-md">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Sports Science Meets Artificial Intelligence</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
-            Intelligent Strength &amp; Nutrition Coaching,{" "}
-            <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-              Engineered for Results.
-            </span>
-          </h1>
-
-          <p className="text-sm sm:text-base text-neutral-300 leading-relaxed">
-            StrengthWise AI eliminates the guesswork from your training. We combine clinical
-            sports science formulas (Mifflin-St Jeor metabolic equations, adaptive volume
-            autoregulation) with responsive AI guidance to deliver personalized macros, progressive
-            overload programming, and 24/7 coaching in your pocket.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <a
-              href="#profile-setup"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 hover:scale-[1.02] transition active:scale-[0.98]"
-            >
-              <UserIcon className="h-4 w-4" />
-              <span>
-                {hasProfile
-                  ? "View / Edit Athlete Profile"
-                  : authUser
-                  ? "Complete Athlete Profile (Step 2)"
-                  : "Create Account to Get Started"}
-              </span>
-              <ArrowRight className="h-4 w-4" />
-            </a>
-            {!authUser && (
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={googleLoading}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-900/90 px-6 py-3 text-sm font-semibold text-white hover:bg-neutral-800 transition"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                  />
-                </svg>
-                <span>{googleLoading ? "Connecting Google..." : "Sign In with Google"}</span>
-              </button>
-            )}
-          </div>
-
-          {/* Trust badges */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-6 border-t border-neutral-800/80 text-neutral-400 text-xs font-medium">
-            <div className="flex items-center justify-center gap-1.5">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>Mifflin-St Jeor Math</span>
-            </div>
-            <div className="flex items-center justify-center gap-1.5">
-              <Zap className="h-4 w-4 text-cyan-400" />
-              <span>Adaptive Volume</span>
-            </div>
-            <div className="flex items-center justify-center gap-1.5">
-              <Database className="h-4 w-4 text-amber-400" />
-              <span>Supabase Cloud Sync</span>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ========================================================================= */}
       {/* 2. ATHLETE PROFILE & SUPABASE ACCOUNT CREATION CARD                      */}
