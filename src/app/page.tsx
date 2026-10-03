@@ -313,13 +313,14 @@ export default function LandingPage() {
             setCustomSplit(loadedCustom);
           }
         } else {
-          // Guest state: no profile allowed without an account
+          // Unauthenticated: redirect to /profile
           setHasProfile(false);
           setShowProfileForm(false);
           if (typeof window !== "undefined") {
             localStorage.removeItem("sw_athlete_profile");
             document.cookie = "sw_athlete_profile=; path=/; max-age=0";
             window.dispatchEvent(new Event("sw_profile_updated"));
+            window.location.replace("/profile");
           }
         }
       } catch (err) {
@@ -347,6 +348,7 @@ export default function LandingPage() {
           localStorage.removeItem("sw_athlete_profile");
           document.cookie = "sw_athlete_profile=; path=/; max-age=0";
           window.dispatchEvent(new Event("sw_profile_updated"));
+          window.location.replace("/profile");
         }
       }
     });

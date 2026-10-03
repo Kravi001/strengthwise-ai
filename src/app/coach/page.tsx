@@ -86,6 +86,13 @@ export default function CoachPage() {
 
         setAuthUser(currentUser);
 
+        if (!currentUser) {
+          if (typeof window !== "undefined") {
+            window.location.replace("/profile");
+          }
+          return;
+        }
+
         if (currentUser) {
           const res = await fetch("/api/profile");
           if (res.ok) {

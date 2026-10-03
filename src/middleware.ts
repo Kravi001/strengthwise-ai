@@ -9,10 +9,10 @@ const BANNED_ROUTES = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Immediate redirect for any legacy or removed routes
+  // Immediate redirect for any legacy or removed routes to /profile
   for (const route of BANNED_ROUTES) {
     if (pathname === route || pathname.startsWith(`${route}/`)) {
-      const redirectUrl = new URL("/", request.url);
+      const redirectUrl = new URL("/profile", request.url);
       const res = NextResponse.redirect(redirectUrl, { status: 307 });
       res.headers.set("Cache-Control", "no-store, max-age=0");
       return res;
@@ -29,7 +29,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public media / fonts
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2)$).*)",
   ],
 };

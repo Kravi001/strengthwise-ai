@@ -114,6 +114,13 @@ export default function MealsPage() {
 
         setAuthUser(currentUser);
 
+        if (!currentUser) {
+          if (typeof window !== "undefined") {
+            window.location.replace("/profile");
+          }
+          return;
+        }
+
         // Fetch DB profile
         if (currentUser) {
           const res = await fetch("/api/profile");

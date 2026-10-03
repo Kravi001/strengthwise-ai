@@ -33,9 +33,38 @@ export async function updateSession(request: NextRequest) {
   });
 
   // IMPORTANT: Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-  await supabase.auth.getUser();
+  // supabase.auth.getUser().
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  // Paths allowed for users before signing up:
+  const isAuthOrPublic =
+    pathname === "/profile" ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/api/auth");
+
+  // Users cannot use any other features before signing up / signing in
+  if (!user && !isAuthOrPublic) {
+    // API routes return 401 Unauthorized
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Authentication required. Please sign up or sign in to use this feature." },
+        { status: 401 }
+      );
+    }
+
+    // All page routes redirect to /profile
+    const redirectUrl = new URL("/profile", request.url);
+    const redirectResponse = NextResponse.redirect(redirectUrl, { status: 307 });
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    redirectResponse.headers.set("Cache-Control", "no-store, max-age=0");
+    return redirectResponse;
+  }
 
   return supabaseResponse;
 }

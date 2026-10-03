@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Dumbbell,
   Home,
+  Lock,
   LogOut,
   Sparkles,
   TrendingUp,
@@ -211,6 +212,7 @@ export function Navbar() {
           </div>
           {navLinks.map(({ href, label, icon: Icon, id }, index) => {
             const isActive = activeSection === id;
+            const targetHref = user ? href : "/profile";
 
             return (
               <Link
@@ -218,8 +220,8 @@ export function Navbar() {
                 ref={(el) => {
                   linkRefs.current[index] = el as unknown as HTMLAnchorElement;
                 }}
-                href={href}
-                title={label}
+                href={targetHref}
+                title={user ? label : `${label} (Sign up required)`}
                 className={`group relative flex items-center justify-center md:justify-between rounded-xl px-2.5 md:pl-3.5 md:pr-2.5 py-2.5 text-xs font-semibold transition-all duration-200 ${
                   isActive
                     ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-md shadow-emerald-500/10 font-bold"
@@ -241,6 +243,8 @@ export function Navbar() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
                   </span>
+                ) : !user && !loading ? (
+                  <Lock className="hidden md:block h-3 w-3 text-neutral-600 group-hover:text-emerald-400/80 transition" />
                 ) : null}
               </Link>
             );
@@ -297,12 +301,12 @@ export function Navbar() {
               </button>
             ) : (
               <Link
-                href="/login"
-                title="Sign In"
+                href="/profile"
+                title="Create Profile or Sign In"
                 className="flex items-center justify-center md:justify-start gap-2 rounded-xl bg-emerald-500 px-2.5 py-2 text-xs font-bold text-neutral-950 shadow-sm shadow-emerald-500/25 hover:bg-emerald-400 transition"
               >
                 <UserIcon className="h-[18px] w-[18px] shrink-0" />
-                <span className="hidden md:block whitespace-nowrap">Sign In</span>
+                <span className="hidden md:block whitespace-nowrap">Sign In / Sign Up</span>
               </Link>
             )}
           </div>
