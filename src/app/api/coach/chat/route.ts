@@ -32,7 +32,7 @@ interface AthleteContext {
   injuryNotes?: string;
 }
 
-// 10 requests per 60-second sliding window
+// 10 requests per 60-second sliding window for fair free usage
 const RATE_LIMIT_CONFIG = {
   limit: 10,
   windowSeconds: 60,
@@ -156,100 +156,30 @@ export async function POST(request: NextRequest) {
         : null,
     ].filter(Boolean);
 
-    const systemPrompt = `You are the StrengthWise AI Coach — an elite, world-class clinical exercise physiologist, biomechanist, and sports nutrition specialist (CSCS, PhD Biomechanics & Clinical Sports Nutrition).
-You communicate with athletes directly. Your style is modeled after Claude: articulate, empathetic, evidence-based, scientifically accurate, and immediately actionable.
+    const systemPrompt = `You are the StrengthWise AI Coach — a world-renowned clinical exercise physiologist, biomechanist, and sports nutrition specialist (CSCS, PhD in Biomechanics & Clinical Sports Nutrition).
+You communicate with athletes directly. Your tone is warm, exceptionally articulate, scientifically precise, empathetic, and immediately actionable.
 
 Current Athlete Profile:
 ${athleteLines.map((l) => `- ${l}`).join("\n")}
 
 CRITICAL COACHING INSTRUCTIONS:
-1. Always directly and thoroughly address the user's question first. Never stop mid-thought or cut off abruptly. Provide complete, comprehensive explanations.
+1. Always directly and thoroughly answer the user's specific question first. Never stop mid-thought or cut off abruptly. Provide complete, fully-fleshed answers.
 2. For Joint Discomfort or Exercise Substitutions (e.g. shoulder pain on barbell bench press, knee pain on squats, lumbar pain on deadlifts):
-   - Explain the specific biomechanical mechanism (e.g., fixed internal rotation, excessive horizontal abduction stretch, long humerus lever, subacromial impingement).
-   - Prescribe 2-3 joint-friendly acute movement substitutions that preserve or exceed target muscle hypertrophy (e.g., 30° Incline Dumbbell Press with 45° neutral grip, Floor Press, Converging Machine Chest Press, Ring Push-ups).
+   - Explain the specific biomechanical mechanism causing the issue (e.g., fixed internal humeral rotation, excessive horizontal abduction stretch, long humerus levers for taller lifters, subacromial impingement).
+   - Prescribe 2-3 joint-friendly movement substitutions that preserve or exceed target muscle hypertrophy (e.g., 30° Incline Dumbbell Press with 45° neutral grip, Floor Press, Converging Machine Chest Press, Landmine Press).
    - Provide concrete technical cues (scapular depression/retraction, elbow tuck angle at 45°-60°, controlled 3-second eccentric tempo).
    - Give an impact metric (e.g., "Joint Shear Stress: -40% | Pectoralis Major Activation: Maintained").
 3. For Training Plateaus & Progressive Overload:
    - Prescribe specific mechanisms (pause variations, concentric rate of force development RFD, autoregulation, unilateral balances).
 4. For Nutrition & Fueling:
-   - Provide exact gram amounts based on their body weight, meal timing (peri-workout windows), and the leucine threshold (~3g/meal).
+   - Provide exact gram amounts based on their body weight, meal timing (peri-workout windows), and the leucine threshold (~2.7g - 3.5g per meal).
 5. FORMATTING:
-   - Use clean, structured Markdown with bold titles and bullet points.
+   - Use clean, structured Markdown with bold titles, bullet points, and numbered steps.
    - Always conclude with a dedicated "### 💡 Prescription & Action Item" section outlining exact movements, sets, reps, and RPE for their next session.`;
 
     const latestUserMessage = messages[messages.length - 1]?.content || "";
 
-    // 3. Try Anthropic Claude API First
-    const rawAnthropicKey = process.env.ANTHROPIC_API_KEY || "";
-    const anthropicApiKey = rawAnthropicKey.replace(/^["'\s]+|["'\s]+$/g, "");
-
-    if (anthropicApiKey) {
-      try {
-        const anthropic = new Anthropic({
-          apiKey: anthropicApiKey,
-        });
-
-        // Ensure messages alternate properly and start with user
-        const anthropicMessages: Anthropic.MessageParam[] = [];
-        for (const msg of messages) {
-          anthropicMessages.push({
-            role: msg.role === "assistant" ? "assistant" : "user",
-            content: msg.content,
-          });
-        }
-
-        const candidateModels = [
-          "claude-3-5-sonnet-20241022",
-          "claude-3-5-haiku-20241022",
-          "claude-3-haiku-20240307",
-        ];
-
-        for (const model of candidateModels) {
-          try {
-            const response = await anthropic.messages.create({
-              model,
-              max_tokens: 2048,
-              temperature: 0.3,
-              system: systemPrompt,
-              messages: anthropicMessages,
-            });
-
-            const replyText = response.content
-              .filter((block): block is Anthropic.TextBlock => block.type === "text")
-              .map((block) => block.text)
-              .join("\n")
-              .trim();
-
-            if (replyText) {
-              return NextResponse.json(
-                {
-                  message: replyText,
-                  source: "claude",
-                  model,
-                  rateLimit: {
-                    limit: rateLimit.limit,
-                    remaining: rateLimit.remaining,
-                  },
-                },
-                {
-                  headers: {
-                    "X-RateLimit-Limit": String(rateLimit.limit),
-                    "X-RateLimit-Remaining": String(rateLimit.remaining),
-                  },
-                }
-              );
-            }
-          } catch (modelErr: unknown) {
-            console.warn(`Anthropic model ${model} attempt failed:`, modelErr);
-            // Try next Anthropic model
-          }
-        }
-      } catch (anthropicErr) {
-        console.error("Anthropic API error:", anthropicErr);
-      }
-    }
-
-    // 4. Secondary Fallback: Google Gemini API (with generous 2048 maxOutputTokens)
+    // 3. PRIMARY GENERATIVE AI ENGINE: Google Gemini (100% Free Tier, High Speed)
     const rawGeminiKey = process.env.GEMINI_API_KEY || "";
     const geminiApiKey = rawGeminiKey.replace(/^["'\s]+|["'\s]+$/g, "");
 
@@ -261,28 +191,11 @@ CRITICAL COACHING INSTRUCTIONS:
         "gemini-flash-lite-latest",
       ];
 
-      const formattedContents = [
-        {
-          role: "user",
-          parts: [{ text: `${systemPrompt}\n\n[Conversation Start]` }],
-        },
-        {
-          role: "model",
-          parts: [
-            {
-              text: `Understood. I am StrengthWise AI Coach, ready with clinical sports science and biomechanics calibrated to ${
-                enrichedContext.fullName || "the athlete"
-              } (${enrichedContext.weightLbs || "185"} lbs, ${
-                enrichedContext.splitType || "Strength & Hypertrophy Split"
-              }). How can I optimize your training or nutrition today?`,
-            },
-          ],
-        },
-        ...messages.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        })),
-      ];
+      // Convert conversation messages to Gemini format
+      const formattedContents = messages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
 
       for (const model of geminiCandidateModels) {
         try {
@@ -291,9 +204,12 @@ CRITICAL COACHING INSTRUCTIONS:
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              system_instruction: {
+                parts: [{ text: systemPrompt }],
+              },
               contents: formattedContents,
               generationConfig: {
-                temperature: 0.3,
+                temperature: 0.35,
                 maxOutputTokens: 2048,
               },
             }),
@@ -323,12 +239,62 @@ CRITICAL COACHING INSTRUCTIONS:
             }
           }
         } catch {
-          // Continue to next fallback
+          // Model error or temporary spike, try next Gemini candidate model
         }
       }
     }
 
-    // 5. Autonomous Clinical Sports Science Fallback (Zero-Downtime Guarantee)
+    // 4. Secondary Generative AI Engine: Anthropic Claude (if configured)
+    const rawAnthropicKey = process.env.ANTHROPIC_API_KEY || "";
+    const anthropicApiKey = rawAnthropicKey.replace(/^["'\s]+|["'\s]+$/g, "");
+
+    if (anthropicApiKey) {
+      try {
+        const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+        const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content,
+        }));
+
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 2048,
+          temperature: 0.35,
+          system: systemPrompt,
+          messages: anthropicMessages,
+        });
+
+        const replyText = response.content
+          .filter((block): block is Anthropic.TextBlock => block.type === "text")
+          .map((block) => block.text)
+          .join("\n")
+          .trim();
+
+        if (replyText) {
+          return NextResponse.json(
+            {
+              message: replyText,
+              source: "claude",
+              model: "claude-3-5-sonnet-20241022",
+              rateLimit: {
+                limit: rateLimit.limit,
+                remaining: rateLimit.remaining,
+              },
+            },
+            {
+              headers: {
+                "X-RateLimit-Limit": String(rateLimit.limit),
+                "X-RateLimit-Remaining": String(rateLimit.remaining),
+              },
+            }
+          );
+        }
+      } catch (anthropicErr) {
+        console.warn("Anthropic call skipped/failed:", anthropicErr);
+      }
+    }
+
+    // 5. Autonomous Clinical Sports Science Fallback (Zero-Downtime Resilience)
     const fallbackResponse = generateSportsScienceResponse(latestUserMessage, enrichedContext);
 
     return NextResponse.json(
@@ -358,7 +324,7 @@ CRITICAL COACHING INSTRUCTIONS:
 }
 
 /**
- * Deterministic sports science reasoning generator.
+ * Deterministic sports science reasoning generator for offline/backup resilience.
  */
 function generateSportsScienceResponse(query: string, context: AthleteContext): string {
   const q = query.toLowerCase();

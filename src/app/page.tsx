@@ -297,6 +297,7 @@ export default function LandingPage() {
 
   // 1. Check current Supabase session & load existing profile on mount
   useEffect(() => {
+    document.title = "StrengthWise AI — Intelligent Strength & Nutrition Coach";
     async function initSessionAndProfile() {
       try {
         const {
@@ -1711,12 +1712,13 @@ export default function LandingPage() {
                       >
                         Edit Profile
                       </button>
-                      <a
-                        href="#meals"
-                        className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition"
+                      <Link
+                        href="/meals"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition"
                       >
-                        View Your Targets &darr;
-                      </a>
+                        <span>View Meals &amp; Macros</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -1727,878 +1729,212 @@ export default function LandingPage() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. MEALS SECTION (Metabolic Math & Nutrition Architecture)                */}
+      {/* 3. CORE MODULES COMMAND HUB (DIRECT ACCESS TO DEDICATED PAGES)           */}
       {/* ========================================================================= */}
-      <section id="meals" className="scroll-mt-6 space-y-8 relative">
-        {/* If locked, display overlay */}
-        {!hasProfile && (
-          <div className="absolute -inset-2 z-20 rounded-3xl backdrop-blur-md bg-neutral-950/70 border border-neutral-800/80 flex flex-col items-center justify-center p-6 text-center shadow-2xl">
-            <div className="max-w-md space-y-4">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                <Lock className="h-7 w-7" />
-              </div>
-              <h3 className="text-xl font-black text-white tracking-tight">
-                Meals &amp; Nutrition Gated
-              </h3>
-              <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Create your account and athlete profile above so the Mifflin-St Jeor engine can calculate your
-                exact customized calorie targets and macro splits.
-              </p>
-              <a
-                href="#profile-setup"
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition"
-              >
-                <span>{authUser ? "Complete Athlete Profile to Unlock" : "Create Account to Unlock"}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </a>
-            </div>
-          </div>
-        )}
-
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-            <Utensils className="h-3.5 w-3.5" />
-            <span>Precision Sports Nutrition</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Metabolic Architecture &amp; Macro Distribution
-          </h2>
-          <p className="text-xs sm:text-sm text-neutral-400">
-            Clinical Mifflin-St Jeor metabolic calculations tailored to your exact bodyweight,
-            biological sex, and training phase.
-          </p>
-        </div>
-
-        {/* Live Interactive Nutrition Calculator Card */}
-        <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 shadow-2xl">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            {/* Breakdown details */}
-            <div className="lg:col-span-6 space-y-6">
-              <div>
-                <div className="text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold mb-1">
-                  Athlete Targets
-                </div>
-                <Title className="text-white text-base">
-                  {fullName ? `${fullName}'s Nutritional Blueprint` : "Daily Metabolic Fuel"}
-                </Title>
-                <Text className="text-neutral-400 text-xs mb-3">
-                  Calibrated for {numWeightLbs} lbs ({Math.round(numWeightKg)} kg) athlete in {goal === "CUT" ? "Fat Loss (-20%)" : goal === "BULK" ? "Muscle Surplus (+10%)" : "Maintenance"} phase:
-                </Text>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setGoal("CUT")}
-                    className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                      goal === "CUT"
-                        ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm"
-                        : "bg-neutral-800/60 border-neutral-700 text-neutral-400 hover:text-white"
-                    }`}
-                  >
-                    Fat Loss (-20%)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGoal("MAINTAIN")}
-                    className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                      goal === "MAINTAIN"
-                        ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-sm"
-                        : "bg-neutral-800/60 border-neutral-700 text-neutral-400 hover:text-white"
-                    }`}
-                  >
-                    Maintenance
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGoal("BULK")}
-                    className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                      goal === "BULK"
-                        ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
-                        : "bg-neutral-800/60 border-neutral-700 text-neutral-400 hover:text-white"
-                    }`}
-                  >
-                    Muscle Surplus (+10%)
-                  </button>
-                </div>
-              </div>
-
-              {/* Summary Breakdown */}
-              <div className="rounded-xl bg-neutral-950 p-4 border border-neutral-800 space-y-2 text-xs">
-                <div className="flex justify-between text-neutral-400">
-                  <span>Computed Basal Metabolic Rate (BMR):</span>
-                  <span className="text-neutral-200 font-mono">{calculated.bmr} kcal</span>
-                </div>
-                <div className="flex justify-between text-neutral-400">
-                  <span>Active Expenditure (TDEE × 1.55):</span>
-                  <span className="text-neutral-200 font-mono">{calculated.tdee} kcal</span>
-                </div>
-                <div className="flex justify-between font-bold border-t border-neutral-800/80 pt-2 text-white">
-                  <span>Target Daily Intake:</span>
-                  <span className="text-emerald-400 font-mono text-sm">{calculated.targetCalories} kcal / day</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Live Chart Visual */}
-            <div className="lg:col-span-6 flex flex-col items-center justify-center p-6 rounded-2xl bg-neutral-950/70 border border-neutral-800/80 space-y-4">
-              <div className="text-center">
-                <Text className="text-neutral-400 text-xs uppercase tracking-wider font-semibold">
-                  Prescribed Daily Fuel
-                </Text>
-                <div className="text-3xl font-extrabold text-white font-mono mt-1">
-                  {calculated.targetCalories} <span className="text-xs text-neutral-500 font-sans">KCAL</span>
-                </div>
-              </div>
-
-              <DonutChart
-                data={chartData}
-                label="Target Grams"
-                valueFormatter={(v) => `${v}g`}
-                className="h-44 w-44"
-              />
-
-              {/* Macros grid */}
-              <div className="grid grid-cols-3 gap-3 w-full text-center">
-                <div className="rounded-xl bg-neutral-900 p-2.5 border border-emerald-500/20">
-                  <div className="text-[10px] uppercase font-bold text-emerald-400">Protein</div>
-                  <div className="text-base font-extrabold text-white font-mono">{calculated.targetProtein}g</div>
-                  <div className="text-[10px] text-neutral-400">2.0g / kg</div>
-                </div>
-                <div className="rounded-xl bg-neutral-900 p-2.5 border border-cyan-500/20">
-                  <div className="text-[10px] uppercase font-bold text-cyan-400">Carbs</div>
-                  <div className="text-base font-extrabold text-white font-mono">{calculated.targetCarbs}g</div>
-                  <div className="text-[10px] text-neutral-400">Glycogen fuel</div>
-                </div>
-                <div className="rounded-xl bg-neutral-900 p-2.5 border border-amber-500/20">
-                  <div className="text-[10px] uppercase font-bold text-amber-400">Fats</div>
-                  <div className="text-base font-extrabold text-white font-mono">{calculated.targetFat}g</div>
-                  <div className="text-[10px] text-neutral-400">Hormone health</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* ========================================================================= */}
-        {/* LIVE DAILY FOOD & MACRO TRACKER STUDIO (USDA + BARCODE/LABEL SCANNER)     */}
-        {/* ========================================================================= */}
-        <Card className="bg-neutral-900/90 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <h3 className="text-base font-bold text-white">Daily Food &amp; Macro Intake Log</h3>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
-                  USDA Verified
-                </span>
-              </div>
-              <p className="text-xs text-neutral-400 mt-1">
-                Log meals via precision barcode scanner, Nutrition Facts OCR, or 3M+ food database search
-              </p>
-            </div>
-
-            {/* Quick Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setScannerInitialMeal("LUNCH");
-                  setScannerInitialTab("scan");
-                  setIsScannerOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-4 py-2 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition active:scale-[0.98]"
-              >
-                <Scan className="h-4 w-4" />
-                <span>Scan Food / Barcode</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setScannerInitialMeal("LUNCH");
-                  setScannerInitialTab("search");
-                  setIsScannerOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
-              >
-                <Search className="h-3.5 w-3.5 text-cyan-400" />
-                <span>Search Database</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Daily Progress Bars vs Mifflin-St Jeor Targets */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 rounded-2xl bg-neutral-950/80 border border-neutral-800">
-            {/* Calories Progress */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-neutral-300 font-semibold flex items-center gap-1">
-                  <Flame className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Calories</span>
-                </span>
-                <span className="font-mono text-emerald-400 font-bold">
-                  {loggedMealsData.totals.calories} / {calculated.targetCalories} kcal
-                </span>
-              </div>
-              <ProgressBar
-                value={Math.min(100, Math.round((loggedMealsData.totals.calories / (calculated.targetCalories || 2000)) * 100))}
-                color="emerald"
-                className="h-2 rounded-full"
-              />
-              <div className="text-[10px] text-neutral-500 font-mono">
-                {Math.max(0, calculated.targetCalories - loggedMealsData.totals.calories)} kcal remaining
-              </div>
-            </div>
-
-            {/* Protein Progress */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-neutral-300 font-semibold">Protein</span>
-                <span className="font-mono text-emerald-400 font-bold">
-                  {loggedMealsData.totals.protein}g / {calculated.targetProtein}g
-                </span>
-              </div>
-              <ProgressBar
-                value={Math.min(100, Math.round((loggedMealsData.totals.protein / (calculated.targetProtein || 150)) * 100))}
-                color="emerald"
-                className="h-2 rounded-full"
-              />
-              <div className="text-[10px] text-neutral-500 font-mono">
-                {Math.max(0, Math.round((calculated.targetProtein - loggedMealsData.totals.protein) * 10) / 10)}g remaining
-              </div>
-            </div>
-
-            {/* Carbs Progress */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-neutral-300 font-semibold">Carbs</span>
-                <span className="font-mono text-cyan-400 font-bold">
-                  {loggedMealsData.totals.carbs}g / {calculated.targetCarbs}g
-                </span>
-              </div>
-              <ProgressBar
-                value={Math.min(100, Math.round((loggedMealsData.totals.carbs / (calculated.targetCarbs || 200)) * 100))}
-                color="cyan"
-                className="h-2 rounded-full"
-              />
-              <div className="text-[10px] text-neutral-500 font-mono">
-                {Math.max(0, Math.round((calculated.targetCarbs - loggedMealsData.totals.carbs) * 10) / 10)}g remaining
-              </div>
-            </div>
-
-            {/* Fats Progress */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-neutral-300 font-semibold">Fats</span>
-                <span className="font-mono text-amber-400 font-bold">
-                  {loggedMealsData.totals.fat}g / {calculated.targetFat}g
-                </span>
-              </div>
-              <ProgressBar
-                value={Math.min(100, Math.round((loggedMealsData.totals.fat / (calculated.targetFat || 60)) * 100))}
-                color="amber"
-                className="h-2 rounded-full"
-              />
-              <div className="text-[10px] text-neutral-500 font-mono">
-                {Math.max(0, Math.round((calculated.targetFat - loggedMealsData.totals.fat) * 10) / 10)}g remaining
-              </div>
-            </div>
-          </div>
-
-          {/* Meal Categories Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {(
-              [
-                { type: "BREAKFAST" as const, label: "Breakfast", icon: "🍳", color: "text-amber-400" },
-                { type: "LUNCH" as const, label: "Lunch", icon: "🥗", color: "text-emerald-400" },
-                { type: "DINNER" as const, label: "Dinner", icon: "🥩", color: "text-cyan-400" },
-                { type: "SNACK" as const, label: "Snacks", icon: "🍎", color: "text-purple-400" },
-              ]
-            ).map((cat) => {
-              const items = loggedMealsData.grouped[cat.type] || [];
-              const catCalories = items.reduce((sum, i) => sum + (i.calories || 0), 0);
-              const catProtein = Math.round(items.reduce((sum, i) => sum + (i.protein || 0), 0) * 10) / 10;
-
-              return (
-                <div
-                  key={cat.type}
-                  className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-3 flex flex-col justify-between"
-                >
-                  <div className="space-y-2.5">
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{cat.icon}</span>
-                        <h4 className="text-xs font-bold text-white">{cat.label}</h4>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs font-mono font-bold text-white">{catCalories} kcal</div>
-                        <div className="text-[9px] text-neutral-500 font-mono">{catProtein}g protein</div>
-                      </div>
-                    </div>
-
-                    {/* Food Items List */}
-                    <div className="space-y-1.5 min-h-[90px]">
-                      {items.length === 0 ? (
-                        <div className="py-6 text-center text-[11px] text-neutral-600 italic">
-                          No foods logged yet.
-                        </div>
-                      ) : (
-                        items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="group flex items-center justify-between p-2 rounded-xl bg-neutral-900/80 border border-neutral-800/80 hover:border-neutral-700 transition"
-                          >
-                            <div className="overflow-hidden pr-1">
-                              <div className="text-[11px] font-semibold text-neutral-200 truncate">
-                                {item.name}
-                              </div>
-                              <div className="text-[9px] text-neutral-500 font-mono">
-                                {item.calories} kcal • P: {item.protein}g • C: {item.carbs}g • F: {item.fat}g
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteMeal(item.id)}
-                              title="Delete food entry"
-                              className="text-neutral-600 hover:text-red-400 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition shrink-0"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Add Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScannerInitialMeal(cat.type);
-                      setIsScannerOpen(true);
-                    }}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-neutral-800 bg-neutral-900 hover:border-emerald-500/30 hover:bg-neutral-800 text-[11px] font-semibold text-neutral-300 hover:text-white transition"
-                  >
-                    <Plus className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Log to {cat.label}</span>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 4. WORKOUTS SECTION (Adaptive Resistance Programming)                     */}
-      {/* ========================================================================= */}
-      <section id="workouts" className="scroll-mt-6 space-y-8 relative">
-        {!hasProfile && (
-          <div className="absolute -inset-2 z-20 rounded-3xl backdrop-blur-md bg-neutral-950/70 border border-neutral-800/80 flex flex-col items-center justify-center p-6 text-center shadow-2xl">
-            <div className="max-w-md space-y-4">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                <Lock className="h-7 w-7" />
-              </div>
-              <h3 className="text-xl font-black text-white tracking-tight">
-                Workouts &amp; Periodization Gated
-              </h3>
-              <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Create your account and athlete profile above to unlock periodized workout splits tailored to
-                your training frequency and target RPE.
-              </p>
-              <a
-                href="#profile-setup"
-                className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-400 transition"
-              >
-                <span>{authUser ? "Complete Athlete Profile to Unlock" : "Create Account to Unlock"}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </a>
-            </div>
-          </div>
-        )}
-
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-400">
-            <Dumbbell className="h-3.5 w-3.5" />
-            <span>Resistance Training &amp; Periodization</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Adaptive Workouts &amp; Progressive Overload
-          </h2>
-          <p className="text-xs sm:text-sm text-neutral-400">
-            Systematic volume autoregulation based on RPE (Rating of Perceived Exertion) and RIR (Reps in Reserve).
-          </p>
-        </div>
-
-        {/* Split Switcher Tabs & Active Program */}
-        <div className="space-y-3">
-          {/* Split Mode Switcher Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-2xl bg-neutral-900/90 border border-neutral-800 max-w-2xl mx-auto shadow-inner">
-            {[
-              { id: "full_body", label: "Full Body", days: "3-Day" },
-              { id: "upper_lower", label: "Upper / Lower", days: "4-Day" },
-              { id: "hybrid_ppl", label: "Hybrid PPL", days: "5-Day" },
-              { id: "ppl", label: "PPL x 2", days: "6-Day" },
-              { id: "custom", label: "Custom Split", days: `${customSplit.daysCount || customSplit.days.length}D` },
-            ].map((s) => {
-              const isSelected = activeSplit === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => handleSelectSplit(s.id as any)}
-                  className={`flex-1 min-w-[100px] text-xs font-semibold py-2 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 ${
-                    isSelected
-                      ? "bg-emerald-500 text-neutral-950 font-bold shadow-md shadow-emerald-500/20"
-                      : "text-neutral-400 hover:text-white hover:bg-neutral-800/60"
-                  }`}
-                >
-                  <span>{s.label}</span>
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                      isSelected ? "bg-neutral-950/20 text-neutral-950" : "bg-neutral-800 text-neutral-400"
-                    }`}
-                  >
-                    {s.days}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Quick Actions Bar */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
-            {activeSplit === "custom" ? (
-              <button
-                type="button"
-                onClick={() => setIsCustomSplitModalOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-4 py-2.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/25 transition shadow-sm"
-              >
-                <Edit3 className="h-3.5 w-3.5" />
-                <span>Customize Split &amp; Days</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  handleSelectSplit("custom");
-                  setIsCustomSplitModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900/80 px-3.5 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white hover:border-neutral-700 transition"
-              >
-                <Sliders className="h-3.5 w-3.5 text-cyan-400" />
-                <span>Build Custom Split</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
-                setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
-                setWorkoutModalInitialMode("routine");
-                setIsWorkoutModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20"
-            >
-              <Plus className="h-3.5 w-3.5 stroke-[3]" />
-              <span>Track Routine Split</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setWorkoutModalInitialMode("random");
-                setIsWorkoutModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900/90 px-4 py-2.5 text-xs font-bold text-neutral-200 hover:text-white hover:border-cyan-500/50 hover:bg-neutral-800 transition shadow-sm"
-            >
-              <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Log Random / Freeform</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Split Detail Card */}
-        <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold text-white tracking-tight">
-                  {currentSplit.name}
-                </h3>
-                {activeSplit === "custom" && (
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomSplitModalOpen(true)}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-400 hover:underline bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 rounded-lg"
-                  >
-                    <Edit3 className="h-3 w-3" />
-                    <span>Edit</span>
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-neutral-400 mt-1">
-                {currentSplit.description}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-3 py-1 text-xs font-mono font-semibold text-cyan-400">
-                {currentSplit.frequency}
-              </span>
-              <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-mono font-semibold text-emerald-400">
-                ~{currentSplit.targetSets} Weekly Sets / Muscle
-              </span>
-            </div>
-          </div>
-
-          {/* Routine Sessions */}
-          <div
-            className={`grid grid-cols-1 gap-4 ${
-              currentSplit.days.length === 4
-                ? "sm:grid-cols-2 lg:grid-cols-4"
-                : currentSplit.days.length === 5
-                ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-                : "md:grid-cols-3"
-            }`}
-          >
-            {currentSplit.days.map((day, idx) => (
-              <div key={idx} className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-4 space-y-3 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 font-mono">
-                      {day.name}
-                    </h4>
-                    <span className="text-[10px] text-neutral-500 font-mono">RPE 8-9</span>
-                  </div>
-                  <p className="text-xs text-neutral-300 leading-relaxed">
-                    {day.lifts}
-                  </p>
-                </div>
-                <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between">
-                  <span className="text-[10px] text-neutral-500 font-mono">Autoregulated</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWorkoutModalPresetName(day.name);
-                      setWorkoutModalPresetNotes(day.lifts);
-                      setIsWorkoutModalOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1 rounded-lg bg-cyan-500/10 border border-cyan-500/25 px-2.5 py-1 text-[11px] font-semibold text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 transition"
-                  >
-                    <Plus className="h-3 w-3 stroke-[2.5]" />
-                    <span>Track Session</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Logged Workouts & Activity Telemetry Card */}
-        <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-4">
-            <div>
-              <div className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-cyan-400 font-bold mb-1">
-                <Dumbbell className="h-3.5 w-3.5" />
-                <span>Training Telemetry &amp; Log</span>
-              </div>
-              <h3 className="text-xl font-bold text-white tracking-tight">
-                Logged Workouts
-              </h3>
-              <p className="text-xs text-neutral-400 mt-1">
-                Real-time volume accumulation, training duration, and caloric output logged to your account.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
-                  setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
-                  setWorkoutModalInitialMode("routine");
-                  setIsWorkoutModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20"
-              >
-                <Plus className="h-3.5 w-3.5 stroke-[3]" />
-                <span>Track Routine</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setWorkoutModalInitialMode("random");
-                  setIsWorkoutModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-900/90 px-3 py-2 text-xs font-bold text-neutral-200 hover:text-white hover:border-cyan-500/50 hover:bg-neutral-800 transition shadow-sm"
-              >
-                <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
-                <span>Random / Freeform</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Telemetry Summary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-1">
-              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
-                Sessions This Week
-              </div>
-              <div className="text-2xl font-black text-white font-mono flex items-baseline gap-1.5">
-                <span>{loggedWorkoutsData.summary.thisWeekCount}</span>
-                <span className="text-xs text-neutral-500 font-normal">/ {userSplitDays} target</span>
-              </div>
-              <div className="text-[10px] text-cyan-400 font-mono">
-                {loggedWorkoutsData.summary.thisWeekCount >= userSplitDays
-                  ? "Weekly Target Reached! 🔥"
-                  : `${Math.max(0, userSplitDays - loggedWorkoutsData.summary.thisWeekCount)} sessions remaining`}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-1">
-              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
-                Weekly Training Time
-              </div>
-              <div className="text-2xl font-black text-white font-mono flex items-baseline gap-1.5">
-                <span>{loggedWorkoutsData.summary.weeklyMinutes}</span>
-                <span className="text-xs text-neutral-500 font-normal">minutes</span>
-              </div>
-              <div className="text-[10px] text-neutral-500 font-mono">
-                {loggedWorkoutsData.summary.totalMinutes} total minutes recorded
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-1">
-              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
-                Energy Expended
-              </div>
-              <div className="text-2xl font-black text-white font-mono flex items-baseline gap-1.5">
-                <span>{loggedWorkoutsData.summary.weeklyCalories}</span>
-                <span className="text-xs text-neutral-500 font-normal">kcal</span>
-              </div>
-              <div className="text-[10px] text-amber-400 font-mono">
-                Resistance expenditure calculated
-              </div>
-            </div>
-          </div>
-
-          {/* Logged Workouts Feed */}
-          <div className="space-y-2.5">
-            <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">
-              Recent Training Sessions
-            </div>
-            {loggedWorkoutsData.workouts.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-800 bg-neutral-950/40 p-8 text-center space-y-3">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                  <Dumbbell className="h-6 w-6" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-white">No workouts recorded yet</h4>
-                  <p className="text-xs text-neutral-400 max-w-sm mx-auto">
-                    Track your first training session to unlock weekly volume monitoring and adherence metrics.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
-                      setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
-                      setWorkoutModalInitialMode("routine");
-                      setIsWorkoutModalOpen(true);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/25 transition"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Track Split Session</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWorkoutModalInitialMode("random");
-                      setIsWorkoutModalOpen(true);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-neutral-800/80 border border-neutral-700 px-4 py-2 text-xs font-bold text-neutral-300 hover:text-white hover:border-neutral-600 transition"
-                  >
-                    <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
-                    <span>Roll Random Workout</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {loggedWorkoutsData.workouts.map((w) => (
-                  <div
-                    key={w.id}
-                    className="group rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-2.5 hover:border-neutral-700 transition"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="text-sm font-bold text-white flex items-center gap-2">
-                          <span>{w.name}</span>
-                          {w.caloriesBurned && (
-                            <span className="text-[10px] text-amber-400 font-mono bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
-                              {w.caloriesBurned} kcal
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-neutral-500 font-mono mt-0.5 flex items-center gap-2">
-                          <span>{new Date(w.loggedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
-                          {w.durationMinutes && (
-                            <>
-                              <span>•</span>
-                              <span className="text-cyan-400">{w.durationMinutes} mins</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteWorkout(w.id)}
-                        className="rounded-lg p-1.5 text-neutral-600 hover:text-red-400 hover:bg-neutral-800/80 transition opacity-80 group-hover:opacity-100"
-                        title="Delete workout"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    {w.notes && (
-                      <div className="rounded-xl bg-neutral-900/90 border border-neutral-800/80 p-2.5 text-xs text-neutral-300 font-mono leading-relaxed whitespace-pre-line text-[11px]">
-                        {w.notes}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 5. PROGRESS SECTION (Telemetry & Performance Analytics)                   */}
-      {/* ========================================================================= */}
-      <section id="progress" className="scroll-mt-6 space-y-8 relative">
-        {!hasProfile && (
-          <div className="absolute -inset-2 z-20 rounded-3xl backdrop-blur-md bg-neutral-950/70 border border-neutral-800/80 flex flex-col items-center justify-center p-6 text-center shadow-2xl">
-            <div className="max-w-md space-y-4">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                <Lock className="h-7 w-7" />
-              </div>
-              <h3 className="text-xl font-black text-white tracking-tight">
-                Progress Telemetry Gated
-              </h3>
-              <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Create your account and athlete profile above to activate real-time telemetry, 1RM progress curves, and adherence monitoring.
-              </p>
-              <a
-                href="#profile-setup"
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition"
-              >
-                <span>{authUser ? "Complete Athlete Profile to Unlock" : "Create Account to Unlock"}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </a>
-            </div>
-          </div>
-        )}
-
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span>Telemetry &amp; Telemetry Analytics</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Progress Telemetry &amp; Strength Analytics
-          </h2>
-          <p className="text-xs sm:text-sm text-neutral-400">
-            Track your weekly volume adherence, estimated 1-Rep Max curves, and nutritional compliance in real time.
-          </p>
-        </div>
-
-        {/* 4 KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card decoration="left" decorationColor="emerald" className="bg-neutral-900/60 border-neutral-800 p-5 space-y-2">
-            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-              Hypertrophy Stimulus
-            </div>
-            <div className="text-2xl font-black text-white font-mono">94.2%</div>
-            <ProgressBar value={94.2} color="emerald" className="mt-2" />
-            <span className="text-[10px] text-emerald-400 font-mono">Optimal stimulus range</span>
-          </Card>
-
-          <Card decoration="left" decorationColor="cyan" className="bg-neutral-900/60 border-neutral-800 p-5 space-y-2">
-            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-              Calorie Adherence
-            </div>
-            <div className="text-2xl font-black text-white font-mono">98.6%</div>
-            <ProgressBar value={98.6} color="cyan" className="mt-2" />
-            <span className="text-[10px] text-cyan-400 font-mono">7-day average consistency</span>
-          </Card>
-
-          <Card decoration="left" decorationColor="amber" className="bg-neutral-900/60 border-neutral-800 p-5 space-y-2">
-            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-              1RM Strength Trend
-            </div>
-            <div className="text-2xl font-black text-white font-mono">+8.4%</div>
-            <ProgressBar value={84} color="amber" className="mt-2" />
-            <span className="text-[10px] text-amber-400 font-mono">6-week linear progression</span>
-          </Card>
-
-          <Card decoration="left" decorationColor="purple" className="bg-neutral-900/60 border-neutral-800 p-5 space-y-2">
-            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-              Recovery Score
-            </div>
-            <div className="text-2xl font-black text-white font-mono">Ready</div>
-            <ProgressBar value={90} color="purple" className="mt-2" />
-            <span className="text-[10px] text-purple-400 font-mono">CNS ready for high RPE</span>
-          </Card>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 6. COACH SECTION (AI Strength & Nutrition Specialist)                     */}
-      {/* ========================================================================= */}
-      <section id="coach" className="scroll-mt-6 space-y-8 relative">
-        {!hasProfile && (
-          <div className="absolute -inset-2 z-20 rounded-3xl backdrop-blur-md bg-neutral-950/70 border border-neutral-800/80 flex flex-col items-center justify-center p-6 text-center shadow-2xl">
-            <div className="max-w-md space-y-4">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                <Lock className="h-7 w-7" />
-              </div>
-              <h3 className="text-xl font-black text-white tracking-tight">
-                AI Coach Specialist Gated
-              </h3>
-              <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Create your account and athlete profile above so the AI Coach has your biomechanical context,
-                experience level, and injury history.
-              </p>
-              <a
-                href="#profile-setup"
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition"
-              >
-                <span>{authUser ? "Complete Athlete Profile to Unlock" : "Create Account to Unlock"}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </a>
-            </div>
-          </div>
-        )}
-
+      <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
             <Sparkles className="h-3.5 w-3.5" />
-            <span>Autonomous Intelligence</span>
+            <span>Dedicated App Modules</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            24/7 AI Strength &amp; Nutrition Specialist Chatbot
+            Your Coaching Command Center
           </h2>
           <p className="text-xs sm:text-sm text-neutral-400">
-            Live interactive consultation for acute exercise substitutions, joint discomfort adaptations, progressive overload, and peri-workout fueling.
+            Access dedicated, focused spaces for precision macro nutrition, autoregulated workout splits, telemetry analytics, and 24/7 AI consultation.
           </p>
         </div>
 
-        {/* Interactive AI Coach Chatbot */}
-        <CoachChat athleteContext={coachAthleteContext} hasProfile={hasProfile} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Card 1: Meals & Nutrition */}
+          <Card className="bg-neutral-900/80 border-neutral-800 p-6 flex flex-col justify-between hover:border-emerald-500/50 transition duration-300 group shadow-xl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition">
+                  <Utensils className="h-5 w-5" />
+                </div>
+                <span className="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
+                  Mifflin-St Jeor Engine
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-bold text-white group-hover:text-emerald-400 transition">
+                  Meals &amp; Nutrition
+                </h3>
+                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                  Precision daily caloric expenditure calculations, macro ratios, and USDA verified food &amp; barcode scanning.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800/80 space-y-2">
+                <div className="flex justify-between items-baseline text-xs">
+                  <span className="text-neutral-400">Target Intake:</span>
+                  <span className="text-base font-bold font-mono text-emerald-400">
+                    {calculated.targetCalories} kcal / day
+                  </span>
+                </div>
+                <div className="flex justify-between text-[11px] text-neutral-400 font-mono border-t border-neutral-800/80 pt-2">
+                  <span>P: <strong className="text-white">{calculated.targetProtein}g</strong></span>
+                  <span>C: <strong className="text-white">{calculated.targetCarbs}g</strong></span>
+                  <span>F: <strong className="text-white">{calculated.targetFat}g</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-5 border-t border-neutral-800/80 mt-4 flex items-center justify-between">
+              <span className="text-xs text-neutral-500">Full tracker &amp; barcode OCR</span>
+              <Link
+                href="/meals"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition shadow-md shadow-emerald-500/15"
+              >
+                <span>Open Meals Page</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </Card>
+
+          {/* Card 2: Workouts & Routines */}
+          <Card className="bg-neutral-900/80 border-neutral-800 p-6 flex flex-col justify-between hover:border-cyan-500/50 transition duration-300 group shadow-xl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-105 transition">
+                  <Dumbbell className="h-5 w-5" />
+                </div>
+                <span className="text-[10px] font-mono font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-lg">
+                  Autoregulated Volume
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-bold text-white group-hover:text-cyan-400 transition">
+                  Workouts &amp; Periodization
+                </h3>
+                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                  Systematic RPE &amp; RIR autoregulation, customizable split templates, and progressive overload tracking.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800/80 space-y-2">
+                <div className="flex justify-between items-baseline text-xs">
+                  <span className="text-neutral-400">Active Program:</span>
+                  <span className="text-xs font-bold font-mono text-cyan-400 truncate max-w-[180px]">
+                    {currentSplit.name}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[11px] text-neutral-400 font-mono border-t border-neutral-800/80 pt-2">
+                  <span>Frequency: <strong className="text-white">{currentSplit.frequency}</strong></span>
+                  <span>Sets: <strong className="text-white">~{currentSplit.targetSets}/wk</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-5 border-t border-neutral-800/80 mt-4 flex items-center justify-between">
+              <span className="text-xs text-neutral-500">Split builder &amp; logger</span>
+              <Link
+                href="/workouts"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-md shadow-cyan-500/15"
+              >
+                <span>Open Workouts Page</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </Card>
+
+          {/* Card 3: Progress & Telemetry */}
+          <Card className="bg-neutral-900/80 border-neutral-800 p-6 flex flex-col justify-between hover:border-amber-500/50 transition duration-300 group shadow-xl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-105 transition">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <span className="text-[10px] font-mono font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">
+                  Real-Time Analytics
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-bold text-white group-hover:text-amber-400 transition">
+                  Progress &amp; Strength Telemetry
+                </h3>
+                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                  Estimated 1-Rep Max curves, body weight trajectory tracking, and weekly volume compliance.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800/80 space-y-2">
+                <div className="flex justify-between items-baseline text-xs">
+                  <span className="text-neutral-400">Scale Weight Target:</span>
+                  <span className="text-xs font-bold font-mono text-amber-400">
+                    {currentWeightLbs} lbs → {goalWeightLbs} lbs
+                  </span>
+                </div>
+                <div className="flex justify-between text-[11px] text-neutral-400 font-mono border-t border-neutral-800/80 pt-2">
+                  <span>Stimulus: <strong className="text-emerald-400">94.2%</strong></span>
+                  <span>1RM Gain: <strong className="text-white">+8.4%</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-5 border-t border-neutral-800/80 mt-4 flex items-center justify-between">
+              <span className="text-xs text-neutral-500">1RM curves &amp; body comp</span>
+              <Link
+                href="/progress"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-amber-400 transition shadow-md shadow-amber-500/15"
+              >
+                <span>Open Progress Page</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </Card>
+
+          {/* Card 4: AI Coach */}
+          <Card className="bg-neutral-900/80 border-neutral-800 p-6 flex flex-col justify-between hover:border-emerald-500/50 transition duration-300 group shadow-xl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-neutral-950 shadow-md group-hover:scale-105 transition">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <span className="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span>24/7 AI Ready</span>
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-bold text-white group-hover:text-emerald-400 transition">
+                  AI Strength &amp; Nutrition Coach
+                </h3>
+                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                  Interactive sports science AI consultation for exercise substitutions, joint adaptations, and fueling.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800/80 space-y-2">
+                <div className="flex justify-between items-baseline text-xs">
+                  <span className="text-neutral-400">Context Calibration:</span>
+                  <span className="text-xs font-bold font-mono text-emerald-400">
+                    {hasProfile ? "Full Athlete Profile Linked" : "Guest Mode Active"}
+                  </span>
+                </div>
+                <div className="text-[11px] text-neutral-400 truncate border-t border-neutral-800/80 pt-2">
+                  <span>Expert in: Biomechanics, Mifflin-St Jeor &amp; Hypertrophy</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-5 border-t border-neutral-800/80 mt-4 flex items-center justify-between">
+              <span className="text-xs text-neutral-500">Autonomous chat specialist</span>
+              <Link
+                href="/coach"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-4 py-2 text-xs font-bold text-neutral-950 hover:from-emerald-400 hover:to-emerald-300 transition shadow-md shadow-emerald-500/15"
+              >
+                <span>Consult AI Coach</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </Card>
+        </div>
       </section>
 
       {/* ========================================================================= */}

@@ -866,8 +866,8 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             <span className="font-mono text-[10px] text-neutral-500 border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 rounded">
               ⚡ Rate Limit: 10/min
             </span>
-            <span className="hidden sm:inline font-mono text-[10px] text-emerald-400/70">
-              Anthropic Claude &amp; Gemini AI
+            <span className="hidden sm:inline font-mono text-[10px] text-emerald-400/80">
+              Powered by Google Gemini Generative AI
             </span>
           </div>
         </div>

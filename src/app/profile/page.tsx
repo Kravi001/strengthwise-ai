@@ -173,6 +173,7 @@ export default function ProfilePage() {
 
   // 3. Load initial Auth & Profile data
   useEffect(() => {
+    document.title = "Athlete Profile & Settings — StrengthWise AI";
     async function loadUserAndProfile() {
       try {
         const {

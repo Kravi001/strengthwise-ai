@@ -3,10 +3,6 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 const BANNED_ROUTES = [
   "/login",
-  "/meals",
-  "/workouts",
-  "/progress",
-  "/coach",
   "/about",
 ];
 
