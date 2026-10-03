@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, Suspense } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -9,21 +9,19 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
-  BookOpen,
   Calendar,
   CheckCircle2,
   ChevronRight,
   Database,
   Dumbbell,
-  Edit3,
   ExternalLink,
+  Eye,
+  EyeOff,
   Flame,
-  Heart,
-  HelpCircle,
-  Info,
-  Layers,
   Lock,
   LogOut,
+  Mail,
+  MailCheck,
   Plus,
   RefreshCw,
   Scale,
@@ -51,8 +49,9 @@ import {
   SPLIT_DETAILS,
   type CalculatedTargets,
 } from "@/lib/calc";
+import { Card, DonutChart, ProgressBar } from "@/components/tremor";
 import type { FoodItem } from "@/lib/usda-foods";
-import type { User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 const AVATAR_PRESETS = ["🏋️‍♂️", "🦾", "⚡", "🥗", "🧘", "🏆", "🔥", "🥇"];
 
@@ -106,11 +105,24 @@ export default function ProfilePage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Auth User
+  // --- Auth User State ---
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Form Fields
+  // Auth Form State (for landing / unauthenticated state)
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signup");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authFullName, setAuthFullName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
+  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
+  const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
+  const [isVerifyingDev, setIsVerifyingDev] = useState(false);
+
+  // --- Profile Fields ---
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -145,9 +157,8 @@ export default function ProfilePage() {
   // Food & Macro Scanner Modal State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerFood, setScannerFood] = useState<FoodItem | null>(null);
-  const [scannerMealType, setScannerMealType] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">("LUNCH");
 
-  // 1. Convert height and weight to metric for sports science formulas
+  // 1. Metric conversions for sports science formulas
   const numWeightLbs = Number(currentWeightLbs) || 185;
   const numWeightKg = numWeightLbs / 2.20462;
   const parsedFt = Number(heightFt) > 0 ? Number(heightFt) : 6;
@@ -171,100 +182,18 @@ export default function ProfilePage() {
     });
   }, [age, gender, heightCm, numWeightKg, goalWeightLbs, activityLevel, goal, dietPreference, equipment, splitDays]);
 
-  // 3. Load initial Auth & Profile data
-  useEffect(() => {
-    document.title = "Athlete Profile & Settings — StrengthWise AI";
-    async function loadUserAndProfile() {
-      try {
-        const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser();
-
-        if (!currentUser) {
-          // Check session fallback
-          const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData.session?.user) {
-            setUser(sessionData.session.user);
-            hydrateFromGoogle(sessionData.session.user);
-          } else {
-            setUser(null);
-          }
-        } else {
-          setUser(currentUser);
-          hydrateFromGoogle(currentUser);
-        }
-
-        // Fetch existing database profile
-        const res = await fetch("/api/profile");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.profile) {
-            if (data.profile.firstName) setFirstName(data.profile.firstName);
-            if (data.profile.lastName) setLastName(data.profile.lastName);
-            if (data.profile.age) setAge(data.profile.age);
-            if (data.profile.gender) setGender(data.profile.gender);
-            if (data.profile.heightCm) {
-              const totalIn = Math.round(data.profile.heightCm / 2.54);
-              setHeightFt(Math.floor(totalIn / 12));
-              setHeightIn(totalIn % 12);
-            }
-            if (data.profile.weightKg) {
-              setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
-            }
-            if (data.profile.goalWeightKg) {
-              setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
-            }
-            if (data.profile.equipment) setEquipment(data.profile.equipment);
-            if (data.profile.splitDays) setSplitDays(data.profile.splitDays);
-            if (data.profile.splitType) {
-              if (data.profile.splitType.toUpperCase().includes("CUSTOM")) {
-                setIsCustomSplit(true);
-              }
-            }
-            if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
-            if (data.profile.goal) {
-              setGoal(
-                data.profile.goal === "LOSE_WEIGHT"
-                  ? "CUT"
-                  : data.profile.goal === "BUILD_MUSCLE"
-                  ? "BULK"
-                  : "MAINTAIN"
-              );
-            }
-            if (data.profile.dietPreference) setDietPreference(data.profile.dietPreference);
-          }
-        }
-
-        // Check local storage for avatar or offline cached profile fields
-        if (typeof window !== "undefined") {
-          const loadedCustom = loadCustomSplit();
-          setCustomSplit(loadedCustom);
-          const stored = localStorage.getItem("sw_athlete_profile");
-          if (stored) {
-            try {
-              const p = JSON.parse(stored);
-              if (p.avatar) setAvatar(p.avatar);
-              if (p.splitType && p.splitType.toUpperCase().includes("CUSTOM")) {
-                setIsCustomSplit(true);
-              }
-              if (!res?.ok && p.heightFt) setHeightFt(p.heightFt);
-              if (!res?.ok && p.heightIn !== undefined && p.heightIn !== null && p.heightIn !== "") setHeightIn(p.heightIn);
-            } catch {}
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to load user or profile:", err);
-      } finally {
-        setAuthLoading(false);
-      }
-    }
-
-    loadUserAndProfile();
-  }, [supabase]);
+  const macroChartData = useMemo(() => [
+    { name: "Protein", value: calculatedTargets.targetProtein, color: "#10b981" },
+    { name: "Carbs", value: calculatedTargets.targetCarbs, color: "#06b6d4" },
+    { name: "Fats", value: calculatedTargets.targetFat, color: "#f59e0b" },
+  ], [calculatedTargets]);
 
   // Extract Google OAuth metadata if available
   const hydrateFromGoogle = (u: User) => {
-    if (u.email) setEmail(u.email);
+    if (u.email) {
+      setEmail(u.email);
+      setAuthEmail(u.email);
+    }
 
     const meta = u.user_metadata || {};
     if (meta.given_name) {
@@ -285,7 +214,135 @@ export default function ProfilePage() {
     }
   };
 
-  // 4. Fetch USDA Reference Foods
+  // 3. Load initial Auth & Profile data
+  useEffect(() => {
+    document.title = "Athlete Profile & Settings — StrengthWise AI";
+
+    async function loadUserAndProfile() {
+      try {
+        setAuthLoading(true);
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+
+        if (currentUser) {
+          setUser(currentUser);
+          hydrateFromGoogle(currentUser);
+          await fetchProfileFromDb();
+        } else {
+          // Check session fallback
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session?.user) {
+            setUser(sessionData.session.user);
+            hydrateFromGoogle(sessionData.session.user);
+            await fetchProfileFromDb();
+          } else {
+            setUser(null);
+          }
+        }
+
+        // Local storage cache fallback
+        if (typeof window !== "undefined") {
+          const loadedCustom = loadCustomSplit();
+          setCustomSplit(loadedCustom);
+          const stored = localStorage.getItem("sw_athlete_profile");
+          if (stored) {
+            try {
+              const p = JSON.parse(stored);
+              if (p.avatar) setAvatar(p.avatar);
+              if (p.firstName) setFirstName((prev) => prev || p.firstName);
+              if (p.lastName) setLastName((prev) => prev || p.lastName);
+              if (p.age) setAge(p.age);
+              if (p.gender) setGender(p.gender);
+              if (p.heightFt) setHeightFt(p.heightFt);
+              if (p.heightIn !== undefined && p.heightIn !== null) setHeightIn(p.heightIn);
+              if (p.weightLbs) setCurrentWeightLbs(p.weightLbs);
+              if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
+              if (p.equipment) setEquipment(p.equipment);
+              if (p.splitDays) setSplitDays(p.splitDays);
+              if (p.activityLevel) setActivityLevel(p.activityLevel);
+              if (p.goal) setGoal(p.goal);
+              if (p.dietPreference) setDietPreference(p.dietPreference);
+              if (p.splitType && p.splitType.toUpperCase().includes("CUSTOM")) {
+                setIsCustomSplit(true);
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load user or profile:", err);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+
+    loadUserAndProfile();
+
+    // Listen to real-time auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        hydrateFromGoogle(currentUser);
+        await fetchProfileFromDb();
+      }
+      setAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const fetchProfileFromDb = async () => {
+    try {
+      const res = await fetch("/api/profile");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile) {
+          if (data.profile.firstName) setFirstName(data.profile.firstName);
+          if (data.profile.lastName) setLastName(data.profile.lastName);
+          if (data.profile.age) setAge(data.profile.age);
+          if (data.profile.gender) setGender(data.profile.gender);
+          if (data.profile.heightCm) {
+            const totalIn = Math.round(data.profile.heightCm / 2.54);
+            setHeightFt(Math.floor(totalIn / 12));
+            setHeightIn(totalIn % 12);
+          }
+          if (data.profile.weightKg) {
+            setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
+          }
+          if (data.profile.goalWeightKg) {
+            setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
+          }
+          if (data.profile.equipment) setEquipment(data.profile.equipment);
+          if (data.profile.splitDays) setSplitDays(data.profile.splitDays);
+          if (data.profile.splitType) {
+            if (data.profile.splitType.toUpperCase().includes("CUSTOM")) {
+              setIsCustomSplit(true);
+            }
+          }
+          if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+          if (data.profile.goal) {
+            setGoal(
+              data.profile.goal === "LOSE_WEIGHT"
+                ? "CUT"
+                : data.profile.goal === "BUILD_MUSCLE"
+                ? "BULK"
+                : "MAINTAIN"
+            );
+          }
+          if (data.profile.dietPreference) setDietPreference(data.profile.dietPreference);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch DB profile:", err);
+    }
+  };
+
+  // 4. Fetch USDA Reference Foods for explorer tab
   useEffect(() => {
     async function fetchFoods() {
       setLoadingFoods(true);
@@ -306,6 +363,145 @@ export default function ProfilePage() {
 
     fetchFoods();
   }, [foodSearchQuery, selectedFoodCategory]);
+
+  // --- Auth Handlers ---
+  const handleGoogleSignIn = async () => {
+    setAuthErrorMsg(null);
+    setGoogleLoading(true);
+
+    try {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback?next=/profile`,
+        },
+      });
+
+      if (error) {
+        setAuthErrorMsg(error.message);
+        setGoogleLoading(false);
+      }
+    } catch (err: unknown) {
+      setAuthErrorMsg(err instanceof Error ? err.message : "Failed to initiate Google sign-in.");
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleEmailAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthErrorMsg(null);
+    setAuthSuccessMsg(null);
+    setAuthSubmitting(true);
+
+    try {
+      if (!authEmail || !authPassword) {
+        setAuthErrorMsg("Please enter both an email and password.");
+        setAuthSubmitting(false);
+        return;
+      }
+
+      if (authPassword.length < 6) {
+        setAuthErrorMsg("Password must be at least 6 characters long.");
+        setAuthSubmitting(false);
+        return;
+      }
+
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+      if (authMode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: authEmail,
+          password: authPassword,
+          options: {
+            data: {
+              full_name: authFullName || authEmail.split("@")[0],
+            },
+            emailRedirectTo: `${origin}/auth/callback?next=/profile`,
+          },
+        });
+
+        if (error) {
+          setAuthErrorMsg(error.message);
+          setAuthSubmitting(false);
+          return;
+        }
+
+        if (data.session?.user) {
+          setUser(data.session.user);
+          hydrateFromGoogle(data.session.user);
+          setAuthSuccessMsg("Account created and signed in! Calibrate your profile below.");
+        } else {
+          setEmailConfirmationSent(true);
+          setAuthSuccessMsg("Verification email sent! Check your inbox or click 'Instant Dev Verify' below.");
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password: authPassword,
+        });
+
+        if (error) {
+          setAuthErrorMsg(error.message);
+          setAuthSubmitting(false);
+          return;
+        }
+
+        if (data.user) {
+          setUser(data.user);
+          hydrateFromGoogle(data.user);
+          setAuthSuccessMsg("Welcome back! Your athlete profile is loaded.");
+        }
+      }
+    } catch (err: unknown) {
+      setAuthErrorMsg(err instanceof Error ? err.message : "Authentication failed.");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleDevVerify = async () => {
+    if (!authEmail) {
+      setAuthErrorMsg("Please enter the email address to verify.");
+      return;
+    }
+
+    setIsVerifyingDev(true);
+    setAuthErrorMsg(null);
+
+    try {
+      const res = await fetch("/api/auth/dev-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: authEmail }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to verify account.");
+      }
+
+      setAuthSuccessMsg("Email verified! Signing you in now...");
+      // Auto sign-in
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+
+      if (!signInError && signInData.user) {
+        setUser(signInData.user);
+        hydrateFromGoogle(signInData.user);
+        setEmailConfirmationSent(false);
+      } else {
+        setAuthMode("signin");
+        setEmailConfirmationSent(false);
+      }
+    } catch (err: unknown) {
+      setAuthErrorMsg(err instanceof Error ? err.message : "Dev verify failed.");
+    } finally {
+      setIsVerifyingDev(false);
+    }
+  };
 
   // 5. Handle Save Profile
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -348,7 +544,7 @@ export default function ProfilePage() {
         throw new Error(data.error || "Failed to save profile.");
       }
 
-      // Sync local storage for navbar & instant client feedback
+      // Sync local storage & cookies for navbar and instant client feedback
       if (typeof window !== "undefined") {
         const localData = {
           isCompleted: true,
@@ -377,7 +573,7 @@ export default function ProfilePage() {
         window.dispatchEvent(new Event("sw_profile_updated"));
       }
 
-      setSaveSuccess("Profile and macro calibration successfully saved to PostgreSQL!");
+      setSaveSuccess("Athlete profile and Mifflin-St Jeor calibration saved successfully to PostgreSQL!");
       setTimeout(() => {
         router.refresh();
       }, 500);
@@ -390,17 +586,18 @@ export default function ProfilePage() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("sw_athlete_profile");
       document.cookie = "sw_athlete_profile=; path=/; max-age=0";
       window.dispatchEvent(new Event("sw_profile_updated"));
     }
-    router.push("/");
+    router.refresh();
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 pb-20">
-      {/* Top Bar Header */}
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 pb-20 animate-in fade-in duration-300">
+      {/* Top Header Navigation */}
       <header className="sticky top-0 z-40 border-b border-neutral-800/80 bg-neutral-950/80 backdrop-blur-xl px-4 lg:px-8 py-3.5">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -413,7 +610,7 @@ export default function ProfilePage() {
             </Link>
             <span className="text-neutral-700">/</span>
             <span className="text-xs font-bold text-emerald-400 font-mono uppercase tracking-wider">
-              Athlete Profile &amp; Macro Calibration
+              {user ? "Athlete Profile & Settings" : "Athlete Profile Portal"}
             </span>
           </div>
 
@@ -427,23 +624,24 @@ export default function ProfilePage() {
               className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-3.5 py-1.5 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition"
             >
               <Scan className="h-3.5 w-3.5" />
-              <span>Food &amp; Macro Scanner</span>
+              <span className="hidden sm:inline">Barcode &amp; Macro Scanner</span>
+              <span className="sm:hidden">Scanner</span>
             </button>
 
             {user && (
-              <>
-                <span className="text-xs text-neutral-400 hidden sm:inline">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-400 hidden md:inline">
                   Signed in as <strong className="text-neutral-200">{user.email}</strong>
                 </span>
                 <button
                   onClick={handleSignOut}
-                  className="inline-flex items-center gap-1 text-[11px] text-neutral-400 hover:text-red-400 transition"
+                  className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-red-400 transition border border-neutral-800 bg-neutral-900/60 px-2.5 py-1.5 rounded-lg"
                   title="Sign out"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Sign Out</span>
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -451,921 +649,1007 @@ export default function ProfilePage() {
 
       {/* Main Container */}
       <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-8 space-y-8">
-        {/* Onboarding Welcome Banner if newly authenticated */}
-        <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-neutral-900 to-cyan-950/30 p-6 md:p-8 shadow-2xl">
-          <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-mono font-bold text-emerald-400">
+
+        {/* ========================================================================= */}
+        {/* UNAUTHENTICATED / LANDING STATE: SUPABASE AUTH PORTAL & SHOWCASE         */}
+        {/* ========================================================================= */}
+        {!user && !authLoading && (
+          <div className="space-y-12">
+            {/* Landing Hero */}
+            <div className="text-center max-w-3xl mx-auto space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold text-emerald-400 shadow-sm">
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Google Account Authenticated</span>
+                <span>Supabase Cloud Authentication • Athlete Identity</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Athlete Profile &amp; Nutritional Calibration
+              <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+                Your Personal Strength &amp; Nutrition Command Center
               </h1>
-              <p className="text-sm text-neutral-300 max-w-2xl leading-relaxed">
-                Your name and email have been pre-filled from your Google credentials. Complete your physical
-                biometrics, available equipment, and preferred weekly split below. Our sports-nutrition engine
-                instantly calculates your optimal calories and macros, calibrated against USDA FoodData Central standards.
+              <p className="text-sm sm:text-base text-neutral-300 leading-relaxed max-w-2xl mx-auto">
+                Sign in to calibrate your clinical Mifflin-St Jeor metabolic math, save custom split periodization, and link your biometrics to your 24/7 AI sports science coach.
               </p>
             </div>
 
-            <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
-              <div className="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/80 px-4 py-2.5">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                <span className="text-xs font-mono text-neutral-300">USDA AMDR Certified Engine</span>
-              </div>
-              <div className="text-[11px] text-neutral-500 font-mono">Mifflin-St Jeor + WHO Ratios</div>
-            </div>
-          </div>
-        </div>
+            {/* Main Auth & Interactive Preview Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-        {/* Tab Navigation: Profile Form vs USDA Food Database Explorer */}
-        <div className="flex items-center gap-2 border-b border-neutral-800 pb-2">
-          <button
-            onClick={() => setActiveTab("profile")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-              activeTab === "profile"
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm"
-                : "text-neutral-400 hover:text-white hover:bg-neutral-900"
-            }`}
-          >
-            <UserIcon className="h-4 w-4" />
-            <span>Profile &amp; Split Configuration</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("usda-database")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-              activeTab === "usda-database"
-                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-sm"
-                : "text-neutral-400 hover:text-white hover:bg-neutral-900"
-            }`}
-          >
-            <Database className="h-4 w-4" />
-            <span>USDA FoodData Central Reference Database</span>
-            <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[10px] text-cyan-300 font-mono">Live</span>
-          </button>
-        </div>
-
-        {/* Success / Error Messages */}
-        {saveSuccess && (
-          <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4 text-xs text-emerald-300 shadow-lg">
-            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-            <div className="flex-1">
-              <strong>Success:</strong> {saveSuccess}
-            </div>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1 font-bold text-white bg-emerald-500 hover:bg-emerald-400 px-3 py-1.5 rounded-lg text-neutral-950 transition"
-            >
-              <span>View Dashboard</span>
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-        )}
-
-        {saveError && (
-          <div className="flex items-center gap-3 rounded-2xl border border-red-500/40 bg-red-950/40 p-4 text-xs text-red-300 shadow-lg">
-            <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
-            <div>
-              <strong>Error:</strong> {saveError}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "profile" ? (
-          <form onSubmit={handleSaveProfile} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left 7 Columns: Profile & Biometrics Form */}
-            <div className="lg:col-span-7 space-y-6">
-              {/* Section 1: Google Identity & Name */}
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-5">
-                <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
-                    <UserIcon className="h-4 w-4" />
+              {/* Left Column: Supabase Sign In with Google & Email Form */}
+              <div className="lg:col-span-6 space-y-6">
+                <Card className="bg-neutral-900/90 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+                  <div className="space-y-2 border-b border-neutral-800 pb-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <UserIcon className="h-4 w-4" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white tracking-tight">
+                          {authMode === "signup" ? "Create Athlete Profile" : "Welcome Back Athlete"}
+                        </h2>
+                      </div>
+                      <span className="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
+                        Supabase Auth
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-400">
+                      Sign in with Google for instantaneous 1-click access or enter your email credentials below.
+                    </p>
                   </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-white">Google Identity &amp; Athlete Name</h2>
-                    <p className="text-[11px] text-neutral-400">Pre-populated directly from your Google OAuth account</p>
-                  </div>
-                </div>
 
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                  {/* Avatar Picker */}
-                  <div className="relative shrink-0">
-                    <div className="h-16 w-16 rounded-2xl border-2 border-emerald-500/40 bg-neutral-950 flex items-center justify-center overflow-hidden text-2xl shadow-inner">
-                      {avatar.startsWith("data:") || avatar.startsWith("http") ? (
-                        <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
+                  {/* Primary Option: One-Click Google OAuth */}
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      disabled={googleLoading}
+                      className="w-full flex items-center justify-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800/90 hover:bg-neutral-700 hover:border-emerald-500/40 px-5 py-3 text-sm font-semibold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
+                    >
+                      {googleLoading ? (
+                        <RefreshCw className="h-4 w-4 animate-spin text-emerald-400" />
                       ) : (
-                        <span>{avatar}</span>
+                        <svg className="h-5 w-5" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                          />
+                        </svg>
                       )}
+                      <span>{googleLoading ? "Redirecting to Google..." : "Continue with Google"}</span>
+                    </button>
+                    <p className="text-[11px] text-center text-neutral-500 font-mono">
+                      Fast, secure Google OAuth authenticated with Supabase
+                    </p>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="relative flex items-center justify-center my-2">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-neutral-800" />
+                    </div>
+                    <span className="relative bg-neutral-900 px-3 text-[11px] text-neutral-500 uppercase tracking-wider font-mono font-semibold">
+                      or continue with email
+                    </span>
+                  </div>
+
+                  {/* Auth Mode Toggle */}
+                  <div className="flex rounded-xl bg-neutral-950 p-1 border border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("signup");
+                        setAuthErrorMsg(null);
+                      }}
+                      className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
+                        authMode === "signup"
+                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm"
+                          : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      Create Account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("signin");
+                        setAuthErrorMsg(null);
+                      }}
+                      className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
+                        authMode === "signin"
+                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm"
+                          : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      Sign In
+                    </button>
+                  </div>
+
+                  {/* Form */}
+                  <form onSubmit={handleEmailAuthSubmit} className="space-y-4">
+                    {authMode === "signup" && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-neutral-300">Athlete Name</label>
+                        <div className="relative">
+                          <UserIcon className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                          <input
+                            type="text"
+                            placeholder="e.g. Alex Miller"
+                            value={authFullName}
+                            onChange={(e) => setAuthFullName(e.target.value)}
+                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-neutral-300">Email Address</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                        <input
+                          type="email"
+                          required
+                          placeholder="athlete@domain.com"
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-neutral-300">Password</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="At least 6 characters"
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 pl-10 pr-10 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-3 text-neutral-500 hover:text-neutral-300"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Messages */}
+                    {authErrorMsg && (
+                      <div className="rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300 flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                        <span>{authErrorMsg}</span>
+                      </div>
+                    )}
+
+                    {authSuccessMsg && (
+                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs text-emerald-300 flex items-start gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span>{authSuccessMsg}</span>
+                      </div>
+                    )}
+
+                    {/* Dev Verify Bypass */}
+                    {emailConfirmationSent && (
+                      <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-3.5 space-y-2">
+                        <div className="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
+                          <MailCheck className="h-4 w-4" />
+                          <span>Confirmation link sent to your email</span>
+                        </div>
+                        <p className="text-[11px] text-neutral-400 leading-relaxed">
+                          In local development or testing mode, you can bypass email clicking with one click:
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleDevVerify}
+                          disabled={isVerifyingDev}
+                          className="w-full rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-2 transition shadow"
+                        >
+                          {isVerifyingDev ? "Verifying..." : "Instant Dev Verify & Continue"}
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={authSubmitting}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 px-5 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-50"
+                    >
+                      {authSubmitting ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="h-4 w-4" />
+                      )}
+                      <span>
+                        {authSubmitting
+                          ? "Authenticating with Supabase..."
+                          : authMode === "signup"
+                          ? "Create Account & Setup Profile"
+                          : "Sign In to Your Profile"}
+                      </span>
+                    </button>
+                  </form>
+                </Card>
+              </div>
+
+              {/* Right Column: Live Interactive Sandbox / Formula Preview */}
+              <div className="lg:col-span-6 space-y-6">
+                <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
+                    <div>
+                      <div className="inline-flex items-center gap-1.5 text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold mb-1">
+                        <Zap className="h-3.5 w-3.5" />
+                        <span>Interactive Calculation Engine</span>
+                      </div>
+                      <h3 className="text-xl font-bold text-white tracking-tight">
+                        Live Sports Science Calculator
+                      </h3>
+                    </div>
+                    <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-400">
+                      Mifflin-St Jeor
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    Test the clinical calculation engine right now. Adjust weight and phase below to watch calorie targets and macro splits compute in real time:
+                  </p>
+
+                  {/* Interactive Inputs */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-neutral-400">Current Weight (lbs)</label>
+                      <input
+                        type="number"
+                        min="80"
+                        max="400"
+                        value={currentWeightLbs}
+                        onChange={(e) => setCurrentWeightLbs(e.target.value)}
+                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-neutral-400">Biological Sex</label>
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value as "MALE" | "FEMALE")}
+                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      >
+                        <option value="MALE">Male (+5 kcal)</option>
+                        <option value="FEMALE">Female (-161 kcal)</option>
+                      </select>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="text-xs font-semibold text-neutral-200">Avatar Icon Preset</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {AVATAR_PRESETS.map((p) => (
+                  {/* Goal Phase Toggle */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-neutral-400">Training Phase Goal</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: "CUT", label: "Cut (-20%)" },
+                        { id: "MAINTAIN", label: "Maintain (0%)" },
+                        { id: "BULK", label: "Bulk (+10%)" },
+                      ].map((g) => (
                         <button
-                          key={p}
+                          key={g.id}
                           type="button"
-                          onClick={() => setAvatar(p)}
-                          className={`h-8 w-8 rounded-lg border text-base flex items-center justify-center transition ${
-                            avatar === p
-                              ? "border-emerald-500 bg-emerald-500/20 scale-105"
-                              : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
+                          onClick={() => setGoal(g.id as any)}
+                          className={`py-2 text-xs font-bold rounded-xl border transition ${
+                            goal === g.id
+                              ? "border-emerald-500 bg-emerald-500/15 text-emerald-400"
+                              : "border-neutral-800 bg-neutral-950/60 text-neutral-400"
                           }`}
                         >
-                          {p}
+                          {g.label}
                         </button>
                       ))}
                     </div>
                   </div>
+
+                  {/* Computed Results Box */}
+                  <div className="rounded-2xl border border-emerald-500/20 bg-neutral-950/80 p-4 space-y-4">
+                    <div className="flex items-baseline justify-between border-b border-neutral-800 pb-3">
+                      <span className="text-xs text-neutral-400">Target Daily Intake:</span>
+                      <div className="text-right">
+                        <span className="text-2xl font-black font-mono text-emerald-400">
+                          {calculatedTargets.targetCalories}
+                        </span>
+                        <span className="text-xs text-neutral-500 font-mono ml-1">kcal / day</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2">
+                        <div className="text-[10px] text-neutral-400 font-mono">Protein</div>
+                        <div className="text-base font-bold text-white font-mono">{calculatedTargets.targetProtein}g</div>
+                        <div className="text-[9px] text-emerald-400 font-mono">{calculatedTargets.usdaBenchmark.proteinPercent}% kcal</div>
+                      </div>
+                      <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-2">
+                        <div className="text-[10px] text-neutral-400 font-mono">Carbs</div>
+                        <div className="text-base font-bold text-white font-mono">{calculatedTargets.targetCarbs}g</div>
+                        <div className="text-[9px] text-cyan-400 font-mono">{calculatedTargets.usdaBenchmark.carbsPercent}% kcal</div>
+                      </div>
+                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-2">
+                        <div className="text-[10px] text-neutral-400 font-mono">Fats</div>
+                        <div className="text-base font-bold text-white font-mono">{calculatedTargets.targetFat}g</div>
+                        <div className="text-[9px] text-amber-400 font-mono">{calculatedTargets.usdaBenchmark.fatPercent}% kcal</div>
+                      </div>
+                    </div>
+
+                    <div className="pt-1">
+                      <DonutChart
+                        data={macroChartData}
+                        label="Macro Split"
+                        valueFormatter={(number: number) => `${number}g`}
+                        className="h-32 w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3 text-[11px] text-neutral-400 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <span>Signing in saves your personalized targets to your account and syncs them with the Meals &amp; Coach pages.</span>
+                  </div>
+                </Card>
+              </div>
+            </div>
+
+            {/* Feature Value Props Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Utensils className="h-5 w-5" />
                 </div>
-
-                {/* First Name, Last Name, Email */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">
-                      First Name <span className="text-emerald-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="e.g. Alex"
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition font-medium"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">
-                      Last Name <span className="text-emerald-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="e.g. Mercer"
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition font-medium"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300 flex items-center justify-between">
-                      <span>Linked Google Email</span>
-                      <span className="text-[10px] text-emerald-400 font-mono">Verified by Google OAuth</span>
-                    </label>
-                    <input
-                      type="email"
-                      disabled
-                      value={user?.email || email}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3.5 py-2.5 text-xs text-neutral-400 font-mono opacity-80 cursor-not-allowed"
-                    />
-                  </div>
-                </div>
+                <h4 className="text-sm font-bold text-white">Mifflin-St Jeor Precision</h4>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  Clinical Basal Metabolic Rate calculations tailored to biological sex, height, weight, and activity.
+                </p>
               </div>
 
-              {/* Section 2: Biometrics (Height, Weight, Age, Biological Sex) */}
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-5">
-                <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400">
-                    <Scale className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-white">Physical Biometrics</h2>
-                    <p className="text-[11px] text-neutral-400">
-                      Used to calculate your Basal Metabolic Rate (Mifflin-St Jeor formula)
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <Dumbbell className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Custom Split Periodization</h4>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  3, 4, 5, or 6-day routines automatically filtered to match your home gym or commercial access.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">24/7 AI Coach Context</h4>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  Your AI coach reads your exact calorie targets, split routines, and weight trajectory in every reply.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Database className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Supabase Cloud Sync</h4>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  Instant real-time sync across your phone, tablet, and laptop with zero data loss.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading Spinner */}
+        {authLoading && (
+          <div className="py-24 flex flex-col items-center justify-center space-y-4">
+            <RefreshCw className="h-8 w-8 text-emerald-400 animate-spin" />
+            <p className="text-xs font-mono text-neutral-400">Loading Supabase athlete session...</p>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* AUTHENTICATED STATE: FULL ATHLETE PROFILE & MACRO CALIBRATION            */}
+        {/* ========================================================================= */}
+        {user && !authLoading && (
+          <div className="space-y-8">
+            {/* Authenticated Identity Banner */}
+            <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-neutral-900 to-cyan-950/30 p-6 md:p-8 shadow-2xl">
+              <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-4">
+                  {avatar?.startsWith("data:") || avatar?.startsWith("http") ? (
+                    <img src={avatar} alt="Avatar" className="h-16 w-16 rounded-2xl object-cover border-2 border-emerald-500/40 shadow-lg" />
+                  ) : (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-900 border border-emerald-500/30 text-3xl shadow-inner">
+                      {avatar || "🏋️‍♂️"}
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-emerald-400">
+                      <ShieldCheck className="h-3 w-3" />
+                      <span>{user.app_metadata?.provider === "google" ? "Google Verified Athlete" : "Supabase Account Connected"}</span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      {firstName || lastName ? `${firstName} ${lastName}`.trim() : user.email?.split("@")[0] || "Athlete"}
+                    </h1>
+                    <p className="text-xs text-neutral-400 font-mono">
+                      {user.email} • ID: {user.id.slice(0, 8)}...
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Age */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Age (years)</label>
-                    <input
-                      type="number"
-                      min={14}
-                      max={99}
-                      required
-                      value={age}
-                      onChange={(e) => setAge(e.target.value)}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none transition font-mono"
-                    />
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 px-4 py-2 text-center">
+                    <div className="text-[10px] uppercase font-mono text-neutral-400">Calculated Intake</div>
+                    <div className="text-lg font-black font-mono text-emerald-400">
+                      {calculatedTargets.targetCalories} <span className="text-xs text-neutral-500 font-normal">kcal</span>
+                    </div>
                   </div>
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 px-4 py-2 text-center">
+                    <div className="text-[10px] uppercase font-mono text-neutral-400">Active Split</div>
+                    <div className="text-lg font-black font-mono text-cyan-400 truncate max-w-[130px]">
+                      {isCustomSplit ? "Custom Split" : `${splitDays}D Split`}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                  {/* Biological Sex */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Biological Sex</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setGender("MALE")}
-                        className={`rounded-xl py-2.5 text-xs font-bold transition border ${
-                          gender === "MALE"
-                            ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm"
-                            : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Male
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setGender("FEMALE")}
-                        className={`rounded-xl py-2.5 text-xs font-bold transition border ${
-                          gender === "FEMALE"
-                            ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm"
-                            : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Female
-                      </button>
+            {/* Tab Navigation: Profile Form vs USDA Database */}
+            <div className="flex items-center gap-2 border-b border-neutral-800 pb-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("profile")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === "profile"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm"
+                    : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                }`}
+              >
+                <UserIcon className="h-4 w-4" />
+                <span>Biometrics &amp; Split Configuration</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("usda-database")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  activeTab === "usda-database"
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-sm"
+                    : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                }`}
+              >
+                <Database className="h-4 w-4" />
+                <span>USDA FoodData Central Reference Explorer</span>
+              </button>
+            </div>
+
+            {/* Notification Messages */}
+            {saveSuccess && (
+              <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4 text-xs text-emerald-300 shadow-lg">
+                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                <div className="flex-1">
+                  <strong>Success:</strong> {saveSuccess}
+                </div>
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1 font-bold text-neutral-950 bg-emerald-500 hover:bg-emerald-400 px-3 py-1.5 rounded-lg transition"
+                >
+                  <span>Dashboard</span>
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+            )}
+
+            {saveError && (
+              <div className="flex items-center gap-3 rounded-2xl border border-red-500/40 bg-red-950/40 p-4 text-xs text-red-300 shadow-lg">
+                <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
+                <div>
+                  <strong>Error:</strong> {saveError}
+                </div>
+              </div>
+            )}
+
+            {/* Active Tab: Profile Form */}
+            {activeTab === "profile" ? (
+              <form onSubmit={handleSaveProfile} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Left 7 Columns: Biometrics & Preferences */}
+                <div className="lg:col-span-7 space-y-6">
+
+                  {/* Section 1: Avatar & Identity */}
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-5">
+                    <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                        <UserIcon className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-bold text-white">Athlete Identity</h2>
+                        <p className="text-[11px] text-neutral-400">Your profile credentials authenticated with Supabase</p>
+                      </div>
+                    </div>
+
+                    {/* Avatar selection */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-neutral-300">Choose Profile Avatar</label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {AVATAR_PRESETS.map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setAvatar(p)}
+                            className={`flex h-11 w-11 items-center justify-center rounded-xl border text-xl transition hover:scale-105 ${
+                              avatar === p
+                                ? "border-emerald-500 bg-emerald-500/20 shadow-md shadow-emerald-500/20"
+                                : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-neutral-300">First Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="First Name"
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-neutral-300">Last Name</label>
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Last Name"
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Height Feet & Inches */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300 flex items-center justify-between">
-                      <span>Height (ft &amp; in)</span>
-                      <span className="text-[10px] text-cyan-400 font-mono">{Math.round(heightCm)} cm</span>
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="relative">
+                  {/* Section 2: Physical Biometrics */}
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-5">
+                    <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                        <Scale className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-bold text-white">Physical Biometrics</h2>
+                        <p className="text-[11px] text-neutral-400">Required for clinical Mifflin-St Jeor metabolic equations</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-neutral-300">Age</label>
                         <input
                           type="number"
-                          min={3}
-                          max={7}
+                          min="14"
+                          max="99"
+                          required
+                          value={age}
+                          onChange={(e) => setAge(e.target.value)}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-neutral-300">Biological Sex</label>
+                        <select
+                          value={gender}
+                          onChange={(e) => setGender(e.target.value as "MALE" | "FEMALE")}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        >
+                          <option value="MALE">Male (+5 kcal)</option>
+                          <option value="FEMALE">Female (-161 kcal)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-neutral-300">Height (Feet)</label>
+                        <input
+                          type="number"
+                          min="3"
+                          max="7"
                           required
                           value={heightFt}
                           onChange={(e) => setHeightFt(e.target.value)}
-                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
                         />
-                        <span className="absolute right-3 top-2.5 text-xs text-neutral-500 pointer-events-none">ft</span>
                       </div>
-                      <div className="relative">
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-neutral-300">Height (Inches)</label>
                         <input
                           type="number"
-                          min={0}
-                          max={11}
+                          min="0"
+                          max="11"
                           required
                           value={heightIn}
                           onChange={(e) => setHeightIn(e.target.value)}
-                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
                         />
-                        <span className="absolute right-3 top-2.5 text-xs text-neutral-500 pointer-events-none">in</span>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Weight (Current & Goal) */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300 flex items-center justify-between">
-                      <span>Current Weight (lbs)</span>
-                      <span className="text-[10px] text-emerald-400 font-mono">{Math.round(numWeightKg * 10) / 10} kg</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min={70}
-                        max={450}
-                        required
-                        value={currentWeightLbs}
-                        onChange={(e) => setCurrentWeightLbs(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
-                      />
-                      <span className="absolute right-3 top-2.5 text-xs text-neutral-500 pointer-events-none">lbs</span>
-                    </div>
-                  </div>
-
-                  {/* Goal Weight */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Target / Goal Weight (lbs)</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min={70}
-                        max={450}
-                        required
-                        value={goalWeightLbs}
-                        onChange={(e) => setGoalWeightLbs(e.target.value)}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
-                      />
-                      <span className="absolute right-3 top-2.5 text-xs text-neutral-500 pointer-events-none">lbs</span>
-                    </div>
-                  </div>
-
-                  {/* Primary Goal Phase */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">Primary Goal Phase</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setGoal("CUT")}
-                        className={`rounded-xl py-2 px-2 text-[11px] font-bold transition border ${
-                          goal === "CUT"
-                            ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm"
-                            : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Cut (-20%)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setGoal("MAINTAIN")}
-                        className={`rounded-xl py-2 px-2 text-[11px] font-bold transition border ${
-                          goal === "MAINTAIN"
-                            ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-sm"
-                            : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Maintain
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setGoal("BULK")}
-                        className={`rounded-xl py-2 px-2 text-[11px] font-bold transition border ${
-                          goal === "BULK"
-                            ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
-                            : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Bulk (+10%)
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Activity Level Selector */}
-                <div className="space-y-2 pt-2">
-                  <label className="text-xs font-semibold text-neutral-300">Daily Activity Level</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {[
-                      { id: "SEDENTARY", label: "Sedentary", desc: "Desk job, little movement" },
-                      { id: "LIGHT", label: "Lightly Active", desc: "1-2 light workouts/wk" },
-                      { id: "MODERATE", label: "Moderately Active", desc: "3-5 resistance sessions/wk" },
-                      { id: "ACTIVE", label: "Very Active", desc: "6-7 hard training days/wk" },
-                      { id: "VERY_ACTIVE", label: "Extra Active / Athlete", desc: "Physical job + 2x daily training" },
-                    ].map((lvl) => (
-                      <button
-                        key={lvl.id}
-                        type="button"
-                        onClick={() => setActivityLevel(lvl.id)}
-                        className={`text-left p-3 rounded-xl border transition ${
-                          activityLevel === lvl.id
-                            ? "border-emerald-500 bg-emerald-500/10 text-white shadow-sm"
-                            : "border-neutral-800 bg-neutral-950/60 text-neutral-400 hover:border-neutral-700"
-                        }`}
-                      >
-                        <div className="text-xs font-bold text-neutral-200">{lvl.label}</div>
-                        <div className="text-[10px] text-neutral-500 mt-0.5">{lvl.desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 3: Available Equipment */}
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
-                    <Dumbbell className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-white">Available Equipment</h2>
-                    <p className="text-[11px] text-neutral-400">
-                      Workouts and exercise selections are automatically filtered to match your gear
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2.5">
-                  {EQUIPMENT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setEquipment(opt.id)}
-                      className={`w-full text-left p-3.5 rounded-xl border flex items-center justify-between gap-3 transition ${
-                        equipment === opt.id
-                          ? "border-emerald-500 bg-emerald-500/15 shadow-sm"
-                          : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{opt.icon}</span>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-white">{opt.name}</span>
-                            <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-[9px] font-mono font-semibold text-neutral-300">
-                              {opt.badge}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-neutral-400 mt-0.5">{opt.description}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs font-semibold text-neutral-300">
+                          <span>Current Scale Weight (lbs)</span>
+                          <span className="font-mono text-neutral-500">{Math.round(numWeightKg * 10) / 10} kg</span>
                         </div>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="70"
+                          max="450"
+                          required
+                          value={currentWeightLbs}
+                          onChange={(e) => setCurrentWeightLbs(e.target.value)}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                        />
                       </div>
-                      <div className="shrink-0">
-                        {equipment === opt.id ? (
-                          <div className="h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center text-neutral-950">
-                            <CheckCircle2 className="h-4 w-4 fill-current" />
-                          </div>
-                        ) : (
-                          <div className="h-4 w-4 rounded-full border border-neutral-700" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* Section 4: What Kind of Split (3, 4, 5, or 6 days) */}
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400">
-                    <Calendar className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-white">Preferred Training Split Frequency</h2>
-                    <p className="text-[11px] text-neutral-400">
-                      Choose between 3, 4, 5, or 6 days per week based on your weekly schedule
-                    </p>
-                  </div>
-                </div>
-
-                {/* Day & Custom Split Buttons */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {[
-                    { days: 3, label: "Full Body" },
-                    { days: 4, label: "Upper / Lower" },
-                    { days: 5, label: "Hybrid PPL" },
-                    { days: 6, label: "PPL x 2" },
-                  ].map((s) => (
-                    <button
-                      key={s.days}
-                      type="button"
-                      onClick={() => {
-                        setIsCustomSplit(false);
-                        setSplitDays(s.days);
-                      }}
-                      className={`py-3 px-2 rounded-xl border text-center transition ${
-                        !isCustomSplit && splitDays === s.days
-                          ? "border-emerald-500 bg-emerald-500/20 shadow-md shadow-emerald-500/20"
-                          : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
-                      }`}
-                    >
-                      <div className="text-base sm:text-lg font-black text-white font-mono">{s.days} Days</div>
-                      <div className="text-[10px] text-neutral-400">{s.label}</div>
-                    </button>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCustomSplit(true);
-                      setSplitDays(customSplit.daysCount || customSplit.days.length || 4);
-                    }}
-                    className={`py-3 px-2 rounded-xl border text-center transition col-span-2 sm:col-span-1 ${
-                      isCustomSplit
-                        ? "border-cyan-500 bg-cyan-500/20 shadow-md shadow-cyan-500/20"
-                        : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
-                    }`}
-                  >
-                    <div className="text-base sm:text-lg font-black text-cyan-400 font-mono flex items-center justify-center gap-1">
-                      <Sliders className="h-4 w-4" />
-                      <span>Custom</span>
-                    </div>
-                    <div className="text-[10px] text-neutral-400">
-                      {customSplit.daysCount || customSplit.days.length}D Split
-                    </div>
-                  </button>
-                </div>
-
-                {/* Selected Split Details Card */}
-                {isCustomSplit ? (
-                  <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cyan-500/20 pb-2.5">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider font-mono">
-                            {customSplit.name}
-                          </span>
-                          <span className="text-[10px] bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded text-cyan-300 font-mono">
-                            {customSplit.frequency}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs font-semibold text-neutral-300">
+                          <span>Target Goal Weight (lbs)</span>
+                          <span className="font-mono text-neutral-500">
+                            {Math.round(((Number(goalWeightLbs) || 170) / 2.20462) * 10) / 10} kg
                           </span>
                         </div>
-                        <p className="text-[11px] text-neutral-400 mt-0.5">
-                          {customSplit.description}
-                        </p>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="70"
+                          max="450"
+                          required
+                          value={goalWeightLbs}
+                          onChange={(e) => setGoalWeightLbs(e.target.value)}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/80 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                        />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomSplitModalOpen(true)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition shrink-0"
-                      >
-                        <Edit3 className="h-3.5 w-3.5" />
-                        <span>Edit Custom Split</span>
-                      </button>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <div className="text-[10px] uppercase font-mono text-neutral-400 font-bold">
-                        Routine Days &amp; Prescriptions
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        {customSplit.days.map((day, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded-lg bg-neutral-950/80 border border-neutral-800/80 p-2.5 space-y-1"
+                    {/* Activity Level Selector */}
+                    <div className="space-y-2 pt-1">
+                      <label className="text-xs font-semibold text-neutral-300">Daily Activity Level</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {[
+                          { id: "SEDENTARY", label: "Sedentary", desc: "Desk job, little movement" },
+                          { id: "LIGHT", label: "Lightly Active", desc: "1-2 light workouts/wk" },
+                          { id: "MODERATE", label: "Moderately Active", desc: "3-5 resistance sessions/wk" },
+                          { id: "ACTIVE", label: "Very Active", desc: "6-7 hard training days/wk" },
+                          { id: "VERY_ACTIVE", label: "Extra Active / Athlete", desc: "Physical job + 2x daily training" },
+                        ].map((lvl) => (
+                          <button
+                            key={lvl.id}
+                            type="button"
+                            onClick={() => setActivityLevel(lvl.id)}
+                            className={`text-left p-3 rounded-xl border transition ${
+                              activityLevel === lvl.id
+                                ? "border-emerald-500 bg-emerald-500/10 text-white shadow-sm"
+                                : "border-neutral-800 bg-neutral-950/60 text-neutral-400 hover:border-neutral-700"
+                            }`}
                           >
-                            <div className="font-bold text-emerald-400 font-mono text-[11px]">
-                              {day.name}
-                            </div>
-                            <div className="text-[10px] text-neutral-300 font-mono line-clamp-2">
-                              {day.lifts}
-                            </div>
-                          </div>
+                            <div className="text-xs font-bold text-neutral-200">{lvl.label}</div>
+                            <div className="text-[10px] text-neutral-500 mt-0.5">{lvl.desc}</div>
+                          </button>
                         ))}
                       </div>
                     </div>
                   </div>
-                ) : (
-                  calculatedTargets.splitInfo && (
-                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">
-                          {calculatedTargets.splitInfo.name}
-                        </span>
-                        <span className="text-[10px] text-neutral-400 font-mono">
-                          {calculatedTargets.splitInfo.tagline}
-                        </span>
+
+                  {/* Section 3: Available Equipment */}
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-4">
+                    <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                        <Dumbbell className="h-4 w-4" />
                       </div>
+                      <div>
+                        <h2 className="text-sm font-bold text-white">Available Equipment</h2>
+                        <p className="text-[11px] text-neutral-400">
+                          Workouts and exercise substitutions are automatically filtered to match your gear
+                        </p>
+                      </div>
+                    </div>
 
-                      <p className="text-xs text-neutral-300 leading-relaxed">
-                        {calculatedTargets.splitInfo.focus}
-                      </p>
-
-                      <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
-                        <div className="text-[10px] uppercase font-mono text-neutral-400 font-bold">
-                          Weekly Microcycle Schedule
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-neutral-300 font-mono">
-                          {calculatedTargets.splitInfo.schedule.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className="rounded-lg bg-neutral-950/80 border border-neutral-800/80 px-2.5 py-1.5 text-[11px]"
-                            >
-                              {item}
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {EQUIPMENT_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setEquipment(opt.id)}
+                          className={`w-full text-left p-3.5 rounded-xl border flex items-center justify-between gap-3 transition ${
+                            equipment === opt.id
+                              ? "border-emerald-500 bg-emerald-500/15 shadow-sm"
+                              : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{opt.icon}</span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-white">{opt.name}</span>
+                                <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-[9px] font-mono font-semibold text-neutral-300">
+                                  {opt.badge}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-neutral-400 mt-0.5">{opt.description}</div>
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                          <div className="shrink-0">
+                            {equipment === opt.id ? (
+                              <div className="h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center text-neutral-950">
+                                <CheckCircle2 className="h-4 w-4 fill-current" />
+                              </div>
+                            ) : (
+                              <div className="h-4 w-4 rounded-full border border-neutral-700" />
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Section 4: Training Split Frequency */}
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-4">
+                    <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400">
+                        <Calendar className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-bold text-white">Preferred Training Split Frequency</h2>
+                        <p className="text-[11px] text-neutral-400">
+                          Choose between 3, 4, 5, or 6 days per week based on your weekly schedule
+                        </p>
                       </div>
                     </div>
-                  )
-                )}
-              </div>
 
-              {/* Save Button */}
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-8 py-4 text-sm font-bold text-neutral-950 shadow-xl shadow-emerald-500/25 hover:from-emerald-400 hover:to-emerald-300 hover:scale-[1.01] transition active:scale-[0.99] disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin text-neutral-950" />
-                      <span>Saving Profile &amp; Calibrating Database...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4 fill-current" />
-                      <span>Save Profile &amp; Calibrate Macros</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Right 5 Columns: Live Nutrition & Macro Recommendation Dashboard */}
-            <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-20">
-              {/* Macro Engine Card */}
-              <div className="rounded-3xl border border-neutral-800 bg-neutral-900/90 p-6 space-y-6 shadow-2xl backdrop-blur-xl">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <h3 className="text-sm font-bold text-white">Live Macro Recommendations</h3>
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 rounded">
-                    Mifflin-St Jeor + USDA
-                  </span>
-                </div>
-
-                {/* Big Calorie Display */}
-                <div className="text-center rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 to-neutral-950 p-6 space-y-1">
-                  <div className="text-[11px] uppercase tracking-wider text-neutral-400 font-mono font-bold">
-                    Target Daily Energy Intake
-                  </div>
-                  <div className="text-4xl sm:text-5xl font-black text-emerald-400 font-mono tracking-tight">
-                    {calculatedTargets.targetCalories}
-                    <span className="text-base sm:text-lg font-normal text-neutral-400 ml-1.5">kcal / day</span>
-                  </div>
-                  <div className="text-[11px] text-neutral-400 pt-1">
-                    BMR: <span className="font-mono text-neutral-200">{calculatedTargets.bmr} kcal</span> • TDEE:{" "}
-                    <span className="font-mono text-neutral-200">{calculatedTargets.tdee} kcal</span>
-                  </div>
-                </div>
-
-                {/* Macro Breakdown Pillars */}
-                <div className="grid grid-cols-3 gap-3">
-                  {/* Protein */}
-                  <div className="rounded-2xl border border-emerald-500/30 bg-neutral-950 p-3.5 text-center space-y-1">
-                    <div className="text-[10px] uppercase font-mono font-bold text-emerald-400">Protein</div>
-                    <div className="text-xl sm:text-2xl font-black text-white font-mono">
-                      {calculatedTargets.targetProtein}g
-                    </div>
-                    <div className="text-[10px] text-neutral-400 font-mono">
-                      {calculatedTargets.usdaBenchmark.proteinPercent}% Cals
-                    </div>
-                    <div className="text-[9px] text-emerald-400/80">~2.2g / kg</div>
-                  </div>
-
-                  {/* Carbohydrates */}
-                  <div className="rounded-2xl border border-cyan-500/30 bg-neutral-950 p-3.5 text-center space-y-1">
-                    <div className="text-[10px] uppercase font-mono font-bold text-cyan-400">Carbs</div>
-                    <div className="text-xl sm:text-2xl font-black text-white font-mono">
-                      {calculatedTargets.targetCarbs}g
-                    </div>
-                    <div className="text-[10px] text-neutral-400 font-mono">
-                      {calculatedTargets.usdaBenchmark.carbsPercent}% Cals
-                    </div>
-                    <div className="text-[9px] text-cyan-400/80">Glycogen &amp; Split</div>
-                  </div>
-
-                  {/* Healthy Fats */}
-                  <div className="rounded-2xl border border-amber-500/30 bg-neutral-950 p-3.5 text-center space-y-1">
-                    <div className="text-[10px] uppercase font-mono font-bold text-amber-400">Fats</div>
-                    <div className="text-xl sm:text-2xl font-black text-white font-mono">
-                      {calculatedTargets.targetFat}g
-                    </div>
-                    <div className="text-[10px] text-neutral-400 font-mono">
-                      {calculatedTargets.usdaBenchmark.fatPercent}% Cals
-                    </div>
-                    <div className="text-[9px] text-amber-400/80">Hormone Health</div>
-                  </div>
-                </div>
-
-                {/* Fiber and Hydration Targets */}
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="rounded-xl border border-neutral-800 bg-neutral-950/80 p-3 flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-                      <Sparkles className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-neutral-400 uppercase font-mono">USDA Dietary Fiber</div>
-                      <div className="text-sm font-bold text-white font-mono">{calculatedTargets.targetFiber}g / day</div>
-                      <div className="text-[9px] text-neutral-500">14g / 1,000 kcal standard</div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-neutral-800 bg-neutral-950/80 p-3 flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0">
-                      <Flame className="h-4 w-4 text-cyan-400" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-neutral-400 uppercase font-mono">Daily Hydration</div>
-                      <div className="text-sm font-bold text-white font-mono">{calculatedTargets.targetWaterLiters} L / day</div>
-                      <div className="text-[9px] text-neutral-500">ACSM Sports Guideline</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* USDA AMDR Standards Compliance Ribbon */}
-                <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-neutral-200 flex items-center gap-1.5">
-                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                      <span>USDA AMDR Compliance</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-                      Verified
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-neutral-400 leading-relaxed">
-                    Macronutrient distribution adheres to the Acceptable Macronutrient Distribution Ranges (AMDR)
-                    defined by the Food and Nutrition Board of the National Academies &amp; USDA FoodData Central.
-                  </p>
-                </div>
-
-                {/* Quick Link to Food DB Explorer */}
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("usda-database")}
-                  className="w-full flex items-center justify-between p-3 rounded-xl border border-neutral-800 bg-neutral-950 hover:border-cyan-500/40 text-left transition group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <BookOpen className="h-4 w-4 text-cyan-400" />
-                    <div>
-                      <div className="text-xs font-bold text-white group-hover:text-cyan-400 transition">
-                        Explore USDA Food Reference Foods
-                      </div>
-                      <div className="text-[10px] text-neutral-500">
-                        See high-protein, clean carb, and fat sources
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-neutral-500 group-hover:text-white transition" />
-                </button>
-
-                {/* Launch Scanner Trigger */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setScannerFood(null);
-                    setIsScannerOpen(true);
-                  }}
-                  className="w-full flex items-center justify-between p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/30 hover:bg-emerald-950/50 text-left transition group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Scan className="h-4 w-4 text-emerald-400" />
-                    <div>
-                      <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition">
-                        Launch Food &amp; Macro Scanner
-                      </div>
-                      <div className="text-[10px] text-neutral-400">
-                        100% accurate Camera OCR, Barcode &amp; USDA database
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-neutral-500 group-hover:text-white transition" />
-                </button>
-              </div>
-            </div>
-          </form>
-        ) : (
-          /* =================================================================== */
-          /* TAB 2: USDA FOODDATA CENTRAL WORLD-RENOWNED FOOD DATABASE EXPLORER  */
-          /* =================================================================== */
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-neutral-800 bg-neutral-900/60 p-6 md:p-8 space-y-6 shadow-2xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Database className="h-5 w-5 text-cyan-400" />
-                    <h2 className="text-lg font-bold text-white">USDA FoodData Central Reference Standard</h2>
-                  </div>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    Connects directly to the globally recognized USDA Agricultural Research Service database
-                    (SR Legacy &amp; Foundation Foods) to power your macro-balanced meal planning.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <a
-                    href="https://fdc.nal.usda.gov/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-medium text-neutral-200 hover:text-white transition"
-                  >
-                    <span>Official USDA Portal</span>
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </div>
-              </div>
-
-              {/* Filters & Search */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
-                  <input
-                    type="text"
-                    value={foodSearchQuery}
-                    onChange={(e) => setFoodSearchQuery(e.target.value)}
-                    placeholder="Search foods (e.g. Chicken, Oats, Salmon, Rice, Avocado)..."
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-                  {["ALL", "PROTEIN", "CARB", "FAT", "VEGETABLE"].map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setSelectedFoodCategory(cat)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                        selectedFoodCategory === cat
-                          ? "bg-cyan-500 text-neutral-950"
-                          : "border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      {cat === "ALL" ? "All Sources" : cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Food Items Grid */}
-              {loadingFoods ? (
-                <div className="py-16 text-center text-xs text-neutral-500 flex items-center justify-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin text-cyan-400" />
-                  <span>Loading USDA Nutritional Records...</span>
-                </div>
-              ) : foodDatabase.length === 0 ? (
-                <div className="py-16 text-center text-xs text-neutral-500">
-                  No food items found matching your query.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {foodDatabase.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-2xl border border-neutral-800/80 bg-neutral-950 p-4 space-y-3 hover:border-cyan-500/40 transition group"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase ${
-                              item.category === "PROTEIN"
-                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                : item.category === "CARB"
-                                ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                                : item.category === "FAT"
-                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                : "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                            }`}
-                          >
-                            {item.category}
-                          </span>
-                          <h4 className="text-xs font-bold text-white mt-1.5 line-clamp-1 group-hover:text-cyan-300 transition">
-                            {item.name}
-                          </h4>
-                          <div className="text-[10px] text-neutral-500">Serving: {item.serving}</div>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <div className="text-sm font-black text-white font-mono">{item.calories}</div>
-                          <div className="text-[9px] text-neutral-500 font-mono">kcal</div>
-                        </div>
-                      </div>
-
-                      {/* Nutrient Bars */}
-                      <div className="grid grid-cols-4 gap-1.5 text-center pt-2 border-t border-neutral-900">
-                        <div className="rounded-lg bg-neutral-900/80 p-1.5">
-                          <div className="text-[9px] text-emerald-400 font-mono">Protein</div>
-                          <div className="text-xs font-bold text-white font-mono">{item.protein}g</div>
-                        </div>
-                        <div className="rounded-lg bg-neutral-900/80 p-1.5">
-                          <div className="text-[9px] text-cyan-400 font-mono">Carbs</div>
-                          <div className="text-xs font-bold text-white font-mono">{item.carbs}g</div>
-                        </div>
-                        <div className="rounded-lg bg-neutral-900/80 p-1.5">
-                          <div className="text-[9px] text-amber-400 font-mono">Fats</div>
-                          <div className="text-xs font-bold text-white font-mono">{item.fat}g</div>
-                        </div>
-                        <div className="rounded-lg bg-neutral-900/80 p-1.5">
-                          <div className="text-[9px] text-purple-400 font-mono">Fiber</div>
-                          <div className="text-xs font-bold text-white font-mono">{item.fiber}g</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[9px] text-neutral-600 font-mono pt-1">
-                        <span>{item.source}</span>
-                        {item.fdcId && <span>FDC #{item.fdcId}</span>}
-                      </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {[
+                        { days: 3, label: "Full Body" },
+                        { days: 4, label: "Upper / Lower" },
+                        { days: 5, label: "Hybrid PPL" },
+                        { days: 6, label: "PPL x 2" },
+                      ].map((s) => (
+                        <button
+                          key={s.days}
+                          type="button"
+                          onClick={() => {
+                            setIsCustomSplit(false);
+                            setSplitDays(s.days);
+                          }}
+                          className={`py-3 px-2 rounded-xl border text-center transition ${
+                            !isCustomSplit && splitDays === s.days
+                              ? "border-emerald-500 bg-emerald-500/20 shadow-md shadow-emerald-500/20"
+                              : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
+                          }`}
+                        >
+                          <div className="text-base sm:text-lg font-black text-white font-mono">{s.days} Days</div>
+                          <div className="text-[10px] text-neutral-400">{s.label}</div>
+                        </button>
+                      ))}
 
                       <button
                         type="button"
                         onClick={() => {
-                          setScannerFood(item);
-                          setIsScannerOpen(true);
+                          setIsCustomSplit(true);
+                          setSplitDays(customSplit.daysCount || customSplit.days.length || 4);
                         }}
-                        className="w-full flex items-center justify-center gap-1.5 py-1.5 mt-2 rounded-xl border border-neutral-800 bg-neutral-900/90 hover:border-cyan-500/40 hover:bg-neutral-850 text-[11px] font-semibold text-neutral-200 hover:text-white transition"
+                        className={`py-3 px-2 rounded-xl border text-center transition col-span-2 sm:col-span-1 ${
+                          isCustomSplit
+                            ? "border-cyan-500 bg-cyan-500/20 shadow-md shadow-cyan-500/20"
+                            : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
+                        }`}
                       >
-                        <Plus className="h-3 w-3 text-cyan-400" />
-                        <span>Log to Macros / Scale Portion</span>
+                        <div className="text-base sm:text-lg font-black text-cyan-400 font-mono flex items-center justify-center gap-1">
+                          <Sliders className="h-4 w-4" />
+                          <span>Custom</span>
+                        </div>
+                        <div className="text-[10px] text-neutral-400">
+                          {customSplit.daysCount || customSplit.days.length}D Split
+                        </div>
                       </button>
                     </div>
-                  ))}
+
+                    {isCustomSplit && (
+                      <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-cyan-400 font-mono">{customSplit.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomSplitModalOpen(true)}
+                            className="text-xs text-cyan-300 underline font-semibold"
+                          >
+                            Edit Custom Split Days
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Save Profile Button */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 px-6 py-3.5 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-50"
+                    >
+                      {isSaving ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      <span>{isSaving ? "Saving Profile & Macros..." : "Save Athlete Profile to Cloud"}</span>
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {/* Right 5 Columns: Calculated Macro Summary */}
+                <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-20">
+                  <Card className="bg-neutral-900/80 border-neutral-800 p-6 space-y-6 shadow-2xl">
+                    <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
+                      <div>
+                        <div className="inline-flex items-center gap-1 text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold mb-1">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          <span>Mifflin-St Jeor Engine</span>
+                        </div>
+                        <h3 className="text-xl font-bold text-white tracking-tight">
+                          Your Target Calorie Profile
+                        </h3>
+                      </div>
+                      <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-400">
+                        {goal === "CUT" ? "-20% Deficit" : goal === "BULK" ? "+10% Surplus" : "Maintenance"}
+                      </span>
+                    </div>
+
+                    <div className="rounded-2xl bg-neutral-950 p-4 border border-neutral-800/80 space-y-3">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs text-neutral-400">Daily Target Calories:</span>
+                        <div className="text-right">
+                          <span className="text-3xl font-black font-mono text-emerald-400">
+                            {calculatedTargets.targetCalories}
+                          </span>
+                          <span className="text-xs text-neutral-500 font-mono ml-1">kcal</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs text-neutral-500 font-mono border-t border-neutral-800 pt-2">
+                        <span>BMR: {calculatedTargets.bmr} kcal</span>
+                        <span>TDEE: {calculatedTargets.tdee} kcal</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">
+                        Target Macronutrient Breakdown
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
+                          <div className="text-xs font-bold text-emerald-400">Protein</div>
+                          <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetProtein}g</div>
+                          <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.proteinPercent}% kcal</div>
+                        </div>
+                        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-center">
+                          <div className="text-xs font-bold text-cyan-400">Carbs</div>
+                          <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetCarbs}g</div>
+                          <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.carbsPercent}% kcal</div>
+                        </div>
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center">
+                          <div className="text-xs font-bold text-amber-400">Fats</div>
+                          <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetFat}g</div>
+                          <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.fatPercent}% kcal</div>
+                        </div>
+                      </div>
+
+                      <DonutChart
+                        data={macroChartData}
+                        label="Macro Split"
+                        valueFormatter={(num: number) => `${num}g`}
+                        className="h-36 w-full mt-2"
+                      />
+                    </div>
+
+                    <div className="pt-2 border-t border-neutral-800 flex items-center justify-between text-xs">
+                      <Link href="/meals" className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1">
+                        <span>Go to Meals Tracker</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                      <Link href="/workouts" className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
+                        <span>Go to Workouts</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </Card>
+                </div>
+              </form>
+            ) : (
+              /* Active Tab: USDA FoodData Central Explorer */
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-white">USDA FoodData Central Reference Standard</h3>
+                    <p className="text-xs text-neutral-400">Search verified sports nutrition staples with exact macro density</p>
+                  </div>
+                  <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3.5 top-3 h-4 w-4 text-neutral-500" />
+                    <input
+                      type="text"
+                      placeholder="Search chicken breast, oats..."
+                      value={foodSearchQuery}
+                      onChange={(e) => setFoodSearchQuery(e.target.value)}
+                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {loadingFoods ? (
+                  <div className="py-12 flex items-center justify-center space-y-2">
+                    <RefreshCw className="h-6 w-6 text-cyan-400 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="border-b border-neutral-800 text-[11px] uppercase font-mono text-neutral-400">
+                        <tr>
+                          <th className="py-3 px-3">Food Item</th>
+                          <th className="py-3 px-3">Serving</th>
+                          <th className="py-3 px-3">Calories</th>
+                          <th className="py-3 px-3 text-emerald-400">Protein</th>
+                          <th className="py-3 px-3 text-cyan-400">Carbs</th>
+                          <th className="py-3 px-3 text-amber-400">Fat</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-800/60 font-mono">
+                        {foodDatabase.slice(0, 15).map((f) => (
+                          <tr key={f.id} className="hover:bg-neutral-800/40 transition">
+                            <td className="py-3 px-3 font-sans font-medium text-white">{f.name}</td>
+                            <td className="py-3 px-3 text-neutral-400">{f.serving}</td>
+                            <td className="py-3 px-3 font-bold text-white">{f.calories}</td>
+                            <td className="py-3 px-3 text-emerald-400 font-bold">{f.protein}g</td>
+                            <td className="py-3 px-3 text-cyan-400 font-bold">{f.carbs}g</td>
+                            <td className="py-3 px-3 text-amber-400 font-bold">{f.fat}g</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* 100% Accurate Food & Macro Scanner Modal */}
+      {/* Food Scanner Modal */}
       <FoodScannerModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        onMealLogged={() => {
-          // Success notification
-        }}
-        initialMealType={scannerMealType}
-        preSelectedFood={scannerFood}
+        onMealLogged={() => {}}
+        initialMealType="LUNCH"
+        initialTab="scan"
       />
 
-      {/* Custom Split Builder Modal */}
+      {/* Custom Split Modal */}
       <CustomSplitModal
         isOpen={isCustomSplitModalOpen}
         onClose={() => setIsCustomSplitModalOpen(false)}
@@ -1374,15 +1658,17 @@ export default function ProfilePage() {
           setCustomSplit(saved);
           setIsCustomSplit(true);
           setSplitDays(saved.daysCount || saved.days.length || 4);
-          try {
-            const stored = localStorage.getItem("sw_athlete_profile");
-            if (stored) {
-              const p = JSON.parse(stored);
-              p.splitType = "CUSTOM";
-              p.splitDays = saved.daysCount || saved.days.length || 4;
-              localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
-            }
-          } catch {}
+          if (typeof window !== "undefined") {
+            try {
+              const stored = localStorage.getItem("sw_athlete_profile");
+              if (stored) {
+                const p = JSON.parse(stored);
+                p.splitType = "CUSTOM";
+                p.splitDays = saved.daysCount || saved.days.length || 4;
+                localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
+              }
+            } catch {}
+          }
         }}
       />
     </div>
