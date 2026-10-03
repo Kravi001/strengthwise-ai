@@ -38,6 +38,14 @@ const RATE_LIMIT_CONFIG = {
   windowSeconds: 60,
 };
 
+// Verified fastest Google Gemini models in order of latency and availability
+const GEMINI_CANDIDATE_MODELS = [
+  "gemini-flash-lite-latest",
+  "gemini-3.5-flash-lite",
+  "gemini-3-flash-preview",
+  "gemini-3.6-flash",
+];
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Enforce Rate Limiting
@@ -77,9 +85,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages = [], athleteContext = {} } = body as {
+    const {
+      messages = [],
+      athleteContext = {},
+      stream: shouldStream = true,
+    } = body as {
       messages: ChatMessage[];
       athleteContext: AthleteContext;
+      stream?: boolean;
     };
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -163,7 +176,7 @@ Current Athlete Profile:
 ${athleteLines.map((l) => `- ${l}`).join("\n")}
 
 CRITICAL COACHING INSTRUCTIONS:
-1. Always directly and thoroughly answer the user's specific question first. Never stop mid-thought or cut off abruptly. Provide complete, fully-fleshed answers.
+1. Always directly and thoroughly answer the user's specific question first. Never stop mid-thought. Provide complete, fully-fleshed answers.
 2. For Joint Discomfort or Exercise Substitutions (e.g. shoulder pain on barbell bench press, knee pain on squats, lumbar pain on deadlifts):
    - Explain the specific biomechanical mechanism causing the issue (e.g., fixed internal humeral rotation, excessive horizontal abduction stretch, long humerus levers for taller lifters, subacromial impingement).
    - Prescribe 2-3 joint-friendly movement substitutions that preserve or exceed target muscle hypertrophy (e.g., 30° Incline Dumbbell Press with 45° neutral grip, Floor Press, Converging Machine Chest Press, Landmine Press).
@@ -173,31 +186,220 @@ CRITICAL COACHING INSTRUCTIONS:
    - Prescribe specific mechanisms (pause variations, concentric rate of force development RFD, autoregulation, unilateral balances).
 4. For Nutrition & Fueling:
    - Provide exact gram amounts based on their body weight, meal timing (peri-workout windows), and the leucine threshold (~2.7g - 3.5g per meal).
-5. FORMATTING:
-   - Use clean, structured Markdown with bold titles, bullet points, and numbered steps.
+5. FORMATTING & SPEED:
+   - Deliver high-density, structured Markdown without conversational fluff or introductory delays.
    - Always conclude with a dedicated "### 💡 Prescription & Action Item" section outlining exact movements, sets, reps, and RPE for their next session.`;
 
     const latestUserMessage = messages[messages.length - 1]?.content || "";
 
-    // 3. PRIMARY GENERATIVE AI ENGINE: Google Gemini (100% Free Tier, High Speed)
     const rawGeminiKey = process.env.GEMINI_API_KEY || "";
     const geminiApiKey = rawGeminiKey.replace(/^["'\s]+|["'\s]+$/g, "");
 
+    const formattedContents = messages.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    // ==========================================
+    // A. STREAMING PIPELINE (SSE for Fast TTFB)
+    // ==========================================
+    if (shouldStream) {
+      // 1. Try Gemini Streaming First
+      if (geminiApiKey) {
+        for (const model of GEMINI_CANDIDATE_MODELS) {
+          const controller = new AbortController();
+          const ttfbTimer = setTimeout(() => controller.abort(new Error("TTFB Timeout")), 3500);
+
+          try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${geminiApiKey}`;
+            const res = await fetch(geminiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                system_instruction: {
+                  parts: [{ text: systemPrompt }],
+                },
+                contents: formattedContents,
+                generationConfig: {
+                  temperature: 0.35,
+                  maxOutputTokens: 1024,
+                },
+              }),
+              signal: controller.signal,
+            });
+            clearTimeout(ttfbTimer);
+
+            if (res.ok && res.body) {
+              const encoder = new TextEncoder();
+              const decoder = new TextDecoder();
+              const upstreamReader = res.body.getReader();
+
+              const stream = new ReadableStream({
+                async start(controller) {
+                  let buffer = "";
+                  try {
+                    while (true) {
+                      const { done, value } = await upstreamReader.read();
+                      if (done) break;
+                      if (value) {
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split("\n");
+                        buffer = lines.pop() || "";
+
+                        for (const line of lines) {
+                          const trimmed = line.trim();
+                          if (trimmed.startsWith("data:")) {
+                            const jsonStr = trimmed.slice(5).trim();
+                            if (jsonStr && jsonStr !== "[DONE]") {
+                              try {
+                                const parsed = JSON.parse(jsonStr);
+                                const token = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                                if (token) {
+                                  controller.enqueue(
+                                    encoder.encode(
+                                      `data: ${JSON.stringify({
+                                        token,
+                                        source: "gemini",
+                                        model,
+                                      })}\n\n`
+                                    )
+                                  );
+                                }
+                              } catch {
+                                // Ignore json parse errors
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                    controller.close();
+                  } catch (err) {
+                    controller.error(err);
+                  }
+                },
+              });
+
+              return new Response(stream, {
+                headers: {
+                  "Content-Type": "text/event-stream; charset=utf-8",
+                  "Cache-Control": "no-cache, no-transform",
+                  "Connection": "keep-alive",
+                  "X-Accel-Buffering": "no",
+                  "X-RateLimit-Limit": String(rateLimit.limit),
+                  "X-RateLimit-Remaining": String(rateLimit.remaining),
+                },
+              });
+            }
+          } catch {
+            // Model timed out or failed, continue to next candidate model
+          }
+        }
+      }
+
+      // 2. Try Anthropic Streaming Fallback (if key is configured)
+      const rawAnthropicKey = process.env.ANTHROPIC_API_KEY || "";
+      const anthropicApiKey = rawAnthropicKey.replace(/^["'\s]+|["'\s]+$/g, "");
+
+      if (anthropicApiKey) {
+        try {
+          const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+          const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          }));
+
+          const anthropicStream = anthropic.messages.stream({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 1024,
+            temperature: 0.35,
+            system: systemPrompt,
+            messages: anthropicMessages,
+          });
+
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({
+            async start(controller) {
+              try {
+                for await (const chunk of anthropicStream) {
+                  if (
+                    chunk.type === "content_block_delta" &&
+                    chunk.delta.type === "text_delta"
+                  ) {
+                    controller.enqueue(
+                      encoder.encode(
+                        `data: ${JSON.stringify({
+                          token: chunk.delta.text,
+                          source: "claude",
+                          model: "claude-3-5-sonnet",
+                        })}\n\n`
+                      )
+                    );
+                  }
+                }
+                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                controller.close();
+              } catch (err) {
+                controller.error(err);
+              }
+            },
+          });
+
+          return new Response(stream, {
+            headers: {
+              "Content-Type": "text/event-stream; charset=utf-8",
+              "Cache-Control": "no-cache, no-transform",
+              "Connection": "keep-alive",
+              "X-Accel-Buffering": "no",
+              "X-RateLimit-Limit": String(rateLimit.limit),
+              "X-RateLimit-Remaining": String(rateLimit.remaining),
+            },
+          });
+        } catch {
+          // Anthropic failed, fall through to deterministic sports-science engine
+        }
+      }
+
+      // 3. Fallback: Stream deterministic sports science specialist response
+      const fallbackResponse = generateSportsScienceResponse(latestUserMessage, enrichedContext);
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                token: fallbackResponse,
+                source: "sports-science-engine",
+                model: "strengthwise-specialist-v2",
+              })}\n\n`
+            )
+          );
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "Connection": "keep-alive",
+          "X-Accel-Buffering": "no",
+          "X-RateLimit-Limit": String(rateLimit.limit),
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+        },
+      });
+    }
+
+    // ==========================================
+    // B. NON-STREAMING JSON FALLBACK PIPELINE
+    // ==========================================
     if (geminiApiKey) {
-      const geminiCandidateModels = [
-        "gemini-3.7-flash",
-        "gemini-3.5-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-flash-lite-latest",
-      ];
+      for (const model of GEMINI_CANDIDATE_MODELS) {
+        const controller = new AbortController();
+        const ttfbTimer = setTimeout(() => controller.abort(new Error("TTFB Timeout")), 4500);
 
-      // Convert conversation messages to Gemini format
-      const formattedContents = messages.map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
-
-      for (const model of geminiCandidateModels) {
         try {
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
           const res = await fetch(geminiUrl, {
@@ -210,10 +412,12 @@ CRITICAL COACHING INSTRUCTIONS:
               contents: formattedContents,
               generationConfig: {
                 temperature: 0.35,
-                maxOutputTokens: 2048,
+                maxOutputTokens: 1024,
               },
             }),
+            signal: controller.signal,
           });
+          clearTimeout(ttfbTimer);
 
           if (res.ok) {
             const data = await res.json();
@@ -239,12 +443,11 @@ CRITICAL COACHING INSTRUCTIONS:
             }
           }
         } catch {
-          // Model error or temporary spike, try next Gemini candidate model
+          // Model error or timeout, try next candidate
         }
       }
     }
 
-    // 4. Secondary Generative AI Engine: Anthropic Claude (if configured)
     const rawAnthropicKey = process.env.ANTHROPIC_API_KEY || "";
     const anthropicApiKey = rawAnthropicKey.replace(/^["'\s]+|["'\s]+$/g, "");
 
@@ -258,7 +461,7 @@ CRITICAL COACHING INSTRUCTIONS:
 
         const response = await anthropic.messages.create({
           model: "claude-3-5-sonnet-20241022",
-          max_tokens: 2048,
+          max_tokens: 1024,
           temperature: 0.35,
           system: systemPrompt,
           messages: anthropicMessages,
@@ -294,7 +497,7 @@ CRITICAL COACHING INSTRUCTIONS:
       }
     }
 
-    // 5. Autonomous Clinical Sports Science Fallback (Zero-Downtime Resilience)
+    // Deterministic Sports Science Fallback
     const fallbackResponse = generateSportsScienceResponse(latestUserMessage, enrichedContext);
 
     return NextResponse.json(

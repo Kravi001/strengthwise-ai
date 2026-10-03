@@ -234,6 +234,12 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
     }
     setIsLoading(true);
 
+    const assistantId = `assistant-${Date.now()}`;
+    let accumulatedText = "";
+    let streamSource: ChatMessage["source"] = "gemini";
+    let streamModel = "gemini-flash";
+    let assistantAdded = false;
+
     try {
       const response = await fetch("/api/coach/chat", {
         method: "POST",
@@ -244,13 +250,14 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
             content: m.content,
           })),
           athleteContext,
+          stream: true,
         }),
       });
 
-      const data = await response.json();
-
       // Handle 429 Rate Limit
       if (response.status === 429) {
+        setIsLoading(false);
+        const data = await response.json();
         const retrySec = data.retryAfterSeconds || 15;
         setRateLimitCooldown(retrySec);
         setRateLimitMsg(
@@ -270,11 +277,87 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
       }
 
       if (!response.ok) {
-        throw new Error(data.error || `Server returned ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server returned ${response.status}`);
       }
 
+      const contentType = response.headers.get("content-type") || "";
+
+      // Real-time SSE streaming for instant replies (<400ms TTFB)
+      if (contentType.includes("text/event-stream") && response.body) {
+        setIsLoading(false);
+
+        // Add placeholder assistant message
+        assistantAdded = true;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: assistantId,
+            role: "assistant",
+            content: "",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            source: streamSource,
+            model: streamModel,
+          },
+        ]);
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith("data:")) {
+                const payload = trimmed.slice(5).trim();
+                if (payload === "[DONE]") {
+                  break;
+                }
+                if (payload) {
+                  try {
+                    const parsed = JSON.parse(payload);
+                    if (parsed.token) {
+                      accumulatedText += parsed.token;
+                      if (parsed.source) streamSource = parsed.source;
+                      if (parsed.model) streamModel = parsed.model;
+
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantId
+                            ? {
+                                ...msg,
+                                content: accumulatedText,
+                                source: streamSource,
+                                model: streamModel,
+                              }
+                            : msg
+                        )
+                      );
+                    }
+                  } catch {
+                    // Ignore parse errors on raw tokens
+                  }
+                }
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      // Non-streaming fallback response
+      const data = await response.json();
+      setIsLoading(false);
+
       const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
+        id: assistantId,
         role: "assistant",
         content: data.message || "I have analyzed your biomechanics and training variables.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -284,9 +367,14 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch {
+      setIsLoading(false);
+      if (accumulatedText.trim().length > 0) {
+        return;
+      }
+
       // Graceful sports-science fallback
       const fallbackMessage: ChatMessage = {
-        id: `assistant-fallback-${Date.now()}`,
+        id: assistantId,
         role: "assistant",
         content: `### 🔬 Sports Science Analysis & Coaching Guidance
 Regarding **"${query}"**:
@@ -304,7 +392,11 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
         source: "sports-science-engine",
         model: "strengthwise-specialist",
       };
-      setMessages((prev) => [...prev, fallbackMessage]);
+      setMessages((prev) =>
+        assistantAdded
+          ? prev.map((m) => (m.id === assistantId ? fallbackMessage : m))
+          : [...prev, fallbackMessage]
+      );
     } finally {
       setIsLoading(false);
     }
@@ -740,8 +832,18 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 >
                   {isUser ? (
                     <p className="text-xs sm:text-sm font-medium whitespace-pre-wrap">{msg.content}</p>
-                  ) : (
+                  ) : msg.content.trim().length > 0 ? (
                     renderFormattedContent(msg.content)
+                  ) : (
+                    <div className="flex items-center gap-2 py-2 text-emerald-400">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span className="text-xs text-neutral-400 font-mono animate-pulse">
+                        Analyzing biomechanics &amp; streaming prescription...
+                      </span>
+                    </div>
                   )}
 
                   {/* Copy Button for Assistant Message */}
