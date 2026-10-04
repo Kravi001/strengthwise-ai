@@ -2,46 +2,16 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { Card } from "@/components/tremor";
 import {
-  Card,
-  Text,
-  Title,
-  DonutChart,
-  ProgressBar,
-} from "@/components/tremor";
-import {
-  AlertCircle,
   ArrowRight,
-  Camera,
-  CheckCircle2,
-  Database,
   Dumbbell,
-  Edit3,
-  Eye,
-  EyeOff,
-  Flame,
-  Lock,
-  MailCheck,
-  Plus,
-  RefreshCw,
-  Scan,
-  Search,
-  Shuffle,
-  Sliders,
   Sparkles,
-  Trash2,
   TrendingUp,
-  Upload,
-  User as UserIcon,
   Utensils,
-  Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
-import { FoodScannerModal } from "@/components/food-scanner-modal";
-import { WorkoutModal } from "@/components/workout-modal";
-import { CustomSplitModal } from "@/components/custom-split-modal";
-import { CoachChat, type CoachAthleteContext } from "@/components/coach-chat";
 import {
   CustomSplit,
   DEFAULT_CUSTOM_SPLIT,
@@ -49,29 +19,14 @@ import {
 } from "@/lib/custom-split";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
-const AVATAR_PRESETS = ["🏋️‍♂️", "🦾", "🥗", "⚡", "🧘", "🏆", "🔥", "🥇"];
-
 export default function LandingPage() {
   const supabase = createClient();
 
   // --- Auth & User State ---
   const [authUser, setAuthUser] = useState<User | null>(null);
-  const [authMode, setAuthMode] = useState<"signup" | "signin">("signup");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
-  const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
-  const [isVerifyingDev, setIsVerifyingDev] = useState(false);
-  const [authSubmitting, setAuthSubmitting] = useState(false);
-
-  // --- Profile State ---
   const [hasProfile, setHasProfile] = useState(false);
-  const [showProfileForm, setShowProfileForm] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  // Form Fields
+  // Form / Profile Fields
   const [avatar, setAvatar] = useState<string>("🏋️‍♂️");
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
@@ -101,549 +56,10 @@ export default function LandingPage() {
     goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
   });
 
-  const chartData = [
-    { name: "Protein", value: calculated.targetProtein, color: "#10b981" },
-    { name: "Carbs", value: calculated.targetCarbs, color: "#06b6d4" },
-    { name: "Fats", value: calculated.targetFat, color: "#f59e0b" },
-  ];
-
-  // --- Meal Logging & Food Scanner State ---
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [scannerInitialMeal, setScannerInitialMeal] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">("LUNCH");
-  const [scannerInitialTab, setScannerInitialTab] = useState<"scan" | "search" | "quick">("scan");
-  const [loggedMealsData, setLoggedMealsData] = useState<{
-    meals: any[];
-    grouped: { BREAKFAST: any[]; LUNCH: any[]; DINNER: any[]; SNACK: any[] };
-    totals: { calories: number; protein: number; carbs: number; fat: number; fiber: number };
-    remaining: { calories: number; protein: number; carbs: number; fat: number; fiber: number };
-  }>({
-    meals: [],
-    grouped: { BREAKFAST: [], LUNCH: [], DINNER: [], SNACK: [] },
-    totals: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
-    remaining: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
-  });
-
-  const fetchLoggedMeals = async () => {
-    try {
-      const res = await fetch("/api/meals");
-      if (res.ok) {
-        const data = await res.json();
-        setLoggedMealsData(data);
-      }
-    } catch (err) {
-      console.warn("Failed to fetch meals:", err);
-    }
-  };
-
-  const handleDeleteMeal = async (id: string) => {
-    try {
-      await fetch(`/api/meals?id=${id}`, { method: "DELETE" });
-      await fetchLoggedMeals();
-    } catch (err) {
-      console.warn("Failed to delete meal:", err);
-    }
-  };
-
-  // --- Workout Logging & Split Builder State ---
-  const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);
-  const [workoutModalPresetName, setWorkoutModalPresetName] = useState<string>("");
-  const [workoutModalPresetNotes, setWorkoutModalPresetNotes] = useState<string>("");
-  const [workoutModalInitialMode, setWorkoutModalInitialMode] = useState<"routine" | "random" | "freeform">("routine");
-  const [isCustomSplitModalOpen, setIsCustomSplitModalOpen] = useState(false);
-  const [customSplit, setCustomSplit] = useState<CustomSplit>(DEFAULT_CUSTOM_SPLIT);
-  const [loggedWorkoutsData, setLoggedWorkoutsData] = useState<{
-    workouts: any[];
-    summary: {
-      totalWorkouts: number;
-      thisWeekCount: number;
-      totalMinutes: number;
-      totalCalories: number;
-      weeklyMinutes: number;
-      weeklyCalories: number;
-    };
-  }>({
-    workouts: [],
-    summary: {
-      totalWorkouts: 0,
-      thisWeekCount: 0,
-      totalMinutes: 0,
-      totalCalories: 0,
-      weeklyMinutes: 0,
-      weeklyCalories: 0,
-    },
-  });
-
-  const fetchLoggedWorkouts = async () => {
-    try {
-      const res = await fetch("/api/workouts");
-      if (res.ok) {
-        const data = await res.json();
-        setLoggedWorkoutsData(data);
-      }
-    } catch (err) {
-      console.warn("Failed to fetch workouts:", err);
-    }
-  };
-
-  const handleDeleteWorkout = async (id: string) => {
-    try {
-      await fetch(`/api/workouts?id=${id}`, { method: "DELETE" });
-      await fetchLoggedWorkouts();
-    } catch (err) {
-      console.warn("Failed to delete workout:", err);
-    }
-  };
-
-  // Helper to load profile for an authenticated user
-  const loadProfileForUser = async (user: User) => {
-    try {
-      const res = await fetch("/api/profile");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.profile) {
-          setHasProfile(true);
-          setShowProfileForm(false);
-          if (data.profile.avatar) setAvatar(data.profile.avatar);
-          if (data.user?.name) {
-            setFullName(data.user.name);
-          } else if (data.profile.name) {
-            setFullName(data.profile.name);
-          } else if (data.profile.firstName) {
-            setFullName(`${data.profile.firstName} ${data.profile.lastName || ""}`.trim());
-          }
-          if (data.profile.age) setAge(data.profile.age);
-          if (data.profile.gender) setGender(data.profile.gender);
-          if (data.profile.heightCm) {
-            const totalIn = Math.round(data.profile.heightCm / 2.54);
-            setHeightFt(Math.floor(totalIn / 12));
-            setHeightIn(totalIn % 12);
-          }
-          if (data.profile.weightKg) setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
-          if (data.profile.goalWeightKg) setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
-          if (data.profile.goal) setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
-          if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
-          if (data.profile.splitDays) setUserSplitDays(data.profile.splitDays);
-          if (data.profile.splitType) setUserSplitType(data.profile.splitType);
-
-          // Sync local storage so other components & tabs remain perfectly aligned
-          if (typeof window !== "undefined") {
-            try {
-              const currentStored = localStorage.getItem("sw_athlete_profile");
-              const parsedExisting = currentStored ? JSON.parse(currentStored) : {};
-              const totalIn = data.profile.heightCm ? Math.round(data.profile.heightCm / 2.54) : 75;
-              const hFt = data.profile.heightCm ? Math.floor(totalIn / 12) : (parsedExisting.heightFt || 6);
-              const hIn = data.profile.heightCm ? (totalIn % 12) : (parsedExisting.heightIn ?? 3);
-              const localPayload = {
-                ...parsedExisting,
-                isCompleted: true,
-                fullName: data.user?.name || (data.profile.firstName ? `${data.profile.firstName} ${data.profile.lastName || ""}`.trim() : parsedExisting.fullName),
-                avatar: parsedExisting.avatar || avatar,
-                age: data.profile.age || parsedExisting.age,
-                gender: data.profile.gender || parsedExisting.gender,
-                heightFt: hFt,
-                heightIn: hIn,
-                heightCm: data.profile.heightCm || (hFt * 12 + hIn) * 2.54,
-                weightLbs: data.profile.weightKg ? Math.round(data.profile.weightKg * 2.20462) : parsedExisting.weightLbs,
-                goalWeightLbs: data.profile.goalWeightKg ? Math.round(data.profile.goalWeightKg * 2.20462) : parsedExisting.goalWeightLbs,
-                goal: data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN",
-                activityLevel: data.profile.activityLevel || parsedExisting.activityLevel,
-                splitDays: data.profile.splitDays || parsedExisting.splitDays || 4,
-                splitType: data.profile.splitType || parsedExisting.splitType || "Upper / Lower Power & Hypertrophy",
-                updatedAt: new Date().toISOString(),
-              };
-              localStorage.setItem("sw_athlete_profile", JSON.stringify(localPayload));
-            } catch {}
-          }
-          return true;
-        }
-      }
-    } catch {
-      // Fallback to local storage
-    }
-
-    const stored = typeof window !== "undefined" ? localStorage.getItem("sw_athlete_profile") : null;
-    if (stored) {
-      try {
-        const p = JSON.parse(stored);
-        if (p.isCompleted || p.age || p.weightLbs) {
-          setHasProfile(true);
-          setShowProfileForm(false);
-          if (p.avatar) setAvatar(p.avatar);
-          if (p.fullName) setFullName(p.fullName);
-          if (p.email) setEmail(p.email);
-          if (p.age) setAge(p.age);
-          if (p.gender) setGender(p.gender);
-          if (p.heightFt) setHeightFt(p.heightFt);
-          if (p.heightIn !== undefined && p.heightIn !== null && p.heightIn !== "") setHeightIn(p.heightIn);
-          if (p.weightLbs) setCurrentWeightLbs(p.weightLbs);
-          if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
-          if (p.goal) setGoal(p.goal);
-          if (p.activityLevel) setActivityLevel(p.activityLevel);
-          if (p.splitDays) setUserSplitDays(p.splitDays);
-          if (p.splitType || p.targets?.splitInfo?.name) setUserSplitType(p.splitType || p.targets?.splitInfo?.name);
-          return true;
-        }
-      } catch {}
-    }
-
-    setHasProfile(false);
-    setShowProfileForm(true);
-    return false;
-  };
-
-  // 1. Check current Supabase session & load existing profile on mount
-  useEffect(() => {
-    document.title = "StrengthWise AI — Intelligent Strength & Nutrition Coach";
-    async function initSessionAndProfile() {
-      try {
-        const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser();
-
-        setAuthUser(currentUser);
-        if (currentUser) {
-          if (currentUser.email) setEmail(currentUser.email);
-          if (currentUser.user_metadata?.full_name) setFullName(currentUser.user_metadata.full_name);
-          await loadProfileForUser(currentUser);
-          await fetchLoggedMeals();
-          await fetchLoggedWorkouts();
-
-          if (typeof window !== "undefined") {
-            const loadedCustom = loadCustomSplit();
-            setCustomSplit(loadedCustom);
-          }
-        } else {
-          // Unauthenticated: redirect to /profile
-          setHasProfile(false);
-          setShowProfileForm(false);
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("sw_athlete_profile");
-            document.cookie = "sw_athlete_profile=; path=/; max-age=0";
-            window.dispatchEvent(new Event("sw_profile_updated"));
-            window.location.replace("/profile");
-          }
-        }
-      } catch (err) {
-        console.warn("Init session error:", err);
-      }
-    }
-
-    initSessionAndProfile();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
-      if (session?.user) {
-        setAuthUser(session.user);
-        if (session.user.email) setEmail(session.user.email);
-        if (session.user.user_metadata?.full_name) setFullName(session.user.user_metadata.full_name);
-        await loadProfileForUser(session.user);
-        await fetchLoggedMeals();
-        await fetchLoggedWorkouts();
-      } else {
-        setAuthUser(null);
-        setHasProfile(false);
-        setShowProfileForm(false);
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("sw_athlete_profile");
-          document.cookie = "sw_athlete_profile=; path=/; max-age=0";
-          window.dispatchEvent(new Event("sw_profile_updated"));
-          window.location.replace("/profile");
-        }
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-
-  // Real-time synchronization when profile is updated from /profile or another tab
-  useEffect(() => {
-    const handleProfileUpdate = () => {
-      if (authUser) {
-        loadProfileForUser(authUser);
-        fetchLoggedWorkouts();
-      }
-    };
-
-    window.addEventListener("sw_profile_updated", handleProfileUpdate);
-    window.addEventListener("storage", handleProfileUpdate);
-    return () => {
-      window.removeEventListener("sw_profile_updated", handleProfileUpdate);
-      window.removeEventListener("storage", handleProfileUpdate);
-    };
-  }, [authUser]);
-
-  // 2. Google OAuth Handler (Step 1)
-  const handleGoogleSignIn = async () => {
-    setAuthErrorMsg(null);
-    setGoogleLoading(true);
-
-    try {
-      const origin = window.location.origin;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${origin}/auth/callback?next=/profile`,
-        },
-      });
-
-      if (error) {
-        setAuthErrorMsg(error.message);
-        setGoogleLoading(false);
-      }
-    } catch (err: unknown) {
-      setAuthErrorMsg(err instanceof Error ? err.message : "Failed to initiate Google sign-in.");
-      setGoogleLoading(false);
-    }
-  };
-
-  // 3. Step 1: Account Creation & Sign In Handler
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthErrorMsg(null);
-    setSaveSuccessMsg(null);
-    setAuthSubmitting(true);
-
-    try {
-      if (!email || !password) {
-        setAuthErrorMsg("Please enter both an email and password.");
-        setAuthSubmitting(false);
-        return;
-      }
-
-      if (password.length < 6) {
-        setAuthErrorMsg("Password must be at least 6 characters long.");
-        setAuthSubmitting(false);
-        return;
-      }
-
-      const origin = window.location.origin;
-
-      if (authMode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName || email.split("@")[0],
-            },
-            emailRedirectTo: `${origin}/auth/callback`,
-          },
-        });
-
-        if (error) {
-          setAuthErrorMsg(error.message);
-          setAuthSubmitting(false);
-          return;
-        }
-
-        if (data.session?.user) {
-          setAuthUser(data.session.user);
-          setSaveSuccessMsg("Account created! Now complete Step 2 below to set up your athlete profile.");
-          setShowProfileForm(true);
-          setHasProfile(false);
-        } else {
-          setEmailConfirmationSent(true);
-        }
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          if (error.message.toLowerCase().includes("email not confirmed")) {
-            setEmailConfirmationSent(true);
-            setAuthErrorMsg("Email address has not been confirmed yet. Click 'Instant Verify' to activate.");
-          } else {
-            setAuthErrorMsg(error.message);
-          }
-          setAuthSubmitting(false);
-          return;
-        }
-
-        if (data.session?.user) {
-          setAuthUser(data.session.user);
-          const hasExisting = await loadProfileForUser(data.session.user);
-          if (hasExisting) {
-            setSaveSuccessMsg("Signed in successfully! Welcome back.");
-          } else {
-            setSaveSuccessMsg("Signed in successfully! Please complete your athlete profile in Step 2 below.");
-            setShowProfileForm(true);
-          }
-        }
-      }
-    } catch (err: unknown) {
-      setAuthErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred.");
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  // 4. Instant Dev Verification Handler
-  const handleInstantVerify = async () => {
-    if (!email) return;
-    setIsVerifyingDev(true);
-    setAuthErrorMsg(null);
-    try {
-      const res = await fetch("/api/auth/dev-verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to verify account.");
-
-      if (password) {
-        const { data: signData, error: signError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (!signError && signData.session) {
-          setAuthUser(signData.session.user);
-          setEmailConfirmationSent(false);
-          const hasExisting = await loadProfileForUser(signData.session.user);
-          if (hasExisting) {
-            setSaveSuccessMsg("Account verified and signed in! Welcome back.");
-          } else {
-            setSaveSuccessMsg("Account verified! Now proceed with Step 2 below to configure your athlete profile.");
-            setShowProfileForm(true);
-          }
-          return;
-        }
-      }
-      setEmailConfirmationSent(false);
-      setAuthMode("signin");
-      setSaveSuccessMsg("Account verified! Enter your password and click 'Sign In' below.");
-    } catch (err: unknown) {
-      setAuthErrorMsg(err instanceof Error ? err.message : "Verification failed.");
-    } finally {
-      setIsVerifyingDev(false);
-    }
-  };
-
-  // 5. Sign Out Handler
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      setAuthUser(null);
-      setHasProfile(false);
-      setShowProfileForm(false);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("sw_athlete_profile");
-        document.cookie = "sw_athlete_profile=; path=/; max-age=0";
-        window.dispatchEvent(new Event("sw_profile_updated"));
-      }
-    } catch (err) {
-      console.warn("Sign out error:", err);
-    }
-  };
-
-  // 6. Commit Profile to Supabase & Database (Step 2)
-  const commitProfileToDatabase = async (activeUser: User) => {
-    const profilePayload = {
-      fullName: fullName || activeUser.email?.split("@")[0] || "Athlete",
-      name: fullName || activeUser.email?.split("@")[0] || "Athlete",
-      avatar,
-      age: Number(age),
-      gender,
-      heightCm,
-      weightKg: numWeightKg,
-      goalWeightKg: (Number(goalWeightLbs) || 145) / 2.20462,
-      activityLevel,
-      goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
-    };
-
-    const localProfileData = {
-      isCompleted: true,
-      avatar,
-      fullName: fullName || (activeUser.email ? activeUser.email.split("@")[0] : "Athlete"),
-      email: activeUser.email || email || "",
-      age: Number(age),
-      gender,
-      heightFt: Number(heightFt),
-      heightIn: Number(heightIn),
-      heightCm,
-      weightLbs: numWeightLbs,
-      weightKg: numWeightKg,
-      goalWeightLbs: Number(goalWeightLbs),
-      goal,
-      activityLevel,
-      targetCalories: calculated.targetCalories,
-      targetProtein: calculated.targetProtein,
-      targetCarbs: calculated.targetCarbs,
-      targetFat: calculated.targetFat,
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Save locally
-    localStorage.setItem("sw_athlete_profile", JSON.stringify(localProfileData));
-    document.cookie = `sw_athlete_profile=true; path=/; max-age=31536000; SameSite=Lax`;
-    window.dispatchEvent(new Event("sw_profile_updated"));
-
-    // Save to PostgreSQL backend via Prisma API
-    try {
-      await fetch("/api/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profilePayload),
-      });
-    } catch (err) {
-      console.warn("Backend profile save error:", err);
-    }
-
-    setHasProfile(true);
-    setShowProfileForm(false);
-    setSaveSuccessMsg("🎉 Athlete profile created & saved to your account! Meals, Workouts, Progress, and AI Coach unlocked.");
-
-    setTimeout(() => {
-      const mealsEl = document.getElementById("meals");
-      if (mealsEl) {
-        mealsEl.scrollIntoView({ behavior: "smooth" });
-      }
-    }, 600);
-  };
-
-  // 7. Handle Step 2 Athlete Profile Form Submit
-  const handleSaveAthleteProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthErrorMsg(null);
-    setSaveSuccessMsg(null);
-
-    if (!authUser) {
-      setAuthErrorMsg("Please create an account or sign in first (Step 1) before configuring your athlete profile.");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await commitProfileToDatabase(authUser);
-    } catch (err: unknown) {
-      setAuthErrorMsg(err instanceof Error ? err.message : "Failed to save athlete profile.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Photo Upload Handler
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setAvatar(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   // --- Workouts Split State ---
   const [userSplitDays, setUserSplitDays] = useState<number>(4);
   const [userSplitType, setUserSplitType] = useState<string>("Upper / Lower Power & Hypertrophy");
+  const [customSplit, setCustomSplit] = useState<CustomSplit>(DEFAULT_CUSTOM_SPLIT);
 
   const activeSplit = useMemo<"ppl" | "upper_lower" | "full_body" | "hybrid_ppl" | "custom">(() => {
     if (userSplitType.toLowerCase().includes("custom")) return "custom";
@@ -734,909 +150,154 @@ export default function LandingPage() {
     return splitDetails[activeSplit] || splitDetails.upper_lower;
   }, [activeSplit, customSplit, splitDetails]);
 
-  const handleSelectSplit = (splitKey: "full_body" | "upper_lower" | "hybrid_ppl" | "ppl" | "custom") => {
-    if (splitKey === "custom") {
-      setUserSplitType("CUSTOM");
-      const d = customSplit.daysCount || customSplit.days.length || 4;
-      setUserSplitDays(d);
-      try {
-        const stored = localStorage.getItem("sw_athlete_profile");
-        if (stored) {
-          const p = JSON.parse(stored);
-          p.splitType = "CUSTOM";
-          p.splitDays = d;
-          localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
+  // Helper to load profile for an authenticated user
+  const loadProfileForUser = async (user: User) => {
+    try {
+      const res = await fetch("/api/profile");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile) {
+          setHasProfile(true);
+          if (data.profile.avatar) setAvatar(data.profile.avatar);
+          if (data.user?.name) {
+            setFullName(data.user.name);
+          } else if (data.profile.name) {
+            setFullName(data.profile.name);
+          } else if (data.profile.firstName) {
+            setFullName(`${data.profile.firstName} ${data.profile.lastName || ""}`.trim());
+          }
+          if (data.profile.age) setAge(data.profile.age);
+          if (data.profile.gender) setGender(data.profile.gender);
+          if (data.profile.heightCm) {
+            const totalIn = Math.round(data.profile.heightCm / 2.54);
+            setHeightFt(Math.floor(totalIn / 12));
+            setHeightIn(totalIn % 12);
+          }
+          if (data.profile.weightKg) setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
+          if (data.profile.goalWeightKg) setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
+          if (data.profile.goal) setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
+          if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+          if (data.profile.splitDays) setUserSplitDays(data.profile.splitDays);
+          if (data.profile.splitType) setUserSplitType(data.profile.splitType);
+
+          if (typeof window !== "undefined") {
+            try {
+              const currentStored = localStorage.getItem("sw_athlete_profile");
+              const parsedExisting = currentStored ? JSON.parse(currentStored) : {};
+              const totalIn = data.profile.heightCm ? Math.round(data.profile.heightCm / 2.54) : 75;
+              const hFt = data.profile.heightCm ? Math.floor(totalIn / 12) : (parsedExisting.heightFt || 6);
+              const hIn = data.profile.heightCm ? (totalIn % 12) : (parsedExisting.heightIn ?? 3);
+              const localPayload = {
+                ...parsedExisting,
+                isCompleted: true,
+                fullName: data.user?.name || (data.profile.firstName ? `${data.profile.firstName} ${data.profile.lastName || ""}`.trim() : parsedExisting.fullName),
+                avatar: parsedExisting.avatar || avatar,
+                age: data.profile.age || parsedExisting.age,
+                gender: data.profile.gender || parsedExisting.gender,
+                heightFt: hFt,
+                heightIn: hIn,
+                heightCm: data.profile.heightCm || (hFt * 12 + hIn) * 2.54,
+                weightLbs: data.profile.weightKg ? Math.round(data.profile.weightKg * 2.20462) : parsedExisting.weightLbs,
+                goalWeightLbs: data.profile.goalWeightKg ? Math.round(data.profile.goalWeightKg * 2.20462) : parsedExisting.goalWeightLbs,
+                goal: data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN",
+                activityLevel: data.profile.activityLevel || parsedExisting.activityLevel,
+                splitDays: data.profile.splitDays || parsedExisting.splitDays || 4,
+                splitType: data.profile.splitType || parsedExisting.splitType || "Upper / Lower Power & Hypertrophy",
+              };
+              localStorage.setItem("sw_athlete_profile", JSON.stringify(localPayload));
+              document.cookie = `sw_athlete_profile=true; path=/; max-age=31536000; SameSite=Lax`;
+            } catch {}
+          }
+          return true;
         }
-      } catch {}
-    } else {
-      const daysMap = { full_body: 3, upper_lower: 4, hybrid_ppl: 5, ppl: 6 };
-      const nameMap = {
-        full_body: "Full Body Foundation Split",
-        upper_lower: "Upper / Lower Power & Hypertrophy",
-        hybrid_ppl: "PPL + Upper / Lower Hybrid Split",
-        ppl: "Push / Pull / Legs (PPL x 2) Elite Split",
-      };
-      setUserSplitType(nameMap[splitKey]);
-      setUserSplitDays(daysMap[splitKey]);
-      try {
-        const stored = localStorage.getItem("sw_athlete_profile");
-        if (stored) {
-          const p = JSON.parse(stored);
-          p.splitType = nameMap[splitKey];
-          p.splitDays = daysMap[splitKey];
-          localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
-        }
-      } catch {}
+      }
+      return false;
+    } catch (err) {
+      console.warn("Failed to load profile for user:", err);
+      return false;
     }
   };
 
-  // --- AI Coach Athlete Biometric & Split Context ---
-  const coachAthleteContext: CoachAthleteContext = useMemo(() => ({
-    fullName: fullName || (authUser?.email ? authUser.email.split("@")[0] : "Athlete"),
-    weightLbs: numWeightLbs,
-    weightKg: numWeightKg,
-    heightCm: heightCm,
-    age: Number(age) || undefined,
-    gender,
-    goal,
-    activityLevel,
-    splitType: userSplitType,
-    splitDays: userSplitDays,
-    targetCalories: calculated.targetCalories,
-    targetProtein: calculated.targetProtein,
-    targetCarbs: calculated.targetCarbs,
-    targetFat: calculated.targetFat,
-  }), [fullName, authUser, numWeightLbs, numWeightKg, heightCm, age, gender, goal, activityLevel, userSplitType, userSplitDays, calculated]);
+  // --- Initial Session & Auth Sync ---
+  useEffect(() => {
+    async function initSessionAndProfile() {
+      try {
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+
+        setAuthUser(currentUser);
+        if (currentUser) {
+          if (currentUser.email) setEmail(currentUser.email);
+          if (currentUser.user_metadata?.full_name) setFullName(currentUser.user_metadata.full_name);
+          await loadProfileForUser(currentUser);
+
+          if (typeof window !== "undefined") {
+            const loadedCustom = loadCustomSplit();
+            setCustomSplit(loadedCustom);
+          }
+        } else {
+          // Unauthenticated: redirect to /profile
+          setHasProfile(false);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("sw_athlete_profile");
+            document.cookie = "sw_athlete_profile=; path=/; max-age=0";
+            window.dispatchEvent(new Event("sw_profile_updated"));
+            window.location.replace("/profile");
+          }
+        }
+      } catch (err) {
+        console.warn("Init session error:", err);
+      }
+    }
+
+    initSessionAndProfile();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
+      if (session?.user) {
+        setAuthUser(session.user);
+        if (session.user.email) setEmail(session.user.email);
+        if (session.user.user_metadata?.full_name) setFullName(session.user.user_metadata.full_name);
+        await loadProfileForUser(session.user);
+      } else {
+        setAuthUser(null);
+        setHasProfile(false);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("sw_athlete_profile");
+          document.cookie = "sw_athlete_profile=; path=/; max-age=0";
+          window.dispatchEvent(new Event("sw_profile_updated"));
+          window.location.replace("/profile");
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  // Real-time synchronization when profile is updated from /profile or another tab
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      if (authUser) {
+        loadProfileForUser(authUser);
+      }
+    };
+
+    window.addEventListener("sw_profile_updated", handleProfileUpdate);
+    window.addEventListener("storage", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("sw_profile_updated", handleProfileUpdate);
+      window.removeEventListener("storage", handleProfileUpdate);
+    };
+  }, [authUser]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-12">
-
-
       {/* ========================================================================= */}
-      {/* 2. ATHLETE PROFILE & SUPABASE ACCOUNT CREATION CARD                      */}
-      {/* ========================================================================= */}
-      <section id="profile-setup" className="scroll-mt-6 space-y-6">
-        {/* Welcome Green Banner */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 sm:p-6 backdrop-blur-md shadow-xl">
-          <div className="flex items-start gap-3">
-            <Sparkles className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <h3 className="text-sm sm:text-base font-bold text-emerald-400">
-                Welcome to StrengthWise AI!
-              </h3>
-              <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                Create your account and athlete profile below so our AI engine can compute your
-                personalized daily calorie targets, macro splits, and periodized workout routines.
-                Connecting your profile unlocks all navigation tabs below.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Profile Card */}
-        <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 space-y-8 shadow-2xl">
-          {/* Header & Status */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-black text-white tracking-tight">Your Profile &amp; Account</h2>
-                {hasProfile && (
-                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-mono font-semibold text-emerald-400">
-                    Active &amp; Unlocked
-                  </span>
-                )}
-                {authUser && (
-                  <span className="rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 text-xs font-mono font-semibold text-cyan-400">
-                    Supabase Connected
-                  </span>
-                )}
-              </div>
-              <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-                {authUser
-                  ? `Signed in as ${authUser.email}. Profile updates sync directly to your PostgreSQL database.`
-                  : "Create an account with Google or email to save your profile permanently."}
-              </p>
-            </div>
-
-            {hasProfile && (
-              <button
-                type="button"
-                onClick={() => setShowProfileForm(!showProfileForm)}
-                className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800/80 px-3.5 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
-              >
-                <Edit3 className="h-3.5 w-3.5 text-emerald-400" />
-                <span>{showProfileForm ? "Collapse Editor" : "Edit Profile Settings"}</span>
-              </button>
-            )}
-          </div>
-
-          {/* 2-Step Workflow Progress Stepper */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-2xl bg-neutral-950/60 border border-neutral-800/80">
-            {/* Step 1 Pill */}
-            <div className={`flex items-center gap-3 p-3 rounded-xl border transition ${
-              authUser
-                ? "bg-emerald-950/30 border-emerald-500/30"
-                : "bg-emerald-500/10 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
-            }`}>
-              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold font-mono transition ${
-                authUser
-                  ? "bg-emerald-500 text-neutral-950"
-                  : "bg-emerald-500 text-neutral-950 animate-pulse"
-              }`}>
-                {authUser ? <CheckCircle2 className="h-4 w-4" /> : "1"}
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span>Step 1: Account Authentication</span>
-                  {authUser ? (
-                    <span className="text-[10px] text-emerald-400 font-semibold">(Complete)</span>
-                  ) : (
-                    <span className="text-[10px] text-emerald-400 font-semibold">(Current Step)</span>
-                  )}
-                </div>
-                <div className="text-[11px] text-neutral-400 truncate">
-                  {authUser ? authUser.email : "Create account or sign in first"}
-                </div>
-              </div>
-            </div>
-
-            {/* Step 2 Pill */}
-            <div className={`flex items-center gap-3 p-3 rounded-xl border transition ${
-              hasProfile
-                ? "bg-emerald-950/30 border-emerald-500/30"
-                : authUser
-                ? "bg-emerald-500/10 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
-                : "bg-neutral-950 border-neutral-800/60 opacity-60"
-            }`}>
-              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold font-mono transition ${
-                hasProfile
-                  ? "bg-emerald-500 text-neutral-950"
-                  : authUser
-                  ? "bg-emerald-500 text-neutral-950 animate-pulse"
-                  : "bg-neutral-800 text-neutral-500"
-              }`}>
-                {hasProfile ? <CheckCircle2 className="h-4 w-4" /> : !authUser ? <Lock className="h-3.5 w-3.5" /> : "2"}
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span>Step 2: Athlete Profile &amp; Biometrics</span>
-                  {hasProfile ? (
-                    <span className="text-[10px] text-emerald-400 font-semibold">(Active)</span>
-                  ) : authUser ? (
-                    <span className="text-[10px] text-emerald-400 font-semibold">(Next Step)</span>
-                  ) : (
-                    <span className="text-[10px] text-neutral-500 font-normal">Locked</span>
-                  )}
-                </div>
-                <div className="text-[11px] text-neutral-400">
-                  {hasProfile ? "Macros & training calibrated" : !authUser ? "Requires account created in Step 1" : "Configure biometrics & macros"}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Success Message Banner */}
-          {saveSuccessMsg && (
-            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-xs font-medium text-emerald-300">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span>{saveSuccessMsg}</span>
-            </div>
-          )}
-
-          {/* Error Message Banner */}
-          {authErrorMsg && (
-            <div className="flex flex-col gap-2 rounded-xl border border-red-900/40 bg-red-950/30 p-4 text-xs text-red-300">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
-                <span>{authErrorMsg}</span>
-              </div>
-              {authErrorMsg.toLowerCase().includes("confirmed") && (
-                <button
-                  type="button"
-                  onClick={handleInstantVerify}
-                  disabled={isVerifyingDev}
-                  className="self-start mt-1 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/20 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/30 transition"
-                >
-                  <Zap className="h-3.5 w-3.5" />
-                  <span>{isVerifyingDev ? "Verifying..." : "Click here to Instant Verify & Activate"}</span>
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Email Confirmation Pending Screen */}
-          {emailConfirmationSent && (
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 space-y-4 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-                <MailCheck className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <h4 className="text-sm font-bold text-white">Confirmation Email Requested</h4>
-                <p className="text-xs text-neutral-400">
-                  Supabase sent a confirmation link to <span className="font-mono text-emerald-300">{email}</span>.
-                </p>
-                <p className="text-xs text-neutral-500">
-                  Don&apos;t want to wait for email delivery? Click Instant Verify below to activate immediately.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleInstantVerify}
-                disabled={isVerifyingDev}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition"
-              >
-                <Zap className="h-3.5 w-3.5 fill-current" />
-                <span>{isVerifyingDev ? "Activating..." : "Instant Verify & Save Profile"}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Main 2-Step Interactive Flow */}
-          {!emailConfirmationSent && (
-            <>
-              {/* ============================================================== */}
-              {/* CASE 1: GUEST USER (NOT AUTHENTICATED)                         */}
-              {/* Step 1 is ACTIVE, Step 2 is LOCKED                             */}
-              {/* ============================================================== */}
-              {!authUser ? (
-                <div className="space-y-8">
-                  {/* Step 1: Account Creation & Sign In Box */}
-                  <div className="space-y-6 rounded-2xl border border-emerald-500/30 bg-neutral-950/70 p-5 sm:p-6 shadow-xl">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800/80 pb-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-400 uppercase">
-                            Step 1 of 2
-                          </span>
-                          <h3 className="text-base font-bold text-white">Create Account or Sign In</h3>
-                        </div>
-                        <p className="text-xs text-neutral-400 mt-1">
-                          An account is required first because your athlete profile and metabolic data are securely linked to your account.
-                        </p>
-                      </div>
-
-                      <div className="flex rounded-lg bg-neutral-900 p-1 border border-neutral-800 self-start sm:self-auto">
-                        <button
-                          type="button"
-                          onClick={() => setAuthMode("signup")}
-                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                            authMode === "signup" ? "bg-emerald-500 text-neutral-950 shadow-sm" : "text-neutral-400 hover:text-white"
-                          }`}
-                        >
-                          Create Account
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAuthMode("signin")}
-                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                            authMode === "signin" ? "bg-emerald-500 text-neutral-950 shadow-sm" : "text-neutral-400 hover:text-white"
-                          }`}
-                        >
-                          Sign In
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Google OAuth Quick Connect */}
-                    <div className="space-y-3 rounded-xl border border-neutral-800/80 bg-neutral-900/60 p-4">
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <div className="space-y-0.5 text-center sm:text-left">
-                          <div className="text-xs font-bold text-white flex items-center justify-center sm:justify-start gap-1.5">
-                            <Zap className="h-3.5 w-3.5 text-emerald-400" />
-                            <span>Quick Sign-In with Google</span>
-                          </div>
-                          <div className="text-[11px] text-neutral-400">
-                            Instantly authenticate and advance to Step 2 profile configuration.
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={handleGoogleSignIn}
-                          disabled={googleLoading}
-                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl border border-neutral-700 bg-neutral-950 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-neutral-800 hover:border-neutral-600 transition disabled:opacity-50"
-                        >
-                          {googleLoading ? (
-                            <>
-                              <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                              <span>Connecting...</span>
-                            </>
-                          ) : (
-                            <>
-                              <svg className="h-4 w-4" viewBox="0 0 24 24">
-                                <path
-                                  fill="#4285F4"
-                                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                                />
-                                <path
-                                  fill="#34A853"
-                                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                                />
-                                <path
-                                  fill="#FBBC05"
-                                  d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                                />
-                                <path
-                                  fill="#EA4335"
-                                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                                />
-                              </svg>
-                              <span>Continue with Google</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="relative flex items-center justify-center pt-2">
-                        <div className="w-full border-t border-neutral-800" />
-                        <span className="absolute bg-neutral-900 px-2.5 text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">
-                          Or Continue with Email &amp; Password
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Email/Password Auth Form */}
-                    <form onSubmit={handleAuthSubmit} className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {authMode === "signup" && (
-                          <div className="space-y-1.5 sm:col-span-2">
-                            <label className="text-xs font-semibold text-neutral-300">Your Full Name</label>
-                            <input
-                              type="text"
-                              required
-                              value={fullName}
-                              onChange={(e) => setFullName(e.target.value)}
-                              placeholder="e.g. Alex Smith"
-                              className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
-                            />
-                          </div>
-                        )}
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Email Address</label>
-                          <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="alex.smith@example.com"
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-semibold text-neutral-300">
-                              {authMode === "signup" ? "Set Account Password" : "Password"}
-                            </label>
-                            {authMode === "signup" && <span className="text-[11px] text-neutral-500">Min 6 chars</span>}
-                          </div>
-                          <div className="relative">
-                            <input
-                              type={showPassword ? "text" : "password"}
-                              required
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              placeholder="••••••••"
-                              className="w-full rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 pl-3.5 pr-10 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-2.5 text-neutral-500 hover:text-neutral-300"
-                            >
-                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <div className="text-xs text-neutral-400">
-                          {authMode === "signup"
-                            ? "Step 1 of 2: Create your account, then calibrate your athlete profile in Step 2."
-                            : "Sign in to access your linked athlete profile and training dashboard."}
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled={authSubmitting}
-                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/25 hover:bg-emerald-400 hover:scale-[1.02] transition active:scale-[0.98] disabled:opacity-50"
-                        >
-                          {authSubmitting ? (
-                            <>
-                              <RefreshCw className="h-3.5 w-3.5 animate-spin text-neutral-950" />
-                              <span>{authMode === "signup" ? "Creating Account..." : "Signing In..."}</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>{authMode === "signup" ? "Create Account & Proceed to Step 2" : "Sign In & Continue"}</span>
-                              <ArrowRight className="h-3.5 w-3.5" />
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-
-                  {/* Step 2: Locked Athlete Profile Preview Box */}
-                  <div className="relative rounded-2xl border border-neutral-800 bg-neutral-950/40 p-6 overflow-hidden">
-                    {/* Glassmorphic Lock Overlay */}
-                    <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-neutral-950/70 flex flex-col items-center justify-center p-6 text-center">
-                      <div className="max-w-md space-y-3">
-                        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                          <Lock className="h-5 w-5" />
-                        </div>
-                        <h4 className="text-base font-bold text-white">Step 2: Athlete Profile &amp; Biometrics (Locked)</h4>
-                        <p className="text-xs text-neutral-300 leading-relaxed">
-                          Your athlete profile can only be created once an account is established. Complete Step 1 above to unlock this section.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const el = document.getElementById("profile-setup");
-                            if (el) el.scrollIntoView({ behavior: "smooth" });
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 transition"
-                        >
-                          <span>Complete Step 1 Above to Unlock</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Dimmed Preview of Step 2 Content */}
-                    <div className="opacity-25 pointer-events-none space-y-6 select-none">
-                      <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-md bg-neutral-800 px-2 py-0.5 text-[10px] font-mono text-neutral-400">
-                            Step 2 of 2
-                          </span>
-                          <span className="text-sm font-bold text-neutral-400">Athlete Profile &amp; Biometrics</span>
-                        </div>
-                        <span className="text-xs text-neutral-500">Mifflin-St Jeor Engine</span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-1">
-                          <div className="text-[10px] text-neutral-500">Age</div>
-                          <div className="text-sm font-bold text-neutral-300">26 yrs</div>
-                        </div>
-                        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-1">
-                          <div className="text-[10px] text-neutral-500">Biological Sex</div>
-                          <div className="text-sm font-bold text-neutral-300">Female / Male</div>
-                        </div>
-                        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-1">
-                          <div className="text-[10px] text-neutral-500">Height &amp; Weight</div>
-                          <div className="text-sm font-bold text-neutral-300">5&apos;8&quot; • 155 lbs</div>
-                        </div>
-                        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-1">
-                          <div className="text-[10px] text-neutral-500">Calorie Target</div>
-                          <div className="text-sm font-bold text-emerald-400">Calculated on Unlock</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : showProfileForm ? (
-                /* ============================================================== */
-                /* CASE 2: AUTHENTICATED USER CONFIGURING OR EDITING PROFILE       */
-                /* Step 1 is COMPLETED, Step 2 Form is ACTIVE                     */
-                /* ============================================================== */
-                <div className="space-y-6">
-                  {/* Step 1 Completed Ribbon */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3.5 text-xs">
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                      <span className="text-neutral-300">
-                        <strong className="text-white">Step 1 Complete:</strong> Signed in as{" "}
-                        <span className="font-mono text-emerald-400 font-semibold">{authUser.email}</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href="/profile"
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/30 transition"
-                      >
-                        <UserIcon className="h-3 w-3" />
-                        <span>Open Profile & Split Studio</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={handleSignOut}
-                        className="text-[11px] font-medium text-neutral-400 hover:text-white underline underline-offset-2 transition ml-2"
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Step 2 Form */}
-                  <form onSubmit={handleSaveAthleteProfile} className="space-y-8">
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-neutral-800/80 pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-400 uppercase">
-                          Step 2 of 2
-                        </span>
-                        <h3 className="text-base font-bold text-white">Athlete Biometrics &amp; Metabolic Calibration</h3>
-                      </div>
-                      <span className="text-xs text-neutral-500 hidden sm:inline">Linked to {authUser.email}</span>
-                    </div>
-
-                    {/* Profile Picture & Identity */}
-                    <div className="space-y-4">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
-                        Profile Avatar &amp; Identity
-                      </h4>
-
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                        {/* Avatar Circle Display */}
-                        <div className="relative group shrink-0">
-                          <div className="h-20 w-20 rounded-full border-2 border-emerald-500/40 bg-neutral-950 flex items-center justify-center overflow-hidden text-3xl shadow-lg">
-                            {avatar.startsWith("data:") || avatar.startsWith("http") ? (
-                              <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
-                            ) : (
-                              <span>{avatar}</span>
-                            )}
-                          </div>
-                          <label
-                            htmlFor="avatar-upload"
-                            className="absolute bottom-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-emerald-500 text-neutral-950 shadow-md hover:bg-emerald-400 transition"
-                            title="Upload custom photo"
-                          >
-                            <Camera className="h-3.5 w-3.5" />
-                            <input
-                              id="avatar-upload"
-                              type="file"
-                              accept="image/*"
-                              onChange={handlePhotoUpload}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {/* Avatar Controls */}
-                        <div className="space-y-2">
-                          <div className="text-xs font-semibold text-white">Custom Profile Picture</div>
-                          <div className="text-[11px] text-neutral-400">
-                            Upload your photo or choose an avatar preset below:
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                            <label
-                              htmlFor="avatar-upload-btn"
-                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800/80 px-2.5 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
-                            >
-                              <Upload className="h-3.5 w-3.5 text-emerald-400" />
-                              <span>Upload Photo</span>
-                              <input
-                                id="avatar-upload-btn"
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePhotoUpload}
-                                className="hidden"
-                              />
-                            </label>
-
-                            {AVATAR_PRESETS.map((preset) => (
-                              <button
-                                key={preset}
-                                type="button"
-                                onClick={() => setAvatar(preset)}
-                                className={`h-8 w-8 rounded-lg border text-base flex items-center justify-center transition ${
-                                  avatar === preset
-                                    ? "border-emerald-500 bg-emerald-500/20 scale-110 shadow-sm shadow-emerald-500/30"
-                                    : "border-neutral-800 bg-neutral-950 hover:border-neutral-700 hover:scale-105"
-                                }`}
-                              >
-                                {preset}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Name & Linked Email */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Athlete Display Name</label>
-                          <input
-                            type="text"
-                            required
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            placeholder="e.g. Alex Smith"
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Linked Account Email</label>
-                          <input
-                            type="email"
-                            disabled
-                            value={authUser.email || email}
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-400 opacity-70 cursor-not-allowed font-mono"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Biometrics Inputs */}
-                    <div className="space-y-4 pt-4 border-t border-neutral-800/80">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-mono">
-                        Biometrics &amp; Physiological Parameters
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Age */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Age (years)</label>
-                          <input
-                            type="number"
-                            min={14}
-                            max={99}
-                            required
-                            value={age}
-                            onChange={(e) => setAge(e.target.value)}
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition font-mono"
-                          />
-                        </div>
-
-                        {/* Biological Sex */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Biological Sex</label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setGender("FEMALE")}
-                              className={`rounded-xl py-2.5 text-xs font-bold transition border ${
-                                gender === "FEMALE"
-                                  ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm"
-                                  : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                              }`}
-                            >
-                              Female
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setGender("MALE")}
-                              className={`rounded-xl py-2.5 text-xs font-bold transition border ${
-                                gender === "MALE"
-                                  ? "bg-emerald-500 text-neutral-950 border-emerald-400 shadow-sm"
-                                  : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                              }`}
-                            >
-                              Male
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Height ft & in */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Height (ft)</label>
-                          <input
-                            type="number"
-                            min={3}
-                            max={7}
-                            required
-                            value={heightFt}
-                            onChange={(e) => setHeightFt(e.target.value)}
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Height (in)</label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={11}
-                            required
-                            value={heightIn}
-                            onChange={(e) => setHeightIn(e.target.value)}
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
-                          />
-                        </div>
-
-                        {/* Weights */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Current Weight (lbs)</label>
-                          <input
-                            type="number"
-                            min={70}
-                            max={450}
-                            required
-                            value={currentWeightLbs}
-                            onChange={(e) => setCurrentWeightLbs(e.target.value)}
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-neutral-300">Goal Weight (lbs)</label>
-                          <input
-                            type="number"
-                            min={70}
-                            max={450}
-                            required
-                            value={goalWeightLbs}
-                            onChange={(e) => setGoalWeightLbs(e.target.value)}
-                            className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-neutral-100 focus:border-emerald-500 focus:outline-none transition font-mono"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Primary Training Goal */}
-                      <div className="space-y-1.5 pt-2">
-                        <label className="text-xs font-semibold text-neutral-300">Primary Goal Phase</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setGoal("CUT")}
-                            className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                              goal === "CUT"
-                                ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm"
-                                : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                            }`}
-                          >
-                            Fat Loss (-20%)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setGoal("MAINTAIN")}
-                            className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                              goal === "MAINTAIN"
-                                ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-sm"
-                                : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                            }`}
-                          >
-                            Maintenance
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setGoal("BULK")}
-                            className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                              goal === "BULK"
-                                ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
-                                : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
-                            }`}
-                          >
-                            Muscle Surplus (+10%)
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Live Metabolic Preview Card */}
-                    <div className="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-4 space-y-3">
-                      <div className="flex items-center justify-between text-xs font-bold text-white">
-                        <span className="flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>Live Mifflin-St Jeor Engine Calculations</span>
-                        </span>
-                        <span className="font-mono text-emerald-400 font-bold">
-                          {calculated.targetCalories} kcal / day
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-2">
-                          <div className="text-[10px] text-neutral-400">Protein (40%)</div>
-                          <div className="text-xs font-bold text-emerald-400 font-mono">{calculated.targetProtein}g</div>
-                        </div>
-                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-2">
-                          <div className="text-[10px] text-neutral-400">Carbs (35%)</div>
-                          <div className="text-xs font-bold text-cyan-400 font-mono">{calculated.targetCarbs}g</div>
-                        </div>
-                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-2">
-                          <div className="text-[10px] text-neutral-400">Fats (25%)</div>
-                          <div className="text-xs font-bold text-amber-400 font-mono">{calculated.targetFat}g</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Submit Button */}
-                    <div className="pt-4 border-t border-neutral-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="text-xs text-neutral-400 text-center sm:text-left">
-                        Saves biometrics and target macros to your account and database.
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={isSaving}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-7 py-3 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-emerald-300 hover:scale-[1.02] transition active:scale-[0.98] disabled:opacity-50"
-                      >
-                        {isSaving ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 animate-spin text-neutral-950" />
-                            <span>Saving Athlete Profile...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Zap className="h-4 w-4 fill-current" />
-                            <span>{hasProfile ? "Update Athlete Profile & Save" : "Save Athlete Profile & Unlock Dashboard"}</span>
-                            <ArrowRight className="h-4 w-4" />
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              ) : (
-                /* ============================================================== */
-                /* CASE 3: AUTHENTICATED USER WITH PROFILE SAVED (COLLAPSED VIEW)  */
-                /* ============================================================== */
-                <div className="space-y-6">
-                  {/* Step 1 Completed Ribbon */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3.5 text-xs">
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                      <span className="text-neutral-300">
-                        <strong className="text-white">Step 1 Complete:</strong> Signed in as{" "}
-                        <span className="font-mono text-emerald-400 font-semibold">{authUser.email}</span>
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSignOut}
-                      className="text-[11px] font-medium text-neutral-400 hover:text-white underline underline-offset-2 transition"
-                    >
-                      Sign out / Switch account
-                    </button>
-                  </div>
-
-                  {/* Collapsed Profile Summary Card */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-neutral-950/70 border border-neutral-800 p-5">
-                    <div className="flex items-center gap-4">
-                      <div className="h-14 w-14 rounded-full border border-emerald-500/40 bg-neutral-900 flex items-center justify-center overflow-hidden text-2xl shadow-md">
-                        {avatar.startsWith("data:") || avatar.startsWith("http") ? (
-                          <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
-                        ) : (
-                          <span>{avatar}</span>
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-white flex items-center gap-2">
-                          {fullName || (authUser?.email ? authUser.email.split("@")[0] : "Athlete")}
-                          <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                            Profile Active
-                          </span>
-                          <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                            Supabase Synced
-                          </span>
-                        </div>
-                        <div className="text-xs text-neutral-400 mt-0.5">
-                          {currentWeightLbs} lbs • {heightFt}&apos;{heightIn}&quot; • {gender.toLowerCase()} • {goal === "CUT" ? "Fat Loss" : goal === "BULK" ? "Muscle Surplus" : "Maintenance"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowProfileForm(true)}
-                        className="rounded-xl border border-neutral-700 bg-neutral-800/80 px-4 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
-                      >
-                        Edit Profile
-                      </button>
-                      <Link
-                        href="/meals"
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition"
-                      >
-                        <span>View Meals &amp; Macros</span>
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </Card>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 3. CORE MODULES COMMAND HUB (DIRECT ACCESS TO DEDICATED PAGES)           */}
+      {/* CORE MODULES COMMAND HUB (DIRECT ACCESS TO DEDICATED PAGES)               */}
       {/* ========================================================================= */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -1844,8 +505,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-
-
       {/* Footer */}
       <footer className="border-t border-neutral-800/80 pt-8 pb-12 text-center text-xs text-neutral-500">
         <div className="flex items-center justify-center gap-2 mb-2">
@@ -1854,48 +513,6 @@ export default function LandingPage() {
         </div>
         <p>Built with Next.js 15, Tremor UI, Tailwind CSS, Supabase &amp; Prisma.</p>
       </footer>
-
-      {/* 100% Accurate Food & Macro Scanner Modal */}
-      <FoodScannerModal
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        onMealLogged={fetchLoggedMeals}
-        initialMealType={scannerInitialMeal}
-        initialTab={scannerInitialTab}
-      />
-
-      {/* Interactive Workout Tracking Modal */}
-      <WorkoutModal
-        isOpen={isWorkoutModalOpen}
-        onClose={() => setIsWorkoutModalOpen(false)}
-        onWorkoutLogged={fetchLoggedWorkouts}
-        initialWorkoutName={workoutModalPresetName}
-        initialNotes={workoutModalPresetNotes}
-        presetSessions={currentSplit.days}
-        athleteWeightKg={numWeightKg}
-        initialMode={workoutModalInitialMode}
-      />
-
-      {/* Custom Split Builder Modal */}
-      <CustomSplitModal
-        isOpen={isCustomSplitModalOpen}
-        onClose={() => setIsCustomSplitModalOpen(false)}
-        initialSplit={customSplit}
-        onSplitSaved={(saved) => {
-          setCustomSplit(saved);
-          setUserSplitType("CUSTOM");
-          setUserSplitDays(saved.daysCount || saved.days.length || 4);
-          try {
-            const stored = localStorage.getItem("sw_athlete_profile");
-            if (stored) {
-              const p = JSON.parse(stored);
-              p.splitType = "CUSTOM";
-              p.splitDays = saved.daysCount || saved.days.length || 4;
-              localStorage.setItem("sw_athlete_profile", JSON.stringify(p));
-            }
-          } catch {}
-        }}
-      />
     </div>
   );
 }
