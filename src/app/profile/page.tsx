@@ -652,8 +652,8 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 pb-20 animate-in fade-in duration-300">
-      {/* Top Header Navigation */}
-      <header className="sticky top-0 z-40 border-b border-neutral-800/80 bg-neutral-950/80 backdrop-blur-xl px-4 lg:px-8 py-3.5">
+      {/* Top Subheader Navigation */}
+      <header className="border-b border-neutral-800/80 bg-neutral-950/60 backdrop-blur-xl px-4 lg:px-8 py-3.5">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link

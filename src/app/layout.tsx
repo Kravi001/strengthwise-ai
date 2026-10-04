@@ -47,10 +47,10 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-neutral-950 text-neutral-100 antialiased flex flex-row`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-neutral-950 text-neutral-100 antialiased flex flex-col`}
       >
         <Navbar />
-        <main id="main-content" className="flex-1 overflow-y-auto scroll-smooth">
+        <main id="main-content" className="flex-1 w-full overflow-y-auto scroll-smooth">
           {children}
         </main>
       </body>
