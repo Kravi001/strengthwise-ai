@@ -28,7 +28,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
-  source?: "claude" | "gemini" | "sports-science-engine";
+  source?: "ai" | "claude" | "gemini" | "sports-science-engine";
   model?: string;
 }
 
@@ -109,8 +109,8 @@ I have full contextual integration with your biometric profile, training split, 
 
 *Select a quick consultation below or type your specific question!*`,
   timestamp: "Just now",
-  source: "gemini",
-  model: "gemini-flash (Free)",
+  source: "ai",
+  model: "StrengthWise AI",
 };
 
 export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps) {
@@ -236,8 +236,8 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
 
     const assistantId = `assistant-${Date.now()}`;
     let accumulatedText = "";
-    let streamSource: ChatMessage["source"] = "gemini";
-    let streamModel = "gemini-flash";
+    let streamSource: ChatMessage["source"] = "ai";
+    let streamModel = "StrengthWise AI";
     let assistantAdded = false;
 
     try {
@@ -584,15 +584,9 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 <ShieldCheck className="h-3 w-3" />
                 Generative AI Specialist
               </span>
-              {activeProvider === "anthropic" ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300 font-mono">
-                  Anthropic Claude
-                </span>
-              ) : activeProvider === "gemini" ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 font-mono">
-                  Gemini Flash (Free AI)
-                </span>
-              ) : null}
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 font-mono">
+                Neural Strength Engine
+              </span>
             </div>
             <p className="text-[11px] text-neutral-400 flex items-center gap-1.5 mt-0.5">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
@@ -612,7 +606,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             type="button"
             onClick={() => setShowKeyModal(true)}
             className="rounded-xl px-3 py-1.5 text-xs font-semibold border transition flex items-center gap-1.5 bg-neutral-800/60 border-neutral-700/60 text-neutral-300 hover:text-white hover:border-emerald-500/40"
-            title="Connect Anthropic Claude or Gemini API Key"
+            title="Connect Custom AI Key"
           >
             <Key className="h-3.5 w-3.5 text-amber-400" />
             <span className="hidden sm:inline">Connect AI Key</span>
@@ -649,7 +643,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
               <Key className="h-4 w-4 text-amber-400" />
-              <span>Connect Anthropic Claude API Key</span>
+              <span>Connect Custom AI Key</span>
             </div>
             <button
               type="button"
@@ -663,7 +657,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             </button>
           </div>
           <p className="text-xs text-neutral-300 leading-relaxed">
-            Enter your Anthropic API Key (<code className="text-amber-300 font-mono">sk-ant-api03-...</code>) or Google Gemini Key to power your coach with Generative AI. Keys are stored locally in your environment.
+            Enter your custom API Key to power your coach with advanced Generative AI. Keys are stored locally in your environment.
           </p>
 
           <form onSubmit={handleSaveApiKey} className="flex flex-col sm:flex-row gap-2">
@@ -793,9 +787,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-md ${
                   isUser
                     ? "bg-gradient-to-tr from-emerald-500 to-teal-400 text-neutral-950 font-bold"
-                    : msg.source === "claude"
-                    ? "bg-gradient-to-br from-amber-400 to-amber-600 text-neutral-950 font-black shadow-amber-500/20"
-                    : "bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-black"
+                    : "bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-black shadow-emerald-500/20"
                 }`}
               >
                 {isUser ? <User className="h-4 w-4" /> : <BrainCircuit className="h-4 w-4" />}
@@ -811,15 +803,11 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   <span className="text-[11px] font-bold text-neutral-400">
                     {isUser ? athleteContext?.fullName || "You" : "StrengthWise AI Coach"}
                   </span>
-                  {!isUser && msg.source === "claude" ? (
-                    <span className="rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 px-1.5 py-0.2 text-[9px] font-mono">
-                      Anthropic Claude
-                    </span>
-                  ) : !isUser && msg.source === "gemini" ? (
+                  {!isUser && (
                     <span className="rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-mono">
-                      {msg.model || "Gemini Flash"}
+                      {msg.model || "StrengthWise AI"}
                     </span>
-                  ) : null}
+                  )}
                   <span className="text-[10px] text-neutral-500">{msg.timestamp}</span>
                 </div>
 
@@ -969,7 +957,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
               ⚡ Rate Limit: 10/min
             </span>
             <span className="hidden sm:inline font-mono text-[10px] text-emerald-400/80">
-              Powered by Google Gemini Generative AI
+              Powered by StrengthWise Sports Science Intelligence
             </span>
           </div>
         </div>

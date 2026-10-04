@@ -660,7 +660,7 @@ export function FoodScannerModal({
                 <div className="flex-1 text-xs">
                   <div className="font-semibold text-neutral-200">Image Captured</div>
                   <div className="text-[10px] text-emerald-400">
-                    Processed with Google Gemini Multimodal Vision OCR
+                    Processed with StrengthWise Multimodal Vision OCR
                   </div>
                 </div>
                 <button

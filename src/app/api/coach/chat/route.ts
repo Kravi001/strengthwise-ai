@@ -259,8 +259,8 @@ CRITICAL COACHING INSTRUCTIONS:
                                     encoder.encode(
                                       `data: ${JSON.stringify({
                                         token,
-                                        source: "gemini",
-                                        model,
+                                        source: "ai",
+                                        model: "StrengthWise AI",
                                       })}\n\n`
                                     )
                                   );
@@ -331,8 +331,8 @@ CRITICAL COACHING INSTRUCTIONS:
                       encoder.encode(
                         `data: ${JSON.stringify({
                           token: chunk.delta.text,
-                          source: "claude",
-                          model: "claude-3-5-sonnet",
+                          source: "ai",
+                          model: "StrengthWise AI",
                         })}\n\n`
                       )
                     );
@@ -477,8 +477,8 @@ CRITICAL COACHING INSTRUCTIONS:
           return NextResponse.json(
             {
               message: replyText,
-              source: "claude",
-              model: "claude-3-5-sonnet-20241022",
+              source: "ai",
+              model: "StrengthWise AI",
               rateLimit: {
                 limit: rateLimit.limit,
                 remaining: rateLimit.remaining,

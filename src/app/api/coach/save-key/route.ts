@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       provider: isAnthropic ? "anthropic" : "gemini",
       keyName,
       maskedKey,
-      message: `Successfully connected ${isAnthropic ? "Anthropic Claude API" : "Google Gemini API"} (${maskedKey})!`,
+      message: `Successfully connected AI Coach API (${maskedKey})!`,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to save key";

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Gemini AI API key not configured on server." },
+        { error: "Vision AI API key not configured on server." },
         { status: 500 }
       );
     }
@@ -177,7 +177,7 @@ Return ONLY valid JSON matching this exact structure with no markdown backticks,
         carbs,
         fat,
         fiber,
-        source: "Gemini Vision AI (100% Calibrated)",
+        source: "StrengthWise Vision AI (100% Calibrated)",
       },
       atwaterVerification: {
         statedCalories: calories,
