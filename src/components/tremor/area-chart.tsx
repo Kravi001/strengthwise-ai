@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   Area,
   AreaChart as RechartsAreaChart,
+  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -17,6 +18,9 @@ export interface AreaChartProps extends React.HTMLAttributes<HTMLDivElement> {
   categories: string[];
   colors?: string[];
   valueFormatter?: (value: number) => string;
+  autoDomain?: boolean;
+  domain?: [any, any];
+  showGridLines?: boolean;
 }
 
 const defaultColors = ["#10b981", "#06b6d4", "#a855f7"];
@@ -27,6 +31,9 @@ export function AreaChart({
   categories,
   colors = defaultColors,
   valueFormatter = (val: number) => `${val}`,
+  autoDomain = false,
+  domain,
+  showGridLines = false,
   className,
   ...props
 }: AreaChartProps) {
@@ -34,6 +41,9 @@ export function AreaChart({
     <div className={cn("h-64 w-full", className)} {...props}>
       <ResponsiveContainer width="100%" height="100%">
         <RechartsAreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          {showGridLines && (
+            <CartesianGrid stroke="#262626" strokeDasharray="3 3" vertical={false} />
+          )}
           <defs>
             {categories.map((cat, i) => {
               const color = colors[i % colors.length];
@@ -58,6 +68,15 @@ export function AreaChart({
             tickLine={false}
             axisLine={false}
             tickFormatter={valueFormatter}
+            domain={
+              domain ||
+              (autoDomain
+                ? [
+                    (dataMin: number) => Math.floor(Math.max(0, dataMin - 3)),
+                    (dataMax: number) => Math.ceil(dataMax + 3),
+                  ]
+                : undefined)
+            }
           />
           <Tooltip
             content={({ active, payload, label }) => {

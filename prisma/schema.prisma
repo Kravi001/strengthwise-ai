@@ -16,9 +16,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profile  Profile?
-  workouts WorkoutLog[]
-  meals    MealLog[]
+  profile    Profile?
+  workouts   WorkoutLog[]
+  meals      MealLog[]
+  weightLogs WeightLog[]
 
   @@map("users")
 }
@@ -97,4 +98,21 @@ model MealLog {
 
   @@index([userId, loggedAt])
   @@map("meal_logs")
+}
+
+model WeightLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  weightKg  Float
+  weightLbs Float
+  note      String?
+  
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, loggedAt])
+  @@map("weight_logs")
 }
