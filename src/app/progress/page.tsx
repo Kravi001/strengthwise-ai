@@ -197,60 +197,6 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {/* 4 Primary KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card decoration="left" decorationColor="emerald" className="bg-neutral-900/60 border-neutral-800 p-5 space-y-2">
-          <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-            {loggedWorkoutsData.summary.totalWorkouts > 0 ? "Workouts Completed" : "Hypertrophy Stimulus"}
-          </div>
-          <div className="text-2xl font-black text-white font-mono">
-            {loggedWorkoutsData.summary.totalWorkouts > 0 ? `${loggedWorkoutsData.summary.totalWorkouts} sessions` : "94.2%"}
-          </div>
-          <ProgressBar
-            value={loggedWorkoutsData.summary.thisWeekCount > 0 ? Math.min(100, (loggedWorkoutsData.summary.thisWeekCount / (userSplitDays || 4)) * 100) : 94.2}
-            color="emerald"
-            className="mt-2"
-          />
-          <span className="text-[10px] text-emerald-400 font-mono">
-            {loggedWorkoutsData.summary.thisWeekCount > 0 ? `${loggedWorkoutsData.summary.thisWeekCount}/${userSplitDays || 4} weekly sessions` : "Optimal stimulus range"}
-          </span>
-        </Card>
-
-        <Card decoration="left" decorationColor="cyan" className="bg-neutral-900/60 border-neutral-800 p-5 space-y-2">
-          <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-            {loggedMealsData.totals.calories > 0 ? "Today's Fuel Logged" : "Calorie Adherence"}
-          </div>
-          <div className="text-2xl font-black text-white font-mono">
-            {loggedMealsData.totals.calories > 0 ? `${loggedMealsData.totals.calories} kcal` : "98.6%"}
-          </div>
-          <ProgressBar
-            value={loggedMealsData.totals.calories > 0 ? Math.min(100, Math.round((loggedMealsData.totals.calories / 2400) * 100)) : 98.6}
-            color="cyan"
-            className="mt-2"
-          />
-          <span className="text-[10px] text-cyan-400 font-mono">
-            {loggedMealsData.totals.protein > 0 ? `${loggedMealsData.totals.protein}g protein logged` : "7-day average consistency"}
-          </span>
-        </Card>
-
-        <Card decoration="left" decorationColor="amber" className="bg-neutral-900/60 border-neutral-800 p-5 space-y-2">
-          <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-            1RM Strength Trend
-          </div>
-          <div className="text-2xl font-black text-white font-mono">+8.4%</div>
-          <ProgressBar value={84} color="amber" className="mt-2" />
-          <span className="text-[10px] text-amber-400 font-mono">6-week linear progression</span>
-        </Card>
-
-        <Card decoration="left" decorationColor="purple" className="bg-neutral-900/60 border-neutral-800 p-5 space-y-2">
-          <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-            Recovery Score
-          </div>
-          <div className="text-2xl font-black text-white font-mono">Ready</div>
-          <ProgressBar value={90} color="purple" className="mt-2" />
-          <span className="text-[10px] text-purple-400 font-mono">CNS ready for high RPE</span>
-        </Card>
-      </div>
 
       {/* Body Composition & Weight Trajectory */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
