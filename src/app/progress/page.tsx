@@ -7,14 +7,11 @@ import {
   ProgressBar,
 } from "@/components/tremor";
 import {
-  Activity,
   ArrowRight,
   Award,
-  Dumbbell,
   Lock,
   Scale,
   TrendingUp,
-  Utensils,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -141,7 +138,7 @@ export default function ProgressPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-10 animate-in fade-in duration-300">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-6">
+      <div className="border-b border-neutral-800/80 pb-6">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
             <TrendingUp className="h-3.5 w-3.5" />
@@ -153,23 +150,6 @@ export default function ProgressPage() {
           <p className="text-xs sm:text-sm text-neutral-400">
             Track your weekly volume adherence, estimated 1-Rep Max curves, and nutritional compliance in real time.
           </p>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <Link
-            href="/workouts"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800/90 px-3.5 py-2 text-xs font-semibold text-neutral-200 hover:text-white hover:bg-neutral-800 transition"
-          >
-            <Dumbbell className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Workouts</span>
-          </Link>
-          <Link
-            href="/meals"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800/90 px-3.5 py-2 text-xs font-semibold text-neutral-200 hover:text-white hover:bg-neutral-800 transition"
-          >
-            <Utensils className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Nutrition</span>
-          </Link>
         </div>
       </div>
 
@@ -199,105 +179,62 @@ export default function ProgressPage() {
 
 
       {/* Body Composition & Weight Trajectory */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-neutral-800/80 pb-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold mb-1">
-                <Scale className="h-3.5 w-3.5" />
-                <span>Body Composition</span>
-              </div>
-              <h3 className="text-xl font-bold text-white tracking-tight">
-                Weight Trajectory &amp; Goal
-              </h3>
+      <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
+        <div className="flex items-center justify-between border-b border-neutral-800/80 pb-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold mb-1">
+              <Scale className="h-3.5 w-3.5" />
+              <span>Body Composition</span>
             </div>
-            <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-400">
-              {goal === "CUT" ? "Fat Loss Target" : goal === "BULK" ? "Hypertrophy Surplus" : "Maintenance"}
-            </span>
+            <h3 className="text-xl font-bold text-white tracking-tight">
+              Weight Trajectory &amp; Goal
+            </h3>
           </div>
+          <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-400">
+            {goal === "CUT" ? "Fat Loss Target" : goal === "BULK" ? "Hypertrophy Surplus" : "Maintenance"}
+          </span>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-1">
-              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
-                Current Scale Weight
-              </div>
-              <div className="text-3xl font-black text-white font-mono flex items-baseline gap-1">
-                <span>{currentWeightLbs}</span>
-                <span className="text-xs text-neutral-500 font-normal">lbs</span>
-              </div>
-              <div className="text-[10px] text-neutral-400 font-mono">
-                {Math.round(currentWeightLbs / 2.20462)} kg metric
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-1">
+            <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
+              Current Scale Weight
             </div>
-
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-1">
-              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
-                Target Calibrated Weight
-              </div>
-              <div className="text-3xl font-black text-emerald-400 font-mono flex items-baseline gap-1">
-                <span>{goalWeightLbs}</span>
-                <span className="text-xs text-neutral-500 font-normal">lbs</span>
-              </div>
-              <div className="text-[10px] text-emerald-400/80 font-mono">
-                {weightDelta === 0 ? "Goal achieved!" : `${weightDelta} lbs to goal`}
-              </div>
+            <div className="text-3xl font-black text-white font-mono flex items-baseline gap-1">
+              <span>{currentWeightLbs}</span>
+              <span className="text-xs text-neutral-500 font-normal">lbs</span>
+            </div>
+            <div className="text-[10px] text-neutral-400 font-mono">
+              {Math.round(currentWeightLbs / 2.20462)} kg metric
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs text-neutral-400">
-              <span>Goal Convergence Progress</span>
-              <span className="font-mono text-white font-semibold">82% on track</span>
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-1">
+            <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
+              Target Calibrated Weight
             </div>
-            <ProgressBar value={82} color="emerald" className="h-2 rounded-full" />
-            <div className="flex justify-between text-[10px] text-neutral-500 font-mono pt-1">
-              <span>Weekly Rate: ~0.8 lbs/wk</span>
-              <span>Projected: ~6 weeks</span>
+            <div className="text-3xl font-black text-emerald-400 font-mono flex items-baseline gap-1">
+              <span>{goalWeightLbs}</span>
+              <span className="text-xs text-neutral-500 font-normal">lbs</span>
+            </div>
+            <div className="text-[10px] text-emerald-400/80 font-mono">
+              {weightDelta === 0 ? "Goal achieved!" : `${weightDelta} lbs to goal`}
             </div>
           </div>
-        </Card>
+        </div>
 
-        {/* Weekly Training Volume Telemetry */}
-        <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-neutral-800/80 pb-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 text-xs uppercase font-mono tracking-wider text-cyan-400 font-bold mb-1">
-                <Activity className="h-3.5 w-3.5" />
-                <span>Volume Autoregulation</span>
-              </div>
-              <h3 className="text-xl font-bold text-white tracking-tight">
-                Weekly Muscle Group Stimulus
-              </h3>
-            </div>
-            <span className="rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 text-xs font-mono font-semibold text-cyan-400">
-              MEV to MRV Optimal
-            </span>
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs text-neutral-400">
+            <span>Goal Convergence Progress</span>
+            <span className="font-mono text-white font-semibold">82% on track</span>
           </div>
-
-          <div className="space-y-4">
-            {[
-              { muscle: "Chest & Anterior Delts", sets: 14, target: 16, color: "emerald" as const },
-              { muscle: "Back & Lat Width", sets: 16, target: 18, color: "cyan" as const },
-              { muscle: "Quads & Hamstrings", sets: 18, target: 20, color: "purple" as const },
-              { muscle: "Deltoids & Arms", sets: 12, target: 14, color: "amber" as const },
-            ].map((m) => (
-              <div key={m.muscle} className="space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-neutral-300 font-medium">{m.muscle}</span>
-                  <span className="font-mono text-white font-bold">
-                    {m.sets} / {m.target} weekly sets
-                  </span>
-                </div>
-                <ProgressBar
-                  value={Math.round((m.sets / m.target) * 100)}
-                  color={m.color}
-                  className="h-2 rounded-full"
-                />
-              </div>
-            ))}
+          <ProgressBar value={82} color="emerald" className="h-2 rounded-full" />
+          <div className="flex justify-between text-[10px] text-neutral-500 font-mono pt-1">
+            <span>Weekly Rate: ~0.8 lbs/wk</span>
+            <span>Projected: ~6 weeks</span>
           </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* Estimated 1-Rep Max (1RM) Milestones */}
       <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
