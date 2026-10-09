@@ -193,7 +193,26 @@ CRITICAL COACHING INSTRUCTIONS:
      * Nutrition & Food Labels: Read facts panels (calories, protein, net carbs, healthy fats, sodium, fiber). Assess protein quality (leucine threshold ~2.7-3.5g) and compare directly against the athlete's daily targets.
      * Gym Equipment & Machines: Identify machine geometry, strength curve vs resistance curve match, and guide seat/pad alignment relative to the anatomical joint axis.
      * Physique & Posture: Note postural alignment, anterior/posterior pelvic tilt, and recommend corrective exercise volume allocation.
-6. FORMATTING & SPEED:
+6. NUTRITION & FOOD LOGGING DIRECTIVES:
+   - Whenever an athlete mentions what they ate or drank (e.g. "I ate 2 eggs and toast", "I had chicken and rice", "log my lunch", "I drank a protein shake"), or asks to log food:
+     a) Immediately acknowledge the meal with scientifically grounded feedback and warmth.
+     b) Provide an estimated nutritional breakdown: Total Calories, Protein, Carbs, Fat, and Fiber.
+     c) Assess protein quality (leucine threshold ~2.7g - 3.5g) and compare with their daily targets (${enrichedContext.targetCalories || 2200} kcal, ${enrichedContext.targetProtein || 175}g protein).
+     d) ALWAYS conclude your response with a structured JSON block tagged \`\`\`food_log so the athlete can log it to their Meals Tracker with 1 click:
+\`\`\`food_log
+{
+  "name": "Food Name Here",
+  "mealType": "BREAKFAST",
+  "calories": 420,
+  "protein": 22,
+  "carbs": 30,
+  "fat": 24,
+  "fiber": 3,
+  "serving": "Portion size description"
+}
+\`\`\`
+   Valid mealType values: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK".
+7. FORMATTING & SPEED:
    - Deliver high-density, structured Markdown without conversational fluff or introductory delays.
    - Always conclude with a dedicated "### 💡 Prescription & Action Item" section outlining exact movements, sets, reps, and RPE for their next session.`;
 
@@ -201,7 +220,7 @@ CRITICAL COACHING INSTRUCTIONS:
     const latestUserMessage = latestUserMessageObj?.content || "";
     const latestHasImage = Boolean(latestUserMessageObj?.image);
 
-    const rawGeminiKey = process.env.GEMINI_API_KEY || "";
+    const rawGeminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
     const geminiApiKey = rawGeminiKey.replace(/^["'\s]+|["'\s]+$/g, "");
 
     // Format contents for Google Gemini API with multimodal inline_data support
@@ -704,6 +723,208 @@ I have examined your uploaded performance photo:
 ### 💡 Prescription & Action Item
 * **Immediate Cue**: Maintain active tension throughout the eccentric phase; never bounce off joint ligaments.
 * **Prescription**: 3 working sets adhering to a 3-1-1 tempo (3-second eccentric, 1-second pause, 1-second concentric drive).`;
+  }
+
+  // 1. Comprehensive Food & Meal Intake Detection
+  const foodKeywords = [
+    "ate", "had", "eating", "eat", "eaten", "drank", "drink", "breakfast", "lunch", "dinner",
+    "snack", "egg", "eggs", "toast", "bread", "chicken", "rice", "beef", "steak", "ground beef",
+    "whey", "shake", "protein bar", "oats", "oatmeal", "banana", "apple", "avocado", "salmon",
+    "tuna", "turkey", "pasta", "pizza", "burger", "chipotle", "burrito", "salad", "sandwich",
+    "peanut butter", "milk", "yogurt", "greek yogurt", "potato", "potatoes", "sweet potato",
+    "food", "meal", "log food", "log meal", "calories", "protein", "carbs", "macro", "macros",
+    "cereal", "cottage cheese", "bacon", "sausage", "cheese", "smoothie", "beans", "food log"
+  ];
+
+  const mentionsFood = foodKeywords.some((kw) => q.includes(kw));
+
+  if (mentionsFood) {
+    // Determine inferred meal type
+    let mealType = "LUNCH";
+    if (
+      q.includes("breakfast") ||
+      q.includes("egg") ||
+      q.includes("toast") ||
+      q.includes("oat") ||
+      q.includes("cereal") ||
+      q.includes("morning")
+    ) {
+      mealType = "BREAKFAST";
+    } else if (
+      q.includes("dinner") ||
+      q.includes("steak") ||
+      q.includes("salmon") ||
+      q.includes("night") ||
+      q.includes("supper")
+    ) {
+      mealType = "DINNER";
+    } else if (
+      q.includes("snack") ||
+      q.includes("shake") ||
+      q.includes("protein bar") ||
+      q.includes("banana") ||
+      q.includes("apple")
+    ) {
+      mealType = "SNACK";
+    }
+
+    // Estimate realistic nutritional breakdown from query
+    let estCals = 0;
+    let estProt = 0;
+    let estCarbs = 0;
+    let estFat = 0;
+    let estFiber = 0;
+    const items: string[] = [];
+
+    if (q.includes("egg")) {
+      const match = q.match(/(\d+)\s*egg/);
+      const count = match ? parseInt(match[1], 10) : 2;
+      estCals += count * 75;
+      estProt += count * 6.5;
+      estFat += count * 5;
+      items.push(`${count} eggs`);
+    }
+    if (q.includes("toast") || q.includes("bread")) {
+      const match = q.match(/(\d+)\s*(slice|piece)/);
+      const count = match ? parseInt(match[1], 10) : 2;
+      estCals += count * 80;
+      estProt += count * 3.5;
+      estCarbs += count * 15;
+      estFat += count * 1;
+      estFiber += count * 1.5;
+      items.push(`${count} slices toast`);
+    }
+    if (q.includes("chicken")) {
+      estCals += 240;
+      estProt += 44;
+      estFat += 5;
+      items.push("6oz chicken breast");
+    }
+    if (q.includes("rice")) {
+      estCals += 210;
+      estProt += 4.5;
+      estCarbs += 45;
+      estFat += 0.5;
+      estFiber += 1;
+      items.push("1 cup rice");
+    }
+    if (q.includes("steak") || q.includes("beef")) {
+      estCals += 340;
+      estProt += 38;
+      estFat += 18;
+      items.push("6oz lean beef");
+    }
+    if (q.includes("shake") || q.includes("whey")) {
+      estCals += 140;
+      estProt += 25;
+      estCarbs += 3;
+      estFat += 2;
+      items.push("1 whey shake");
+    }
+    if (q.includes("oat")) {
+      estCals += 250;
+      estProt += 8;
+      estCarbs += 42;
+      estFat += 4;
+      estFiber += 5;
+      items.push("1 cup oats");
+    }
+    if (q.includes("avocado")) {
+      estCals += 160;
+      estProt += 2;
+      estCarbs += 9;
+      estFat += 15;
+      estFiber += 7;
+      items.push("1/2 avocado");
+    }
+    if (q.includes("banana")) {
+      estCals += 105;
+      estProt += 1.3;
+      estCarbs += 27;
+      estFat += 0.3;
+      estFiber += 3;
+      items.push("1 banana");
+    }
+    if (q.includes("salmon")) {
+      estCals += 280;
+      estProt += 34;
+      estFat += 15;
+      items.push("6oz salmon");
+    }
+    if (q.includes("potato") || q.includes("sweet potato")) {
+      estCals += 160;
+      estProt += 3;
+      estCarbs += 37;
+      estFat += 0.2;
+      estFiber += 4;
+      items.push("1 potato");
+    }
+    if (q.includes("yogurt")) {
+      estCals += 140;
+      estProt += 18;
+      estCarbs += 8;
+      estFat += 2;
+      items.push("1 cup Greek yogurt");
+    }
+    if (q.includes("peanut butter")) {
+      estCals += 190;
+      estProt += 8;
+      estCarbs += 7;
+      estFat += 16;
+      estFiber += 2;
+      items.push("2 tbsp peanut butter");
+    }
+
+    if (items.length === 0) {
+      estCals = 480;
+      estProt = 32;
+      estCarbs = 45;
+      estFat = 16;
+      estFiber = 4;
+      const cleanDesc = query
+        .replace(/^(i ate|i had|i drank|log food|log meal|for breakfast|for lunch|for dinner)\s*/i, "")
+        .trim();
+      items.push(cleanDesc || "Nutrient-Dense Meal");
+    }
+
+    const mealTitle = items.join(" & ");
+    const leucineStatus =
+      estProt >= 25
+        ? "✅ Exceeds leucine threshold (~2.7g-3.5g) to activate mTOR protein synthesis"
+        : "⚠️ Sub-threshold leucine (~2.7g) — consider pairing with +10g protein (whey or egg whites)";
+
+    return `### 🥗 Clinical Nutritional Evaluation: ${mealType}
+I have analyzed your meal intake for an athlete at **${weight} lbs** striving for **${goal}**:
+
+#### 📊 Nutritional Breakdown:
+* **Calories:** **~${estCals} kcal**
+* **Protein:** **~${Math.round(estProt)}g** (${leucineStatus})
+* **Carbohydrates:** **~${Math.round(estCarbs)}g** (glycogen replenishment)
+* **Healthy Fats:** **~${Math.round(estFat)}g** (hormonal signaling & lipid balance)
+* **Fiber:** **~${Math.round(estFiber)}g**
+
+---
+
+### 💡 Sports Nutrition Prescription
+1. **Target Allocation:** This meal accounts for **${Math.round(
+      (estCals / (context.targetCalories || 2200)) * 100
+    )}%** of your daily caloric budget (**${context.targetCalories || 2200} kcal**) and provides **${Math.round(
+      estProt
+    )}g** toward your daily **${context.targetProtein || 175}g** protein goal.
+2. **Hydration Cue:** Consume 16-20 oz of water to optimize digestion and nutrient transport.
+
+\`\`\`food_log
+{
+  "name": "${mealTitle.replace(/"/g, "'")}",
+  "mealType": "${mealType}",
+  "calories": ${estCals},
+  "protein": ${Math.round(estProt)},
+  "carbs": ${Math.round(estCarbs)},
+  "fat": ${Math.round(estFat)},
+  "fiber": ${Math.round(estFiber)},
+  "serving": "${items.join(" + ")}"
+}
+\`\`\``;
   }
 
   if (
