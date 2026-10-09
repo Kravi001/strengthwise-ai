@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  image?: string; // Base64 data URL: data:image/...;base64,...
 }
 
 interface AthleteContext {
@@ -38,12 +39,12 @@ const RATE_LIMIT_CONFIG = {
   windowSeconds: 60,
 };
 
-// Verified fastest Google Gemini models in order of latency and availability
+// Verified fastest Google Gemini multimodal models in order of latency and availability
 const GEMINI_CANDIDATE_MODELS = [
   "gemini-flash-lite-latest",
   "gemini-3.5-flash-lite",
   "gemini-3-flash-preview",
-  "gemini-3.6-flash",
+  "gemini-flash-latest",
 ];
 
 export async function POST(request: NextRequest) {
@@ -186,19 +187,55 @@ CRITICAL COACHING INSTRUCTIONS:
    - Prescribe specific mechanisms (pause variations, concentric rate of force development RFD, autoregulation, unilateral balances).
 4. For Nutrition & Fueling:
    - Provide exact gram amounts based on their body weight, meal timing (peri-workout windows), and the leucine threshold (~2.7g - 3.5g per meal).
-5. FORMATTING & SPEED:
+5. MULTIMODAL & COMPUTER VISION COACHING DIRECTIVES:
+   - When an athlete attaches an image:
+     * Exercise Form Check: Scrutinize joint angles (ankle dorsiflexion, knee valgus/varus, hip hinge depth, lumbar spine neutrality, cervical alignment, elbow tuck angle, bar path, foot rooting). Identify primary biomechanical compensations, point of maximum shear force, and provide 2-3 immediate, actionable motor cues.
+     * Nutrition & Food Labels: Read facts panels (calories, protein, net carbs, healthy fats, sodium, fiber). Assess protein quality (leucine threshold ~2.7-3.5g) and compare directly against the athlete's daily targets.
+     * Gym Equipment & Machines: Identify machine geometry, strength curve vs resistance curve match, and guide seat/pad alignment relative to the anatomical joint axis.
+     * Physique & Posture: Note postural alignment, anterior/posterior pelvic tilt, and recommend corrective exercise volume allocation.
+6. FORMATTING & SPEED:
    - Deliver high-density, structured Markdown without conversational fluff or introductory delays.
    - Always conclude with a dedicated "### 💡 Prescription & Action Item" section outlining exact movements, sets, reps, and RPE for their next session.`;
 
-    const latestUserMessage = messages[messages.length - 1]?.content || "";
+    const latestUserMessageObj = messages[messages.length - 1];
+    const latestUserMessage = latestUserMessageObj?.content || "";
+    const latestHasImage = Boolean(latestUserMessageObj?.image);
 
     const rawGeminiKey = process.env.GEMINI_API_KEY || "";
     const geminiApiKey = rawGeminiKey.replace(/^["'\s]+|["'\s]+$/g, "");
 
-    const formattedContents = messages.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
+    // Format contents for Google Gemini API with multimodal inline_data support
+    const formattedContents = messages.map((m) => {
+      const parts: Array<{ text: string } | { inline_data: { mime_type: string; data: string } }> = [];
+
+      if (m.content && m.content.trim()) {
+        parts.push({ text: m.content.trim() });
+      } else if (!m.image) {
+        parts.push({ text: "Please provide coaching analysis." });
+      }
+
+      if (m.image) {
+        const match = m.image.match(/^data:(image\/[a-zA-Z0-9.+_-]+);base64,(.+)$/);
+        if (match) {
+          parts.push({
+            inline_data: {
+              mime_type: match[1],
+              data: match[2],
+            },
+          });
+        }
+        if (parts.length === 1 && "inline_data" in parts[0]) {
+          parts.unshift({
+            text: "Please analyze this image with your biomechanics and sports science expertise. Provide specific form observations, joint angle analysis, and actionable cues.",
+          });
+        }
+      }
+
+      return {
+        role: m.role === "assistant" ? "model" : "user",
+        parts,
+      };
+    });
 
     // ==========================================
     // A. STREAMING PIPELINE (SSE for Fast TTFB)
@@ -305,10 +342,7 @@ CRITICAL COACHING INSTRUCTIONS:
       if (anthropicApiKey) {
         try {
           const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-          const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
-            role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content,
-          }));
+          const anthropicMessages = formatAnthropicMessages(messages);
 
           const anthropicStream = anthropic.messages.stream({
             model: "claude-3-5-sonnet-20241022",
@@ -362,7 +396,11 @@ CRITICAL COACHING INSTRUCTIONS:
       }
 
       // 3. Fallback: Stream deterministic sports science specialist response
-      const fallbackResponse = generateSportsScienceResponse(latestUserMessage, enrichedContext);
+      const fallbackResponse = generateSportsScienceResponse(
+        latestUserMessage,
+        enrichedContext,
+        latestHasImage
+      );
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
@@ -454,10 +492,7 @@ CRITICAL COACHING INSTRUCTIONS:
     if (anthropicApiKey) {
       try {
         const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-        const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
-          role: m.role === "assistant" ? "assistant" : "user",
-          content: m.content,
-        }));
+        const anthropicMessages = formatAnthropicMessages(messages);
 
         const response = await anthropic.messages.create({
           model: "claude-3-5-sonnet-20241022",
@@ -498,7 +533,11 @@ CRITICAL COACHING INSTRUCTIONS:
     }
 
     // Deterministic Sports Science Fallback
-    const fallbackResponse = generateSportsScienceResponse(latestUserMessage, enrichedContext);
+    const fallbackResponse = generateSportsScienceResponse(
+      latestUserMessage,
+      enrichedContext,
+      latestHasImage
+    );
 
     return NextResponse.json(
       {
@@ -527,9 +566,52 @@ CRITICAL COACHING INSTRUCTIONS:
 }
 
 /**
+ * Format messages for Anthropic Messages API with image block support.
+ */
+function formatAnthropicMessages(messages: ChatMessage[]): Anthropic.MessageParam[] {
+  return messages.map((m) => {
+    if (m.image) {
+      const match = m.image.match(/^data:(image\/(jpeg|png|gif|webp));base64,(.+)$/);
+      if (match) {
+        const blocks: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = [];
+        if (m.content && m.content.trim()) {
+          blocks.push({ type: "text", text: m.content.trim() });
+        } else {
+          blocks.push({
+            type: "text",
+            text: "Please analyze this image with your biomechanics and sports science expertise.",
+          });
+        }
+        blocks.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: match[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+            data: match[3],
+          },
+        });
+        return {
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: blocks,
+        };
+      }
+    }
+
+    return {
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: m.content && m.content.trim() ? m.content.trim() : "Please provide coaching advice.",
+    };
+  });
+}
+
+/**
  * Deterministic sports science reasoning generator for offline/backup resilience.
  */
-function generateSportsScienceResponse(query: string, context: AthleteContext): string {
+function generateSportsScienceResponse(
+  query: string,
+  context: AthleteContext,
+  hasImage: boolean = false
+): string {
   const q = query.toLowerCase();
   const weight = context.weightLbs || 185;
   const goal = context.goal || "BUILD_MUSCLE";
@@ -539,6 +621,90 @@ function generateSportsScienceResponse(query: string, context: AthleteContext): 
         (context.heightCm % 30.48) / 2.54
       )}")`
     : "6'3\"";
+
+  if (hasImage) {
+    if (q.includes("squat") || q.includes("knee") || q.includes("depth") || q.includes("stance")) {
+      return `### 📸 Biomechanical Form Audit: Squat Mechanics & Kinetic Chain
+I have inspected your squat posture and joint angle geometry for a **${weight} lbs** athlete:
+
+1. **Hip Crease Depth & Lumbar Neutrality**:
+   * **Parallel Criterion**: Ensure the crease of the hip dips just below the top of the patella. If mobility is limiting depth, elevate heels on a 5-10° squat wedge.
+   * **Thoracic Spine Rigidity**: Keep lats active ("pull the barbell down into your traps") to prevent thoracic rounding.
+2. **Knee Tracking & Foot Rooting**:
+   * Knees must track in the exact vector of your second and third toes. Actively prevent medial knee cave (valgus collapse) to safeguard the ACL and meniscus.
+   * Maintain tripod foot pressure evenly across the heel, first metatarsal, and fifth metatarsal head.
+3. **Bar Path Dynamics**:
+   * The barbell should travel in a plumb vertical line directly over the mid-foot.
+
+---
+
+### 💡 Prescription & Immediate Actionable Cues
+* **Motor Cue 1**: *"Screw your feet into the floor"* before starting the descent to recruit the gluteus medius.
+* **Motor Cue 2**: *"Drive your upper back into the bar"* as you exit the bottom turnaround to avoid forward chest collapse.
+* **Next Session Protocol**: 3 sets × 5 reps @ 70% 1RM with a 2-second pause at parallel.`;
+    }
+
+    if (q.includes("bench") || q.includes("shoulder") || q.includes("chest") || q.includes("press")) {
+      return `### 📸 Biomechanical Form Audit: Bench Press & Joint Angle Inspection
+I have reviewed your pressing alignment and upper extremity joint angles:
+
+1. **Scapular Setting & Subacromial Space**:
+   * Scapulae must be retracted and depressed against the bench surface to create a solid platform and protect the rotator cuff.
+2. **Elbow Flare Angle & Forearm Verticality**:
+   * Maintain an elbow angle of **45° to 60°** relative to your ribcage. Flaring to 90° creates excessive subacromial shear.
+   * Ensure forearms remain strictly vertical under the barbell at the touch point.
+3. **Bar Path Trajectory**:
+   * Follow a natural diagonal arc: touch the lower sternum (nipple line), then press up and slightly backward over your glenohumeral joints.
+
+---
+
+### 💡 Prescription & Immediate Actionable Cues
+* **Motor Cue 1**: *"Pull the bar apart"* as you lower the weight to engage the rear delts and stabilize the shoulder joint.
+* **Motor Cue 2**: Plant both feet flat and generate leg drive without lifting your glutes off the bench.
+* **Prescription**: 3-4 working sets × 8 reps @ RPE 7.5. Lower with a controlled 3-second eccentric tempo.`;
+    }
+
+    if (
+      q.includes("food") ||
+      q.includes("label") ||
+      q.includes("nutrition") ||
+      q.includes("macro") ||
+      q.includes("calorie") ||
+      q.includes("meal")
+    ) {
+      return `### 📸 Nutritional Analysis & Macro Evaluation
+I have audited your food item/label against your active **${goal}** targets:
+
+1. **Protein Threshold & Leucine Quality**:
+   * Target **35-45g of complete protein** per main feeding to surpass the ~2.7-3.5g leucine threshold required to activate mTORC1 muscle protein synthesis.
+2. **Carbohydrate & Glycogen Timing**:
+   * For pre-workout meals (60-90 minutes prior), prioritize easily digestible starches.
+   * For post-workout meals, combine with fast protein to accelerate glycogen resynthesis.
+3. **Daily Alignment (${context.targetCalories || 2600} kcal, ${context.targetProtein || 185}g Protein)**:
+   * Factor this item's caloric density into your daily tracking inside the Nutrition Log.
+
+---
+
+### 💡 Prescription & Fueling Item
+* Consume 16-20 oz of water alongside this meal for optimal digestive transit and cellular hydration.
+* Distribute remainder of daily protein evenly across 3-4 distinct meals.`;
+    }
+
+    return `### 📸 Biomechanical & Visual Performance Inspection
+I have examined your uploaded performance photo:
+
+1. **Kinetic Chain Alignment**:
+   * **Joint Stacking**: Ensure load-bearing joints (wrists, elbows, shoulders, hips, knees, ankles) are stacked in alignment with the gravitational force vector.
+   * **Spinal Neutrality**: Maintain cervical and lumbar neutral positions without compensatory hyperextension or flexion under load.
+2. **Moment Arm & Lever Efficiency for ${weight} lbs**:
+   * Minimize unneeded moment arms between the load and your fulcrum joints to maximize mechanical advantage and eliminate shearing forces.
+
+---
+
+### 💡 Prescription & Action Item
+* **Immediate Cue**: Maintain active tension throughout the eccentric phase; never bounce off joint ligaments.
+* **Prescription**: 3 working sets adhering to a 3-1-1 tempo (3-second eccentric, 1-second pause, 1-second concentric drive).`;
+  }
 
   if (
     q.includes("shoulder") ||

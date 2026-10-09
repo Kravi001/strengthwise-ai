@@ -155,15 +155,20 @@ export default function CoachPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-6">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Autonomous Intelligence</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Autonomous Intelligence</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-300 font-mono">
+              <span>📸 Computer Vision Enabled</span>
+            </div>
           </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             24/7 AI Strength &amp; Nutrition Specialist
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400">
-            Live interactive consultation for acute exercise substitutions, joint discomfort adaptations, progressive overload, and peri-workout fueling.
+            Live interactive consultation with Computer Vision. Upload lift photos, food labels, and gym machines for instant biomechanical form checks and peri-workout fueling prescriptions.
           </p>
         </div>
 
@@ -173,7 +178,7 @@ export default function CoachPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
-          <span>Sports Science AI Engine Ready</span>
+          <span>Vision &amp; Sports Science Engine Ready</span>
         </div>
       </div>
 

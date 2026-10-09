@@ -21,12 +21,17 @@ import {
   CheckCircle2,
   X,
   Loader2,
+  Camera,
+  Image as ImageIcon,
+  Maximize2,
+  UploadCloud,
 } from "lucide-react";
 
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  image?: string; // Base64 data URL
   timestamp: string;
   source?: "ai" | "claude" | "gemini" | "sports-science-engine";
   model?: string;
@@ -57,10 +62,22 @@ interface CoachChatProps {
 
 const QUICK_PROMPTS = [
   {
+    icon: Camera,
+    category: "AI Vision",
+    tag: "Form Check",
+    question: "Analyze my lift mechanics, joint angles, and bar path in this photo.",
+  },
+  {
     icon: Dumbbell,
     category: "Biomechanics",
     tag: "Joint Adaptation",
     question: "Shoulder discomfort during barbell bench press?",
+  },
+  {
+    icon: Apple,
+    category: "AI Vision",
+    tag: "Macro Scan",
+    question: "Scan this nutrition label or meal for calories, macros, and leucine threshold.",
   },
   {
     icon: Activity,
@@ -69,28 +86,16 @@ const QUICK_PROMPTS = [
     question: "Plateaued on squat for 3 consecutive weeks?",
   },
   {
-    icon: Apple,
-    category: "Metabolic Nutrition",
-    tag: "Glycogen Supercompensation",
-    question: "Missed caloric intake on a heavy training day?",
+    icon: Dumbbell,
+    category: "Equipment",
+    tag: "Machine Geometry",
+    question: "How do I align seat height and joint axis on this chest or leg machine?",
   },
   {
     icon: Zap,
     category: "Autoregulation",
     tag: "CNS Fatigue",
     question: "How do I know when to take an autoregulated deload?",
-  },
-  {
-    icon: Dumbbell,
-    category: "Pull Mechanics",
-    tag: "Lumbar Shear",
-    question: "Lower back fatigue during heavy deadlifts?",
-  },
-  {
-    icon: Apple,
-    category: "Nutrient Timing",
-    tag: "Peri-Workout",
-    question: "Optimal pre-workout meal & sodium timing for pump?",
   },
 ];
 
@@ -101,17 +106,89 @@ const INITIAL_WELCOME_MESSAGE: ChatMessage = {
 
 I am your dedicated **Generative AI Sports Scientist & Biomechanist** (CSCS, Clinical Exercise Physiology & Sports Nutrition certified).
 
-I have full contextual integration with your biometric profile, training split, and nutritional targets. Ask me anything, including:
-- **Acute Exercise Substitutions** for joint discomfort (bench, squat, deadlift variations)
-- **Progressive Overload & Plateau Breaking** (rate of force development, pauses, tempo)
-- **Peri-Workout Fueling & Glycogen Timing** (leucine thresholds, intra-workout carbs)
-- **Autoregulated Deloads** & Central Nervous System recovery protocols
+I feature **multimodal AI Computer Vision**: you can attach or drag & drop photos directly into our chat for:
+- 📸 **Biomechanical Form Checks** (squat depth, bench elbow tuck, deadlift bar path)
+- 🥗 **Nutritional Facts & Meal Scans** (instant macro breakdown, protein quality & leucine threshold)
+- 🏋️ **Gym Equipment Inspection** (machine strength curves, seat adjustments & joint alignment)
+- 💡 **Acute Exercise Substitutions & Recovery** (joint discomfort workarounds, autoregulation)
 
-*Select a quick consultation below or type your specific question!*`,
+*Attach a photo, choose a quick consultation below, or type your specific question!*`,
   timestamp: "Just now",
   source: "ai",
   model: "StrengthWise AI",
 };
+
+/**
+ * Safely compress and downscale user images on client to ~150-300KB
+ * Keeps text sharp on labels and angles clear for form checks,
+ * while fitting safely within Vercel body limits and localStorage quotas.
+ */
+function compressAndProcessImage(
+  file: File
+): Promise<{ dataUrl: string; name: string; sizeKb: number }> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Please select a valid image file (PNG, JPG, WebP, etc.)."));
+      return;
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      reject(new Error("Image is too large (maximum 25MB)."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        const maxDimension = 1600;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve({
+            dataUrl: e.target?.result as string,
+            name: file.name,
+            sizeKb: Math.round(file.size / 1024),
+          });
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const isPng = file.type === "image/png";
+        const format = isPng ? "image/png" : "image/jpeg";
+        const dataUrl = canvas.toDataURL(format, 0.82);
+
+        const base64Length = dataUrl.length - (dataUrl.indexOf(",") + 1);
+        const sizeInBytes = Math.ceil((base64Length * 3) / 4);
+
+        resolve({
+          dataUrl,
+          name: file.name,
+          sizeKb: Math.round(sizeInBytes / 1024),
+        });
+      };
+      img.onerror = () => reject(new Error("Failed to load image for compression."));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("Failed to read image file."));
+    reader.readAsDataURL(file);
+  });
+}
 
 export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -119,6 +196,17 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
+
+  // Image Upload & Vision States
+  const [selectedImage, setSelectedImage] = useState<{
+    dataUrl: string;
+    name: string;
+    sizeKb: number;
+  } | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Rate Limiting States
   const [rateLimitCooldown, setRateLimitCooldown] = useState<number | null>(null);
@@ -133,6 +221,17 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Close lightbox on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLightboxImage(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Check active provider on mount
   useEffect(() => {
@@ -179,13 +278,23 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
     setMessages([INITIAL_WELCOME_MESSAGE]);
   }, []);
 
-  // Save chat history to localStorage on updates
+  // Save chat history to localStorage on updates (gracefully guard quota)
   useEffect(() => {
     if (messages.length > 0) {
       try {
         localStorage.setItem("sw_coach_chat_history", JSON.stringify(messages));
       } catch {
-        // LocalStorage guard
+        try {
+          // If quota reached, save with recent messages or stripped image data
+          const fallbackHistory = messages.slice(-12).map((m) => ({
+            ...m,
+            // Keep recent image if small or strip if too large
+            image: m.image && m.image.length > 300000 ? undefined : m.image,
+          }));
+          localStorage.setItem("sw_coach_chat_history", JSON.stringify(fallbackHistory));
+        } catch {
+          // LocalStorage fallback
+        }
       }
     }
   }, [messages]);
@@ -215,20 +324,111 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
     }
   };
 
+  // Image Upload Handlers
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingImage(true);
+    try {
+      const processed = await compressAndProcessImage(file);
+      setSelectedImage(processed);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to process selected image");
+    } finally {
+      setIsProcessingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Paste handler: screenshot / clipboard image paste support (Cmd+V)
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          setIsProcessingImage(true);
+          try {
+            const processed = await compressAndProcessImage(file);
+            setSelectedImage(processed);
+          } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : "Failed to process pasted image");
+          } finally {
+            setIsProcessingImage(false);
+          }
+          break;
+        }
+      }
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith("image/")) {
+        setIsProcessingImage(true);
+        try {
+          const processed = await compressAndProcessImage(file);
+          setSelectedImage(processed);
+        } catch (err: unknown) {
+          alert(err instanceof Error ? err.message : "Failed to process dropped image");
+        } finally {
+          setIsProcessingImage(false);
+        }
+      }
+    }
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
-    const query = (textToSend || inputValue).trim();
-    if (!query || isLoading || (rateLimitCooldown !== null && rateLimitCooldown > 0)) return;
+    const rawQuery = (textToSend || inputValue).trim();
+    const hasImage = Boolean(selectedImage);
+
+    if ((!rawQuery && !hasImage) || isLoading || (rateLimitCooldown !== null && rateLimitCooldown > 0)) {
+      return;
+    }
+
+    const query =
+      rawQuery ||
+      (hasImage
+        ? "Please analyze this image with your biomechanics and sports science expertise. Provide specific form observations, joint angle analysis, and actionable cues."
+        : "");
+    const attachedImage = selectedImage?.dataUrl;
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
       content: query,
+      image: attachedImage,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInputValue("");
+    setSelectedImage(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -248,6 +448,7 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
           messages: newMessages.map((m) => ({
             role: m.role,
             content: m.content,
+            image: m.image,
           })),
           athleteContext,
           stream: true,
@@ -561,7 +762,29 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
   };
 
   return (
-    <div className="rounded-3xl border border-neutral-800/80 bg-neutral-900/90 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col transition-all relative">
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`rounded-3xl border transition-all duration-200 bg-neutral-900/90 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col relative ${
+        isDraggingOver ? "border-emerald-400 ring-2 ring-emerald-500/40" : "border-neutral-800/80"
+      }`}
+    >
+      {/* Drag & Drop Visual Overlay */}
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-50 bg-neutral-950/90 backdrop-blur-sm border-2 border-dashed border-emerald-400 rounded-3xl flex flex-col items-center justify-center gap-3 p-6 pointer-events-none animate-in fade-in duration-150">
+          <div className="h-16 w-16 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40 shadow-xl shadow-emerald-500/20 animate-bounce">
+            <UploadCloud className="h-8 w-8" />
+          </div>
+          <h4 className="text-base sm:text-lg font-bold text-white text-center">
+            Drop Photo for AI Form Check or Nutrition Analysis
+          </h4>
+          <p className="text-xs text-neutral-300 text-center max-w-sm">
+            Release your image to attach it to your coaching consultation. Supports PNG, JPG, WebP.
+          </p>
+        </div>
+      )}
+
       {/* 1. Sleek Chatbot Header */}
       <div className="border-b border-neutral-800 bg-neutral-950/80 px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
@@ -819,7 +1042,32 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   }`}
                 >
                   {isUser ? (
-                    <p className="text-xs sm:text-sm font-medium whitespace-pre-wrap">{msg.content}</p>
+                    <div className="space-y-2.5">
+                      {msg.image && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setLightboxImage(msg.image || null)}
+                            className="relative group/img block overflow-hidden rounded-xl border border-emerald-500/40 bg-neutral-950 shadow-md hover:border-emerald-400 transition max-w-[260px] sm:max-w-[320px] text-left cursor-pointer"
+                            title="Click to zoom photo"
+                          >
+                            <img
+                              src={msg.image}
+                              alt="Attached form check or nutrition photo"
+                              className="max-h-60 w-auto object-cover rounded-xl transition duration-200 group-hover/img:scale-[1.02]"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center gap-1.5 text-[11px] font-semibold text-white backdrop-blur-[1px]">
+                              <Maximize2 className="h-4 w-4 text-emerald-400" />
+                              <span>Click to Zoom</span>
+                            </div>
+                            <span className="absolute top-1.5 left-1.5 rounded-full bg-neutral-950/85 border border-neutral-700/60 px-2 py-0.5 text-[10px] font-mono text-emerald-300 backdrop-blur-sm">
+                              📸 Photo Attached
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-xs sm:text-sm font-medium whitespace-pre-wrap">{msg.content}</p>
+                    </div>
                   ) : msg.content.trim().length > 0 ? (
                     renderFormattedContent(msg.content)
                   ) : (
@@ -915,9 +1163,71 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
           e.preventDefault();
           handleSendMessage();
         }}
+        onPaste={handlePaste}
         className="border-t border-neutral-800 bg-neutral-950/90 p-3 sm:p-4"
       >
+        {/* Hidden Image File Input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
+        {/* Selected Image Staging Banner */}
+        {selectedImage && (
+          <div className="mb-2.5 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-2.5 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-emerald-500/40 bg-neutral-900 shadow">
+                <img
+                  src={selectedImage.dataUrl}
+                  alt="Thumbnail"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-emerald-300 truncate max-w-[180px] sm:max-w-xs">
+                    {selectedImage.name}
+                  </span>
+                  <span className="font-mono text-[10px] text-neutral-400">
+                    ({selectedImage.sizeKb} KB)
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-400 flex items-center gap-1 mt-0.5">
+                  <Sparkles className="h-3 w-3 text-emerald-400" />
+                  Ready for AI Biomechanical Form &amp; Vision Check
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedImage(null)}
+              className="rounded-xl border border-neutral-800 bg-neutral-900 p-1.5 text-neutral-400 hover:text-red-400 hover:border-red-500/30 transition shrink-0"
+              title="Remove photo"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         <div className="relative flex items-end gap-2.5 rounded-2xl border border-neutral-800 bg-neutral-900/90 px-3.5 py-2.5 focus-within:border-emerald-500/60 focus-within:ring-1 focus-within:ring-emerald-500/40 transition">
+          {/* Attach Image Button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading || isProcessingImage || (rateLimitCooldown !== null && rateLimitCooldown > 0)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-800/60 text-neutral-400 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-neutral-800 transition disabled:opacity-40"
+            title="Attach photo (form check, nutrition label, equipment, physique) or paste screenshot (Cmd+V)"
+          >
+            {isProcessingImage ? (
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+            ) : (
+              <Camera className="h-4 w-4" />
+            )}
+          </button>
+
           <label htmlFor="coach-chat-input" className="sr-only">
             Ask StrengthWise AI Coach
           </label>
@@ -932,14 +1242,21 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             placeholder={
               rateLimitCooldown !== null && rateLimitCooldown > 0
                 ? `Rate limit active: Ready in ${rateLimitCooldown}s...`
-                : "Ask AI Coach... (e.g. 'My shoulders hurt on bench press, what can I swap to?' or 'How much protein daily?')"
+                : selectedImage
+                ? "Ask about this photo (e.g. 'Is my depth parallel?', 'Check elbow angle', 'Macros?') or press Enter..."
+                : "Ask AI Coach or attach a photo... (e.g. form check, nutrition label, joint discomfort)"
             }
             className="flex-1 max-h-36 resize-none bg-transparent text-xs sm:text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none leading-relaxed py-1 disabled:opacity-50"
           />
 
           <button
             type="submit"
-            disabled={isLoading || !inputValue.trim() || (rateLimitCooldown !== null && rateLimitCooldown > 0)}
+            disabled={
+              isLoading ||
+              isProcessingImage ||
+              (!inputValue.trim() && !selectedImage) ||
+              (rateLimitCooldown !== null && rateLimitCooldown > 0)
+            }
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-neutral-950 font-bold shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed transition"
             title="Send message (Enter)"
           >
@@ -948,9 +1265,9 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
         </div>
 
         <div className="mt-2 flex items-center justify-between text-[11px] text-neutral-500 px-1 flex-wrap gap-2">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1.5">
             <span className="font-mono text-neutral-400">Enter</span> to send •{" "}
-            <span className="font-mono text-neutral-400">Shift + Enter</span> for new line
+            <span className="text-emerald-400/90 font-medium">📸 Attach via camera, paste (Cmd+V), or drag &amp; drop</span>
           </span>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] text-neutral-500 border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 rounded">
@@ -962,6 +1279,33 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
           </div>
         </div>
       </form>
+
+      {/* Lightbox Modal for Full-Resolution Photo Inspection */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute -top-12 right-0 flex items-center gap-1.5 rounded-full bg-neutral-800/80 border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:text-white hover:bg-neutral-700 transition"
+            >
+              <X className="h-4 w-4" />
+              <span>Close (Esc)</span>
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Enlarged performance photo"
+              className="max-h-[82vh] max-w-full rounded-2xl border border-neutral-800 shadow-2xl object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
