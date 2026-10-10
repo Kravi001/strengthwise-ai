@@ -10,14 +10,10 @@ import {
 import {
   ArrowRight,
   Dumbbell,
-  Edit3,
   Lock,
   Plus,
   Shuffle,
-  Sliders,
-  Sparkles,
   Trash2,
-  Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { WorkoutModal } from "@/components/workout-modal";
@@ -348,158 +344,7 @@ export default function WorkoutsPage() {
         </div>
       )}
 
-      {/* Split Switcher Tabs & Active Program */}
-      <div className="space-y-4">
-        {/* Split Mode Switcher Pills */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-2xl bg-neutral-900/90 border border-neutral-800 max-w-2xl mx-auto shadow-inner">
-          {[
-            { id: "full_body", label: "Full Body", days: "3-Day" },
-            { id: "upper_lower", label: "Upper / Lower", days: "4-Day" },
-            { id: "hybrid_ppl", label: "Hybrid PPL", days: "5-Day" },
-            { id: "ppl", label: "PPL x 2", days: "6-Day" },
-            { id: "custom", label: "Custom Split", days: `${customSplit.daysCount || customSplit.days.length}D` },
-          ].map((s) => {
-            const isSelected = activeSplit === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => handleSelectSplit(s.id as any)}
-                className={`flex-1 min-w-[100px] text-xs font-semibold py-2 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 ${
-                  isSelected
-                    ? "bg-emerald-500 text-neutral-950 font-bold shadow-md shadow-emerald-500/20"
-                    : "text-neutral-400 hover:text-white hover:bg-neutral-800/60"
-                }`}
-              >
-                <span>{s.label}</span>
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                    isSelected ? "bg-neutral-950/20 text-neutral-950" : "bg-neutral-800 text-neutral-400"
-                  }`}
-                >
-                  {s.days}
-                </span>
-              </button>
-            );
-          })}
-        </div>
 
-        {/* Quick Actions Bar */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
-          {activeSplit === "custom" ? (
-            <button
-              type="button"
-              onClick={() => setIsCustomSplitModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/25 transition shadow-sm"
-            >
-              <Edit3 className="h-3.5 w-3.5" />
-              <span>Customize Split &amp; Days</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                handleSelectSplit("custom");
-                setIsCustomSplitModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900/80 px-3.5 py-2 text-xs font-semibold text-neutral-400 hover:text-white hover:border-neutral-700 transition"
-            >
-              <Sliders className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Build Custom Split</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
-              setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
-              setWorkoutModalInitialMode("routine");
-              setIsWorkoutModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20"
-          >
-            <Plus className="h-3.5 w-3.5 stroke-[3]" />
-            <span>Track Routine Split</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Split Detail Card */}
-      <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-xl font-bold text-white tracking-tight">
-                {currentSplit.name}
-              </h3>
-              {activeSplit === "custom" && (
-                <button
-                  type="button"
-                  onClick={() => setIsCustomSplitModalOpen(true)}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-400 hover:underline bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 rounded-lg"
-                >
-                  <Edit3 className="h-3 w-3" />
-                  <span>Edit</span>
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-neutral-400 mt-1">
-              {currentSplit.description}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-3 py-1 text-xs font-mono font-semibold text-cyan-400">
-              {currentSplit.frequency}
-            </span>
-            <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-mono font-semibold text-emerald-400">
-              ~{currentSplit.targetSets} Weekly Sets / Muscle
-            </span>
-          </div>
-        </div>
-
-        {/* Routine Sessions Grid */}
-        <div
-          className={`grid grid-cols-1 gap-4 ${
-            currentSplit.days.length === 4
-              ? "sm:grid-cols-2 lg:grid-cols-4"
-              : currentSplit.days.length === 5
-              ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-              : "md:grid-cols-3"
-          }`}
-        >
-          {currentSplit.days.map((day, idx) => (
-            <div key={idx} className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-4 space-y-3 flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 font-mono">
-                    {day.name}
-                  </h4>
-                  <span className="text-[10px] text-neutral-500 font-mono">RPE 8-9</span>
-                </div>
-                <p className="text-xs text-neutral-300 leading-relaxed">
-                  {day.lifts}
-                </p>
-              </div>
-              <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between">
-                <span className="text-[10px] text-neutral-500 font-mono">Autoregulated</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWorkoutModalPresetName(day.name);
-                    setWorkoutModalPresetNotes(day.lifts);
-                    setIsWorkoutModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-1 rounded-lg bg-cyan-500/10 border border-cyan-500/25 px-2.5 py-1 text-[11px] font-semibold text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 transition"
-                >
-                  <Plus className="h-3 w-3 stroke-[2.5]" />
-                  <span>Track Session</span>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
 
       {/* Logged Workouts & Activity Telemetry Card */}
       <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
