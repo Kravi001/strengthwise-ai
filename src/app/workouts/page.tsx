@@ -278,7 +278,7 @@ export default function WorkoutsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-10 animate-in fade-in duration-300">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-6">
+      <div className="border-b border-neutral-800/80 pb-6">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-400">
             <Dumbbell className="h-3.5 w-3.5" />
@@ -290,33 +290,6 @@ export default function WorkoutsPage() {
           <p className="text-xs sm:text-sm text-neutral-400">
             Systematic volume autoregulation based on RPE (Rating of Perceived Exertion) and RIR (Reps in Reserve).
           </p>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => {
-              setWorkoutModalPresetName(currentSplit.days[0]?.name || "Workout Session");
-              setWorkoutModalPresetNotes(currentSplit.days[0]?.lifts || "");
-              setWorkoutModalInitialMode("routine");
-              setIsWorkoutModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20"
-          >
-            <Plus className="h-4 w-4 stroke-[3]" />
-            <span>Track Routine</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setWorkoutModalInitialMode("random");
-              setIsWorkoutModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900/90 px-3.5 py-2 text-xs font-bold text-neutral-200 hover:text-white hover:border-cyan-500/50 hover:bg-neutral-800 transition shadow-sm"
-          >
-            <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Random Session</span>
-          </button>
         </div>
       </div>
 
