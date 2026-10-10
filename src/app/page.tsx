@@ -38,6 +38,7 @@ export default function LandingPage() {
   const [goalWeightLbs, setGoalWeightLbs] = useState<number | string>(175);
   const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
+  const [customCalories, setCustomCalories] = useState<number | null>(null);
 
   // Calculations
   const numWeightLbs = Number(currentWeightLbs) || 185;
@@ -47,7 +48,7 @@ export default function LandingPage() {
   const totalInches = parsedFt * 12 + parsedIn;
   const heightCm = totalInches * 2.54;
 
-  const calculated = calculateNutritionTargets({
+  const baseCalculated = calculateNutritionTargets({
     age: Number(age) || 26,
     gender: gender,
     heightCm: heightCm,
@@ -55,6 +56,10 @@ export default function LandingPage() {
     activityLevel: activityLevel,
     goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
   });
+
+  const calculated = customCalories && customCalories > 500
+    ? { ...baseCalculated, targetCalories: customCalories }
+    : baseCalculated;
 
   // --- Workouts Split State ---
   const [userSplitDays, setUserSplitDays] = useState<number>(4);
@@ -179,11 +184,15 @@ export default function LandingPage() {
           if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
           if (data.profile.splitDays) setUserSplitDays(data.profile.splitDays);
           if (data.profile.splitType) setUserSplitType(data.profile.splitType);
+          if (data.profile.targetCalories) setCustomCalories(data.profile.targetCalories);
 
           if (typeof window !== "undefined") {
             try {
               const currentStored = localStorage.getItem("sw_athlete_profile");
               const parsedExisting = currentStored ? JSON.parse(currentStored) : {};
+              if (parsedExisting.targetCalories || parsedExisting.targets?.targetCalories) {
+                setCustomCalories(parsedExisting.targetCalories || parsedExisting.targets?.targetCalories);
+              }
               const totalIn = data.profile.heightCm ? Math.round(data.profile.heightCm / 2.54) : 75;
               const hFt = data.profile.heightCm ? Math.floor(totalIn / 12) : (parsedExisting.heightFt || 6);
               const hIn = data.profile.heightCm ? (totalIn % 12) : (parsedExisting.heightIn ?? 3);

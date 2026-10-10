@@ -78,7 +78,18 @@ export async function POST(request: NextRequest) {
       goal,
       dietPreference,
       experienceLevel,
+      targetCalories,
+      targetProtein,
+      targetCarbs,
+      targetFat,
+      targetFiber,
+      targetWaterLiters,
     } = body;
+
+    // Fetch existing profile to preserve existing fields during partial updates (e.g. from AI coach)
+    const existing = await prisma.profile.findUnique({
+      where: { userId: auth.dbUser.id },
+    });
 
     const resolvedFullName =
       fullName ||
@@ -98,81 +109,111 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Sanitize and validate numbers
-    const parsedAge = age ? parseInt(String(age), 10) : null;
-    const parsedHeight = heightCm ? parseFloat(String(heightCm)) : null;
-    const parsedWeight = weightKg ? parseFloat(String(weightKg)) : null;
-    const parsedGoalWeight = goalWeightKg ? parseFloat(String(goalWeightKg)) : null;
-    const parsedSplitDays = splitDays ? parseInt(String(splitDays), 10) : 4;
+    // Sanitize and validate numbers with fallback to existing profile
+    const parsedAge = age !== undefined && age !== null ? parseInt(String(age), 10) : existing?.age ?? 26;
+    const parsedHeight = heightCm !== undefined && heightCm !== null ? parseFloat(String(heightCm)) : existing?.heightCm ?? 178;
+    const parsedWeight = weightKg !== undefined && weightKg !== null ? parseFloat(String(weightKg)) : existing?.weightKg ?? 80;
+    const parsedGoalWeight = goalWeightKg !== undefined && goalWeightKg !== null ? parseFloat(String(goalWeightKg)) : existing?.goalWeightKg ?? 75;
+    const parsedSplitDays = splitDays !== undefined && splitDays !== null ? parseInt(String(splitDays), 10) : existing?.splitDays ?? 4;
 
-    // Calculate scientifically backed targets with USDA benchmarks
+    const resolvedGender = gender || existing?.gender || "MALE";
+    const resolvedEquipment = equipment || existing?.equipment || "COMMERCIAL_GYM";
+    const resolvedActivity = activityLevel || existing?.activityLevel || "MODERATE";
+    const resolvedGoal = goal || existing?.goal || "MAINTAIN";
+    const resolvedDiet = dietPreference || existing?.dietPreference || "STANDARD";
+    const resolvedExperience = experienceLevel || existing?.experienceLevel || "INTERMEDIATE";
+
+    // Calculate scientifically backed baseline targets with USDA benchmarks
     const targets = calculateNutritionTargets({
       age: parsedAge,
-      gender,
+      gender: resolvedGender,
       heightCm: parsedHeight,
       weightKg: parsedWeight,
       goalWeightKg: parsedGoalWeight,
-      activityLevel,
-      goal,
-      dietPreference,
-      equipment,
+      activityLevel: resolvedActivity,
+      goal: resolvedGoal,
+      dietPreference: resolvedDiet,
+      equipment: resolvedEquipment,
       splitDays: parsedSplitDays,
     });
+
+    // Custom calorie and macro overrides if provided
+    const parsedTargetCalories = targetCalories ? parseInt(String(targetCalories), 10) : null;
+    const parsedTargetProtein = targetProtein ? parseFloat(String(targetProtein)) : null;
+    const parsedTargetCarbs = targetCarbs ? parseFloat(String(targetCarbs)) : null;
+    const parsedTargetFat = targetFat ? parseFloat(String(targetFat)) : null;
+    const parsedTargetFiber = targetFiber ? parseFloat(String(targetFiber)) : null;
+    const parsedTargetWater = targetWaterLiters ? parseFloat(String(targetWaterLiters)) : null;
+
+    const finalTargetCalories = parsedTargetCalories ?? existing?.targetCalories ?? targets.targetCalories;
+    const finalTargetProtein = parsedTargetProtein ?? existing?.targetProtein ?? targets.targetProtein;
+    const finalTargetCarbs = parsedTargetCarbs ?? existing?.targetCarbs ?? targets.targetCarbs;
+    const finalTargetFat = parsedTargetFat ?? existing?.targetFat ?? targets.targetFat;
+    const finalTargetFiber = parsedTargetFiber ?? existing?.targetFiber ?? targets.targetFiber;
+    const finalTargetWater = parsedTargetWater ?? existing?.targetWaterLiters ?? targets.targetWaterLiters;
 
     // Guaranteed upsert into PostgreSQL via Prisma
     const profile = await prisma.profile.upsert({
       where: { userId: auth.dbUser.id },
       update: {
-        firstName: firstName || null,
-        lastName: lastName || null,
+        firstName: firstName !== undefined ? firstName : existing?.firstName,
+        lastName: lastName !== undefined ? lastName : existing?.lastName,
         age: parsedAge,
-        gender: gender || "MALE",
+        gender: resolvedGender,
         heightCm: parsedHeight,
         weightKg: parsedWeight,
         goalWeightKg: parsedGoalWeight,
-        equipment: equipment || "COMMERCIAL_GYM",
+        equipment: resolvedEquipment,
         splitDays: parsedSplitDays,
-        splitType: splitType || targets.splitInfo.name,
-        activityLevel: activityLevel || "MODERATE",
-        goal: goal || "MAINTAIN",
-        dietPreference: dietPreference || "STANDARD",
-        experienceLevel: experienceLevel || "INTERMEDIATE",
-        targetCalories: targets.targetCalories,
-        targetProtein: targets.targetProtein,
-        targetCarbs: targets.targetCarbs,
-        targetFat: targets.targetFat,
-        targetFiber: targets.targetFiber,
-        targetWaterLiters: targets.targetWaterLiters,
+        splitType: splitType || existing?.splitType || targets.splitInfo.name,
+        activityLevel: resolvedActivity,
+        goal: resolvedGoal,
+        dietPreference: resolvedDiet,
+        experienceLevel: resolvedExperience,
+        targetCalories: finalTargetCalories,
+        targetProtein: finalTargetProtein,
+        targetCarbs: finalTargetCarbs,
+        targetFat: finalTargetFat,
+        targetFiber: finalTargetFiber,
+        targetWaterLiters: finalTargetWater,
       },
       create: {
         userId: auth.dbUser.id,
         firstName: firstName || null,
         lastName: lastName || null,
         age: parsedAge,
-        gender: gender || "MALE",
+        gender: resolvedGender,
         heightCm: parsedHeight,
         weightKg: parsedWeight,
         goalWeightKg: parsedGoalWeight,
-        equipment: equipment || "COMMERCIAL_GYM",
+        equipment: resolvedEquipment,
         splitDays: parsedSplitDays,
         splitType: splitType || targets.splitInfo.name,
-        activityLevel: activityLevel || "MODERATE",
-        goal: goal || "MAINTAIN",
-        dietPreference: dietPreference || "STANDARD",
-        experienceLevel: experienceLevel || "INTERMEDIATE",
-        targetCalories: targets.targetCalories,
-        targetProtein: targets.targetProtein,
-        targetCarbs: targets.targetCarbs,
-        targetFat: targets.targetFat,
-        targetFiber: targets.targetFiber,
-        targetWaterLiters: targets.targetWaterLiters,
+        activityLevel: resolvedActivity,
+        goal: resolvedGoal,
+        dietPreference: resolvedDiet,
+        experienceLevel: resolvedExperience,
+        targetCalories: finalTargetCalories,
+        targetProtein: finalTargetProtein,
+        targetCarbs: finalTargetCarbs,
+        targetFat: finalTargetFat,
+        targetFiber: finalTargetFiber,
+        targetWaterLiters: finalTargetWater,
       },
     });
 
     return NextResponse.json({
       success: true,
       profile,
-      targets,
+      targets: {
+        ...targets,
+        targetCalories: finalTargetCalories,
+        targetProtein: finalTargetProtein,
+        targetCarbs: finalTargetCarbs,
+        targetFat: finalTargetFat,
+        targetFiber: finalTargetFiber,
+        targetWaterLiters: finalTargetWater,
+      },
     });
   } catch (error) {
     console.error("Failed to save profile:", error);

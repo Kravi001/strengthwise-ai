@@ -43,6 +43,10 @@ export default function MealsPage() {
   const [goalWeightLbs, setGoalWeightLbs] = useState<number>(175);
   const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
+  const [customCalories, setCustomCalories] = useState<number | null>(null);
+  const [customProtein, setCustomProtein] = useState<number | null>(null);
+  const [customCarbs, setCustomCarbs] = useState<number | null>(null);
+  const [customFat, setCustomFat] = useState<number | null>(null);
 
   // Calculations
   const numWeightLbs = Number(currentWeightLbs) || 185;
@@ -51,7 +55,7 @@ export default function MealsPage() {
   const heightCm = totalInches * 2.54;
 
   const calculated = useMemo(() => {
-    return calculateNutritionTargets({
+    const base = calculateNutritionTargets({
       age: Number(age) || 26,
       gender: gender,
       heightCm: heightCm,
@@ -59,7 +63,21 @@ export default function MealsPage() {
       activityLevel: activityLevel,
       goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
     });
-  }, [age, gender, heightCm, numWeightKg, activityLevel, goal]);
+
+    if (customCalories && customCalories > 500) {
+      const diffRatio = customCalories / (base.targetCalories || 2000);
+      return {
+        ...base,
+        targetCalories: customCalories,
+        targetProtein: customProtein ? Math.round(customProtein) : base.targetProtein,
+        targetCarbs: customCarbs ? Math.round(customCarbs) : Math.max(30, Math.round(base.targetCarbs * diffRatio)),
+        targetFat: customFat ? Math.round(customFat) : Math.max(30, Math.round(base.targetFat * diffRatio)),
+        isCustom: true,
+      };
+    }
+
+    return { ...base, isCustom: false };
+  }, [age, gender, heightCm, numWeightKg, activityLevel, goal, customCalories, customProtein, customCarbs, customFat]);
 
   const chartData = [
     { name: "Protein", value: calculated.targetProtein, color: "#10b981" },
@@ -143,6 +161,10 @@ export default function MealsPage() {
                 setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
               }
               if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+              if (data.profile.targetCalories) setCustomCalories(data.profile.targetCalories);
+              if (data.profile.targetProtein) setCustomProtein(data.profile.targetProtein);
+              if (data.profile.targetCarbs) setCustomCarbs(data.profile.targetCarbs);
+              if (data.profile.targetFat) setCustomFat(data.profile.targetFat);
             }
           }
           await fetchLoggedMeals();
@@ -164,6 +186,18 @@ export default function MealsPage() {
               if (p.goalWeightLbs) setGoalWeightLbs(p.goalWeightLbs);
               if (p.goal) setGoal(p.goal);
               if (p.activityLevel) setActivityLevel(p.activityLevel);
+              if (p.targetCalories || p.targets?.targetCalories) {
+                setCustomCalories(p.targetCalories || p.targets?.targetCalories);
+              }
+              if (p.targetProtein || p.targets?.targetProtein) {
+                setCustomProtein(p.targetProtein || p.targets?.targetProtein);
+              }
+              if (p.targetCarbs || p.targets?.targetCarbs) {
+                setCustomCarbs(p.targetCarbs || p.targets?.targetCarbs);
+              }
+              if (p.targetFat || p.targets?.targetFat) {
+                setCustomFat(p.targetFat || p.targets?.targetFat);
+              }
             }
           }
         }
@@ -175,6 +209,41 @@ export default function MealsPage() {
     }
 
     loadData();
+
+    // Listen for cross-tab or coach chat profile updates to immediately reflect new targets
+    const handleProfileUpdate = () => {
+      try {
+        const stored = localStorage.getItem("sw_athlete_profile");
+        if (stored) {
+          const p = JSON.parse(stored);
+          if (p.targetCalories || p.targets?.targetCalories) {
+            setCustomCalories(p.targetCalories || p.targets?.targetCalories);
+          }
+          if (p.targetProtein || p.targets?.targetProtein) {
+            setCustomProtein(p.targetProtein || p.targets?.targetProtein);
+          }
+          if (p.targetCarbs || p.targets?.targetCarbs) {
+            setCustomCarbs(p.targetCarbs || p.targets?.targetCarbs);
+          }
+          if (p.targetFat || p.targets?.targetFat) {
+            setCustomFat(p.targetFat || p.targets?.targetFat);
+          }
+        }
+      } catch {}
+      fetchLoggedMeals();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sw_profile_updated", handleProfileUpdate);
+      window.addEventListener("storage", handleProfileUpdate);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sw_profile_updated", handleProfileUpdate);
+        window.removeEventListener("storage", handleProfileUpdate);
+      }
+    };
   }, [supabase]);
 
   return (
@@ -309,9 +378,16 @@ export default function MealsPage() {
                 <span>Active Expenditure (TDEE × 1.55):</span>
                 <span className="text-neutral-200 font-mono">{calculated.tdee} kcal</span>
               </div>
-              <div className="flex justify-between font-bold border-t border-neutral-800/80 pt-2 text-white">
+              <div className="flex justify-between font-bold border-t border-neutral-800/80 pt-2 text-white items-center">
                 <span>Target Daily Intake:</span>
-                <span className="text-emerald-400 font-mono text-sm">{calculated.targetCalories} kcal / day</span>
+                <div className="flex items-center gap-2">
+                  {calculated.isCustom && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-400">
+                      Coach Target
+                    </span>
+                  )}
+                  <span className="text-emerald-400 font-mono text-sm">{calculated.targetCalories} kcal / day</span>
+                </div>
               </div>
             </div>
           </div>

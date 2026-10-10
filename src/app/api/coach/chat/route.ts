@@ -212,7 +212,21 @@ CRITICAL COACHING INSTRUCTIONS:
 }
 \`\`\`
    Valid mealType values: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK".
-7. FORMATTING & SPEED:
+7. NUTRITION TARGET UPDATES & CALORIC ADJUSTMENTS:
+   - Whenever an athlete asks to update, set, change, increase, or decrease their daily calorie target, caloric budget, or macros (e.g. "update my calorie target to 2500", "set my calories to 2200", "change my calorie target in the meals section to 2400", "make my target 2100"):
+     a) Acknowledge the adjustment with clear sports nutrition rationale (energy availability, rate of loss/gain, metabolic adaptation).
+     b) Compute the corresponding balanced macros (Protein ~0.9-1.1g/lb, Fats ~20-25% of calories, remaining calories to carbohydrates).
+     c) ALWAYS conclude your response with a structured JSON block tagged \`\`\`target_update so the system instantly updates their Meals Section:
+\`\`\`target_update
+{
+  "targetCalories": 2400,
+  "targetProtein": 185,
+  "targetCarbs": 265,
+  "targetFat": 65,
+  "notes": "Calibrated daily caloric target for your training phase"
+}
+\`\`\`
+8. FORMATTING & SPEED:
    - Deliver high-density, structured Markdown without conversational fluff or introductory delays.
    - Always conclude with a dedicated "### 💡 Prescription & Action Item" section outlining exact movements, sets, reps, and RPE for their next session.`;
 
@@ -985,6 +999,42 @@ Sticking points 3-5 inches above parallel are typically caused by a breakdown in
 * **Working Sets:** 2-Second Pause Back Squats — 3 sets × 4 reps @ 72.5% 1RM (RPE 7.5).
 * **Assistance Lift:** Dumbbell Bulgarian Split Squats — 3 sets × 8 reps per leg.
 * **Nutrition Anchor:** Maintain daily protein target (${weight}g) to support myofibrillar protein synthesis.`;
+  }
+
+  if (
+    (q.includes("update") || q.includes("change") || q.includes("set") || q.includes("adjust") || q.includes("make my")) &&
+    (q.includes("calorie") || q.includes("target") || q.includes("kcal") || q.includes("budget") || q.includes("deficit") || q.includes("surplus"))
+  ) {
+    const matches = query.match(/\b(1\d{3}|2\d{3}|3\d{3}|4\d{3})\b/);
+    const newKcal = matches ? parseInt(matches[1], 10) : (context.targetCalories ? context.targetCalories : 2400);
+    const protGrams = Math.round(weight * 1.0);
+    const fatGrams = Math.round((newKcal * 0.25) / 9);
+    const carbGrams = Math.max(30, Math.round((newKcal - (protGrams * 4 + fatGrams * 9)) / 4));
+
+    return `### 🎯 Daily Caloric Target Calibrated: ${newKcal.toLocaleString()} kcal / day
+I have officially calibrated your daily nutritional baseline for your **${goal}** phase to **${newKcal.toLocaleString()} kcal**.
+
+#### 📊 Updated Daily Macro Distribution:
+* **Target Calories:** **${newKcal.toLocaleString()} kcal**
+* **Target Protein:** **${protGrams}g** (~1.0g per lb of body weight for optimal mTORC1 activation)
+* **Target Carbohydrates:** **${carbGrams}g** (sustained muscular glycogen replenishment)
+* **Target Healthy Fats:** **${fatGrams}g** (~25% of caloric intake for hormonal optimization)
+
+---
+
+### 💡 Sports Science Prescription
+1. **Adherence:** Your progress bars and remaining calorie metrics in the **Meals & Macro Nutrition** section have been updated to reflect this new target.
+2. **Pacing:** Distribute this caloric budget across 3-4 nutrient-dense meals spaced 3.5 to 4.5 hours apart.
+
+\`\`\`target_update
+{
+  "targetCalories": ${newKcal},
+  "targetProtein": ${protGrams},
+  "targetCarbs": ${carbGrams},
+  "targetFat": ${fatGrams},
+  "notes": "Calibrated target: ${newKcal} kcal/day"
+}
+\`\`\``;
   }
 
   if (q.includes("calorie") || q.includes("protein") || q.includes("nutrition") || q.includes("macro") || q.includes("meal")) {

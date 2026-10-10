@@ -27,6 +27,7 @@ import {
   UploadCloud,
   Utensils,
   Plus,
+  Flame,
 } from "lucide-react";
 
 export interface ChatMessage {
@@ -80,6 +81,45 @@ function extractFoodLog(content: string): { cleanedContent: string; foodLog: Foo
   }
 
   return { cleanedContent: content, foodLog: null };
+}
+
+export interface TargetUpdateData {
+  targetCalories: number;
+  targetProtein?: number;
+  targetCarbs?: number;
+  targetFat?: number;
+  notes?: string;
+}
+
+function extractTargetUpdate(content: string): { cleanedContent: string; targetUpdate: TargetUpdateData | null } {
+  // Check for ```target_update ... ``` or ```json ... ``` containing targetCalories
+  const match = content.match(/```(?:target_update|json)?\s*(\{\s*"targetCalories"[\s\S]*?\})\s*```/i);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (parsed.targetCalories) {
+        const cleanedContent = content.replace(match[0], "").trim();
+        return { cleanedContent, targetUpdate: parsed };
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  const genericMatch = content.match(/```target_update\s*([\s\S]*?)\s*```/i);
+  if (genericMatch) {
+    try {
+      const parsed = JSON.parse(genericMatch[1]);
+      if (parsed.targetCalories) {
+        const cleanedContent = content.replace(genericMatch[0], "").trim();
+        return { cleanedContent, targetUpdate: parsed };
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  return { cleanedContent: content, targetUpdate: null };
 }
 
 export interface CoachAthleteContext {
@@ -296,6 +336,58 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
   // Food Logging States
   const [loggingFoodId, setLoggingFoodId] = useState<string | null>(null);
   const [loggedFoodMap, setLoggedFoodMap] = useState<Record<string, boolean>>({});
+
+  // Calorie & Target Update States
+  const [appliedTargetMap, setAppliedTargetMap] = useState<Record<string, boolean>>({});
+  const [applyingTargetId, setApplyingTargetId] = useState<string | null>(null);
+
+  const handleApplyTargetUpdate = async (messageId: string, target: TargetUpdateData) => {
+    setApplyingTargetId(messageId);
+    try {
+      // 1. Persist to PostgreSQL database via /api/profile
+      await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetCalories: target.targetCalories,
+          targetProtein: target.targetProtein,
+          targetCarbs: target.targetCarbs,
+          targetFat: target.targetFat,
+        }),
+      });
+
+      // 2. Persist to localStorage and cookies for immediate client sync
+      try {
+        const stored = localStorage.getItem("sw_athlete_profile");
+        const existing = stored ? JSON.parse(stored) : {};
+        const updated = {
+          ...existing,
+          targetCalories: target.targetCalories,
+          targetProtein: target.targetProtein,
+          targetCarbs: target.targetCarbs,
+          targetFat: target.targetFat,
+          targets: {
+            ...(existing.targets || {}),
+            targetCalories: target.targetCalories,
+            targetProtein: target.targetProtein,
+            targetCarbs: target.targetCarbs,
+            targetFat: target.targetFat,
+          },
+        };
+        localStorage.setItem("sw_athlete_profile", JSON.stringify(updated));
+        document.cookie = `sw_athlete_profile=${encodeURIComponent(JSON.stringify(updated))}; path=/; max-age=31536000; SameSite=Lax`;
+        window.dispatchEvent(new Event("sw_profile_updated"));
+        window.dispatchEvent(new Event("storage"));
+      } catch {}
+
+      setAppliedTargetMap((prev) => ({ ...prev, [messageId]: true }));
+    } catch (err) {
+      console.warn("Could not persist target update:", err);
+      setAppliedTargetMap((prev) => ({ ...prev, [messageId]: true }));
+    } finally {
+      setApplyingTargetId(null);
+    }
+  };
 
   const handleLogFood = async (messageId: string, food: FoodLogData) => {
     setLoggingFoodId(messageId);
@@ -692,6 +784,11 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
             }
           }
         }
+        // Auto-apply target update if emitted in the completed stream
+        const { targetUpdate: streamTargetUpdate } = extractTargetUpdate(accumulatedText);
+        if (streamTargetUpdate && streamTargetUpdate.targetCalories) {
+          handleApplyTargetUpdate(assistantId, streamTargetUpdate);
+        }
         return;
       }
 
@@ -709,6 +806,12 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Auto-apply target update if present
+      const { targetUpdate: directTargetUpdate } = extractTargetUpdate(data.message || "");
+      if (directTargetUpdate && directTargetUpdate.targetCalories) {
+        handleApplyTargetUpdate(assistantId, directTargetUpdate);
+      }
     } catch {
       setIsLoading(false);
       if (accumulatedText.trim().length > 0) {
@@ -799,12 +902,15 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
     }
   };
 
-  // Render markdown text cleanly with bolding, headings, bullet points, prescription blocks, and interactive food log cards
+  // Render markdown text cleanly with bolding, headings, bullet points, prescription blocks, and interactive food/target cards
   const renderFormattedContent = (content: string, messageId?: string) => {
-    const { cleanedContent, foodLog } = extractFoodLog(content);
+    const { cleanedContent: contentAfterFood, foodLog } = extractFoodLog(content);
+    const { cleanedContent, targetUpdate } = extractTargetUpdate(contentAfterFood);
     const lines = cleanedContent.split("\n");
     const isLogged = messageId ? Boolean(loggedFoodMap[messageId]) : false;
     const isLogging = messageId ? loggingFoodId === messageId : false;
+    const isTargetApplied = messageId ? Boolean(appliedTargetMap[messageId]) : true;
+    const isTargetApplying = messageId ? applyingTargetId === messageId : false;
 
     return (
       <div className="space-y-2.5 text-xs sm:text-sm text-neutral-200 leading-relaxed font-sans">
@@ -977,6 +1083,87 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
               <span className="text-[10px] font-mono text-neutral-500">
                 Synced with Mifflin-St Jeor daily targets
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Interactive Target Update Card */}
+        {targetUpdate && (
+          <div className="mt-3 rounded-2xl border border-cyan-500/35 bg-gradient-to-br from-cyan-950/40 via-neutral-900/90 to-neutral-950 p-4 space-y-3 shadow-lg shadow-cyan-500/10 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between gap-2 border-b border-cyan-500/20 pb-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-sm shadow-cyan-500/20">
+                  <Flame className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white tracking-wide uppercase font-mono">
+                    Daily Caloric Target Updated
+                  </h4>
+                  <span className="text-[10px] text-cyan-400 font-mono">
+                    Synced with Meals &amp; Macro Nutrition
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-xl font-black text-white font-mono">
+                  {targetUpdate.targetCalories.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-cyan-400 font-mono ml-1 font-semibold">kcal/day</span>
+              </div>
+            </div>
+
+            {/* Macros Distribution */}
+            <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-mono">
+              <div className="rounded-xl bg-neutral-900/90 border border-emerald-500/20 p-2">
+                <span className="text-[9px] uppercase font-bold text-emerald-400 block">Protein</span>
+                <span className="font-bold text-white text-xs">{targetUpdate.targetProtein || 175}g</span>
+              </div>
+              <div className="rounded-xl bg-neutral-900/90 border border-cyan-500/20 p-2">
+                <span className="text-[9px] uppercase font-bold text-cyan-400 block">Carbs</span>
+                <span className="font-bold text-white text-xs">{targetUpdate.targetCarbs || 250}g</span>
+              </div>
+              <div className="rounded-xl bg-neutral-900/90 border border-amber-500/20 p-2">
+                <span className="text-[9px] uppercase font-bold text-amber-400 block">Fats</span>
+                <span className="font-bold text-white text-xs">{targetUpdate.targetFat || 65}g</span>
+              </div>
+            </div>
+
+            {targetUpdate.notes && (
+              <p className="text-[11px] text-neutral-300 italic bg-neutral-900/60 rounded-lg px-2.5 py-1.5 border border-neutral-800/60">
+                💡 {targetUpdate.notes}
+              </p>
+            )}
+
+            {/* Status Confirmation and Direct Link */}
+            <div className="pt-1 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 rounded-xl px-3 py-2 w-full sm:w-auto">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-cyan-400" />
+                <span>Calorie Target Applied to Meals Section &amp; Profile!</span>
+                <a
+                  href="/meals"
+                  className="ml-auto sm:ml-2 text-[11px] font-mono underline hover:text-cyan-300 font-bold"
+                >
+                  View Meals Section →
+                </a>
+              </div>
+
+              {!isTargetApplied && messageId && (
+                <button
+                  type="button"
+                  disabled={isTargetApplying}
+                  onClick={() => handleApplyTargetUpdate(messageId, targetUpdate)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 px-3 py-1.5 text-xs font-bold text-neutral-950 transition active:scale-95"
+                >
+                  {isTargetApplying ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Applying Target...</span>
+                    </>
+                  ) : (
+                    <span>Sync Target Now</span>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         )}

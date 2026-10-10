@@ -39,6 +39,10 @@ export default function CoachPage() {
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
   const [userSplitDays, setUserSplitDays] = useState<number>(4);
   const [userSplitType, setUserSplitType] = useState<string>("Upper / Lower Power & Hypertrophy");
+  const [customCalories, setCustomCalories] = useState<number | null>(null);
+  const [customProtein, setCustomProtein] = useState<number | null>(null);
+  const [customCarbs, setCustomCarbs] = useState<number | null>(null);
+  const [customFat, setCustomFat] = useState<number | null>(null);
 
   // Calculations
   const numWeightLbs = Number(currentWeightLbs) || 185;
@@ -47,7 +51,7 @@ export default function CoachPage() {
   const heightCm = totalInches * 2.54;
 
   const calculated = useMemo(() => {
-    return calculateNutritionTargets({
+    const base = calculateNutritionTargets({
       age: Number(age) || 26,
       gender: gender,
       heightCm: heightCm,
@@ -55,7 +59,20 @@ export default function CoachPage() {
       activityLevel: activityLevel,
       goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
     });
-  }, [age, gender, heightCm, numWeightKg, activityLevel, goal]);
+
+    if (customCalories && customCalories > 500) {
+      const diffRatio = customCalories / (base.targetCalories || 2000);
+      return {
+        ...base,
+        targetCalories: customCalories,
+        targetProtein: customProtein ? Math.round(customProtein) : base.targetProtein,
+        targetCarbs: customCarbs ? Math.round(customCarbs) : Math.max(30, Math.round(base.targetCarbs * diffRatio)),
+        targetFat: customFat ? Math.round(customFat) : Math.max(30, Math.round(base.targetFat * diffRatio)),
+      };
+    }
+
+    return base;
+  }, [age, gender, heightCm, numWeightKg, activityLevel, goal, customCalories, customProtein, customCarbs, customFat]);
 
   const coachAthleteContext: CoachAthleteContext = useMemo(() => ({
     fullName: fullName || (authUser?.email ? authUser.email.split("@")[0] : "Athlete"),
@@ -116,6 +133,10 @@ export default function CoachPage() {
               if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
               if (data.profile.splitDays) setUserSplitDays(data.profile.splitDays);
               if (data.profile.splitType) setUserSplitType(data.profile.splitType);
+              if (data.profile.targetCalories) setCustomCalories(data.profile.targetCalories);
+              if (data.profile.targetProtein) setCustomProtein(data.profile.targetProtein);
+              if (data.profile.targetCarbs) setCustomCarbs(data.profile.targetCarbs);
+              if (data.profile.targetFat) setCustomFat(data.profile.targetFat);
             }
           }
         }
@@ -137,6 +158,18 @@ export default function CoachPage() {
               if (p.activityLevel) setActivityLevel(p.activityLevel);
               if (p.splitDays) setUserSplitDays(p.splitDays);
               if (p.splitType) setUserSplitType(p.splitType);
+              if (p.targetCalories || p.targets?.targetCalories) {
+                setCustomCalories(p.targetCalories || p.targets?.targetCalories);
+              }
+              if (p.targetProtein || p.targets?.targetProtein) {
+                setCustomProtein(p.targetProtein || p.targets?.targetProtein);
+              }
+              if (p.targetCarbs || p.targets?.targetCarbs) {
+                setCustomCarbs(p.targetCarbs || p.targets?.targetCarbs);
+              }
+              if (p.targetFat || p.targets?.targetFat) {
+                setCustomFat(p.targetFat || p.targets?.targetFat);
+              }
             }
           }
         }
@@ -148,6 +181,39 @@ export default function CoachPage() {
     }
 
     loadData();
+
+    const handleProfileUpdate = () => {
+      try {
+        const stored = localStorage.getItem("sw_athlete_profile");
+        if (stored) {
+          const p = JSON.parse(stored);
+          if (p.targetCalories || p.targets?.targetCalories) {
+            setCustomCalories(p.targetCalories || p.targets?.targetCalories);
+          }
+          if (p.targetProtein || p.targets?.targetProtein) {
+            setCustomProtein(p.targetProtein || p.targets?.targetProtein);
+          }
+          if (p.targetCarbs || p.targets?.targetCarbs) {
+            setCustomCarbs(p.targetCarbs || p.targets?.targetCarbs);
+          }
+          if (p.targetFat || p.targets?.targetFat) {
+            setCustomFat(p.targetFat || p.targets?.targetFat);
+          }
+        }
+      } catch {}
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("sw_profile_updated", handleProfileUpdate);
+      window.addEventListener("storage", handleProfileUpdate);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("sw_profile_updated", handleProfileUpdate);
+        window.removeEventListener("storage", handleProfileUpdate);
+      }
+    };
   }, [supabase]);
 
   return (
