@@ -2,284 +2,44 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Card } from "@/components/tremor";
 import {
   ArrowRight,
+  BrainCircuit,
+  ChevronRight,
   Dumbbell,
-  Sparkles,
   TrendingUp,
   Utensils,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
-import {
-  CustomSplit,
-  DEFAULT_CUSTOM_SPLIT,
-  loadCustomSplit,
-} from "@/lib/custom-split";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 export default function LandingPage() {
   const supabase = createClient();
+  const [user, setUser] = useState<User | null>(null);
 
-  // --- Auth & User State ---
-  const [authUser, setAuthUser] = useState<User | null>(null);
-  const [hasProfile, setHasProfile] = useState(false);
+  // Interactive Preview State
+  const [activePreviewTab, setActivePreviewTab] = useState<"workouts" | "nutrition" | "progress" | "coach">("workouts");
+  const [previewGoal, setPreviewGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
 
-  // Form / Profile Fields
-  const [avatar, setAvatar] = useState<string>("🏋️‍♂️");
-  const [fullName, setFullName] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-  const [age, setAge] = useState<number | string>(26);
-  const [gender, setGender] = useState<"FEMALE" | "MALE">("MALE");
-  const [heightFt, setHeightFt] = useState<number | string>(6);
-  const [heightIn, setHeightIn] = useState<number | string>(3);
-  const [currentWeightLbs, setCurrentWeightLbs] = useState<number | string>(185);
-  const [goalWeightLbs, setGoalWeightLbs] = useState<number | string>(175);
-  const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
-  const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
-  const [customCalories, setCustomCalories] = useState<number | null>(null);
-
-  // Calculations
-  const numWeightLbs = Number(currentWeightLbs) || 185;
-  const numWeightKg = numWeightLbs / 2.20462;
-  const parsedFt = Number(heightFt) > 0 ? Number(heightFt) : 6;
-  const parsedIn = !isNaN(Number(heightIn)) && Number(heightIn) >= 0 ? Number(heightIn) : 0;
-  const totalInches = parsedFt * 12 + parsedIn;
-  const heightCm = totalInches * 2.54;
-
-  const baseCalculated = calculateNutritionTargets({
-    age: Number(age) || 26,
-    gender: gender,
-    heightCm: heightCm,
-    weightKg: numWeightKg,
-    activityLevel: activityLevel,
-    goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
-  });
-
-  const calculated = customCalories && customCalories > 500
-    ? { ...baseCalculated, targetCalories: customCalories }
-    : baseCalculated;
-
-  // --- Workouts Split State ---
-  const [userSplitDays, setUserSplitDays] = useState<number>(4);
-  const [userSplitType, setUserSplitType] = useState<string>("Upper / Lower Power & Hypertrophy");
-  const [customSplit, setCustomSplit] = useState<CustomSplit>(DEFAULT_CUSTOM_SPLIT);
-
-  const activeSplit = useMemo<"ppl" | "upper_lower" | "full_body" | "hybrid_ppl" | "custom">(() => {
-    if (userSplitType.toLowerCase().includes("custom")) return "custom";
-    if (userSplitDays === 3 || userSplitType.toLowerCase().includes("full body")) return "full_body";
-    if (userSplitDays === 4 || userSplitType.toLowerCase().includes("upper") || userSplitType.toLowerCase().includes("lower")) return "upper_lower";
-    if (userSplitDays === 5 || userSplitType.toLowerCase().includes("hybrid")) return "hybrid_ppl";
-    if (userSplitDays === 6 || userSplitType.toLowerCase().includes("ppl")) return "ppl";
-    return "upper_lower";
-  }, [userSplitDays, userSplitType]);
-
-  const splitDetails: Record<
-    "ppl" | "upper_lower" | "full_body" | "hybrid_ppl",
-    {
-      name: string;
-      frequency: string;
-      badge: string;
-      description: string;
-      days: { name: string; lifts: string }[];
-      targetSets: number;
-    }
-  > = {
-    upper_lower: {
-      name: "Upper / Lower Split",
-      frequency: "4 Days / Week",
-      badge: "Upper / Lower (4-Day)",
-      description: "Ideal balance of high mechanical load, heavy compound progression, and optimal systemic neurological recovery.",
-      days: [
-        { name: "Upper A (Strength)", lifts: "Flat Barbell Bench (4×5 @ RPE 8.5), Weighted Chin-ups (4×6), Seated Cable Row (3×8), Skull Crushers (3×10)" },
-        { name: "Lower A (Quad Bias)", lifts: "Back Squat (4×6 @ RPE 8), Leg Press (3×10), Walking Lunges (3×12), Seated Leg Curls (4×12)" },
-        { name: "Upper B (Hypertrophy)", lifts: "Incline DB Press (3×10), Chest-Supported T-Bar Row (3×10), DB Lateral Raises (4×15), Hammer Curls (3×12)" },
-        { name: "Lower B (Posterior)", lifts: "Romanian Deadlift (4×8 @ RPE 8), Hack Squat (3×10), Lying Leg Curl (4×12), Standing Calf Raise (4×15)" },
-      ],
-      targetSets: 14,
-    },
-    ppl: {
-      name: "Push / Pull / Legs (PPL)",
-      frequency: "6 Days / Week",
-      badge: "Push / Pull / Legs (PPL)",
-      description: "Gold standard for hypertrophy. Groups muscles by movement pattern, providing 48-72h recovery per muscle group.",
-      days: [
-        { name: "Push Day", lifts: "Incline DB Press (4×8 @ RPE 8), Overhead Press (3×10), Cable Lateral Raises (4×15), Tricep Pressdowns (3×12)" },
-        { name: "Pull Day", lifts: "Barbell Row (4×6-8 @ RPE 8.5), Neutral Lat Pulldown (3×10), Face Pulls (4×15), Incline Dumbbell Curls (3×12)" },
-        { name: "Legs Day", lifts: "Barbell Squat (4×6-8 @ RPE 8), Romanian Deadlift (3×8-10), Bulgarian Split Squat (3×10/leg), Standing Calf Raises (4×15)" },
-      ],
-      targetSets: 16,
-    },
-    hybrid_ppl: {
-      name: "PPL + Upper / Lower Hybrid Split",
-      frequency: "5 Days / Week",
-      badge: "Hybrid PPL (5-Day)",
-      description: "High-frequency protocol combining dedicated push/pull/legs sessions with targeted upper/lower volume.",
-      days: [
-        { name: "Push Day", lifts: "Incline Barbell Bench (4×6-8), DB Shoulder Press (3×10), Lateral Raises (4×15), Tricep Dips (3×10)" },
-        { name: "Pull Day", lifts: "Barbell Deadlift (3×5), Chest-Supported Row (4×8), Lat Pulldown (3×10), Incline DB Curls (3×12)" },
-        { name: "Legs Day", lifts: "Back Squat (4×6-8), Romanian Deadlift (3×8), Bulgarian Split Squats (3×10/leg), Calf Raises (4×15)" },
-        { name: "Upper Focus", lifts: "Overhead Press (4×6), Weighted Pull-ups (3×6), Cable Flyes (3×12), Hammer Curls (3×12)" },
-        { name: "Lower & Core", lifts: "Front Squat (3×8), Lying Hamstring Curl (4×10), Hanging Leg Raises (4×12), Ab Wheel (3×15)" },
-      ],
-      targetSets: 15,
-    },
-    full_body: {
-      name: "Full Body Frequency",
-      frequency: "3 Days / Week",
-      badge: "Full Body Frequency (3-Day)",
-      description: "High-efficiency periodization that stimulates muscle protein synthesis across the entire kinetic chain every 48 hours.",
-      days: [
-        { name: "Session A", lifts: "Front Squat (3×8 @ RPE 8), Flat DB Bench (3×8), Chest-Supported Row (3×10), DB Lateral Raises (3×15)" },
-        { name: "Session B", lifts: "Trap Bar Deadlift (3×6 @ RPE 8), Overhead Press (3×8), Lat Pulldown (3×10), Lying Leg Curl (3×12)" },
-        { name: "Session C", lifts: "Bulgarian Split Squat (3×10/leg), Incline DB Bench (3×10), Cable Rows (3×12), DB Bicep / Tricep Superset (3×12)" },
-      ],
-      targetSets: 12,
-    },
-  };
-
-  const currentSplit = useMemo(() => {
-    if (activeSplit === "custom") {
-      return {
-        name: customSplit.name || "Custom Split",
-        frequency: `${customSplit.daysCount || customSplit.days.length} Days / Week`,
-        badge: `Custom Split (${customSplit.daysCount || customSplit.days.length}-Day)`,
-        description:
-          customSplit.description ||
-          "Personalized split tailored to specific weak-points and weekly schedule.",
-        days: customSplit.days.map((d) => ({ name: d.name, lifts: d.lifts })),
-        targetSets: customSplit.targetSets || 14,
-      };
-    }
-    return splitDetails[activeSplit] || splitDetails.upper_lower;
-  }, [activeSplit, customSplit, splitDetails]);
-
-  // Helper to load profile for an authenticated user
-  const loadProfileForUser = async (user: User) => {
-    try {
-      const res = await fetch("/api/profile");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.profile) {
-          setHasProfile(true);
-          if (data.profile.avatar) setAvatar(data.profile.avatar);
-          if (data.user?.name) {
-            setFullName(data.user.name);
-          } else if (data.profile.name) {
-            setFullName(data.profile.name);
-          } else if (data.profile.firstName) {
-            setFullName(`${data.profile.firstName} ${data.profile.lastName || ""}`.trim());
-          }
-          if (data.profile.age) setAge(data.profile.age);
-          if (data.profile.gender) setGender(data.profile.gender);
-          if (data.profile.heightCm) {
-            const totalIn = Math.round(data.profile.heightCm / 2.54);
-            setHeightFt(Math.floor(totalIn / 12));
-            setHeightIn(totalIn % 12);
-          }
-          if (data.profile.weightKg) setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
-          if (data.profile.goalWeightKg) setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
-          if (data.profile.goal) setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
-          if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
-          if (data.profile.splitDays) setUserSplitDays(data.profile.splitDays);
-          if (data.profile.splitType) setUserSplitType(data.profile.splitType);
-          if (data.profile.targetCalories) setCustomCalories(data.profile.targetCalories);
-
-          if (typeof window !== "undefined") {
-            try {
-              const currentStored = localStorage.getItem("sw_athlete_profile");
-              const parsedExisting = currentStored ? JSON.parse(currentStored) : {};
-              if (parsedExisting.targetCalories || parsedExisting.targets?.targetCalories) {
-                setCustomCalories(parsedExisting.targetCalories || parsedExisting.targets?.targetCalories);
-              }
-              const totalIn = data.profile.heightCm ? Math.round(data.profile.heightCm / 2.54) : 75;
-              const hFt = data.profile.heightCm ? Math.floor(totalIn / 12) : (parsedExisting.heightFt || 6);
-              const hIn = data.profile.heightCm ? (totalIn % 12) : (parsedExisting.heightIn ?? 3);
-              const localPayload = {
-                ...parsedExisting,
-                isCompleted: true,
-                fullName: data.user?.name || (data.profile.firstName ? `${data.profile.firstName} ${data.profile.lastName || ""}`.trim() : parsedExisting.fullName),
-                avatar: parsedExisting.avatar || avatar,
-                age: data.profile.age || parsedExisting.age,
-                gender: data.profile.gender || parsedExisting.gender,
-                heightFt: hFt,
-                heightIn: hIn,
-                heightCm: data.profile.heightCm || (hFt * 12 + hIn) * 2.54,
-                weightLbs: data.profile.weightKg ? Math.round(data.profile.weightKg * 2.20462) : parsedExisting.weightLbs,
-                goalWeightLbs: data.profile.goalWeightKg ? Math.round(data.profile.goalWeightKg * 2.20462) : parsedExisting.goalWeightLbs,
-                goal: data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN",
-                activityLevel: data.profile.activityLevel || parsedExisting.activityLevel,
-                splitDays: data.profile.splitDays || parsedExisting.splitDays || 4,
-                splitType: data.profile.splitType || parsedExisting.splitType || "Upper / Lower Power & Hypertrophy",
-              };
-              localStorage.setItem("sw_athlete_profile", JSON.stringify(localPayload));
-              document.cookie = `sw_athlete_profile=true; path=/; max-age=31536000; SameSite=Lax`;
-            } catch {}
-          }
-          return true;
-        }
-      }
-      return false;
-    } catch (err) {
-      console.warn("Failed to load profile for user:", err);
-      return false;
-    }
-  };
-
-  // --- Initial Session & Auth Sync ---
+  // Auth sync
   useEffect(() => {
-    async function initSessionAndProfile() {
+    async function checkSession() {
       try {
         const {
           data: { user: currentUser },
         } = await supabase.auth.getUser();
-
-        setAuthUser(currentUser);
-        if (currentUser) {
-          if (currentUser.email) setEmail(currentUser.email);
-          if (currentUser.user_metadata?.full_name) setFullName(currentUser.user_metadata.full_name);
-          await loadProfileForUser(currentUser);
-
-          if (typeof window !== "undefined") {
-            const loadedCustom = loadCustomSplit();
-            setCustomSplit(loadedCustom);
-          }
-        } else {
-          // Unauthenticated: redirect to /profile
-          setHasProfile(false);
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("sw_athlete_profile");
-            document.cookie = "sw_athlete_profile=; path=/; max-age=0";
-            window.dispatchEvent(new Event("sw_profile_updated"));
-            window.location.replace("/profile");
-          }
-        }
-      } catch (err) {
-        console.warn("Init session error:", err);
+        setUser(currentUser);
+      } catch {
+        setUser(null);
       }
     }
-
-    initSessionAndProfile();
+    checkSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
-      if (session?.user) {
-        setAuthUser(session.user);
-        if (session.user.email) setEmail(session.user.email);
-        if (session.user.user_metadata?.full_name) setFullName(session.user.user_metadata.full_name);
-        await loadProfileForUser(session.user);
-      } else {
-        setAuthUser(null);
-        setHasProfile(false);
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("sw_athlete_profile");
-          document.cookie = "sw_athlete_profile=; path=/; max-age=0";
-          window.dispatchEvent(new Event("sw_profile_updated"));
-          window.location.replace("/profile");
-        }
-      }
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      setUser(session?.user ?? null);
     });
 
     return () => {
@@ -287,220 +47,655 @@ export default function LandingPage() {
     };
   }, [supabase]);
 
-  // Real-time synchronization when profile is updated from /profile or another tab
-  useEffect(() => {
-    const handleProfileUpdate = () => {
-      if (authUser) {
-        loadProfileForUser(authUser);
-      }
-    };
-
-    window.addEventListener("sw_profile_updated", handleProfileUpdate);
-    window.addEventListener("storage", handleProfileUpdate);
-    return () => {
-      window.removeEventListener("sw_profile_updated", handleProfileUpdate);
-      window.removeEventListener("storage", handleProfileUpdate);
-    };
-  }, [authUser]);
+  // Dynamic preview nutrition calculation based on goal toggle
+  const previewNutrition = useMemo(() => {
+    return calculateNutritionTargets({
+      age: 26,
+      gender: "MALE",
+      heightCm: 183,
+      weightKg: 84, // ~185 lbs
+      activityLevel: "MODERATE",
+      goal: previewGoal === "CUT" ? "LOSE_WEIGHT" : previewGoal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
+    });
+  }, [previewGoal]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-12">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col selection:bg-emerald-500/20 selection:text-emerald-300">
       {/* ========================================================================= */}
-      {/* CORE MODULES COMMAND HUB (DIRECT ACCESS TO DEDICATED PAGES)               */}
+      {/* 1. HERO SECTION                                                           */}
       {/* ========================================================================= */}
-      <section className="space-y-6">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Your Coaching Command Center
-          </h2>
-        </div>
+      <section className="relative border-b border-neutral-800/80 px-4 pt-16 pb-20 sm:px-6 lg:px-8 lg:pt-24 lg:pb-28">
+        <div className="mx-auto max-w-5xl text-center space-y-8">
+          {/* Eyebrow Label */}
+          <div className="flex items-center justify-center">
+            <span className="text-xs font-mono font-medium tracking-widest text-emerald-400 uppercase">
+              Strength &amp; Nutrition Intelligence
+            </span>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Card 1: Meals & Nutrition */}
-          <Card className="bg-neutral-900/80 border-neutral-800 p-6 flex flex-col justify-between hover:border-emerald-500/50 transition duration-300 group shadow-xl">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition">
-                  <Utensils className="h-5 w-5" />
-                </div>
-              </div>
+          {/* Main Headline */}
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white max-w-4xl mx-auto leading-[1.12]">
+            The intelligent strength and nutrition system built to adapt to you.
+          </h1>
 
-              <div>
-                <h3 className="text-xl font-bold text-white group-hover:text-emerald-400 transition">
-                  Meals &amp; Nutrition
-                </h3>
-                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                  Precision daily caloric expenditure calculations, macro ratios, and USDA verified food &amp; barcode scanning.
-                </p>
-              </div>
+          {/* Subheading */}
+          <p className="text-base sm:text-xl text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+            StrengthWise connects your workouts, daily nutrition targets, and progressive overload into one unified platform. No disconnected spreadsheets, separate calorie trackers, or generic advice.
+          </p>
 
-              <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800/80 space-y-2">
-                <div className="flex justify-between items-baseline text-xs">
-                  <span className="text-neutral-400">Target Intake:</span>
-                  <span className="text-base font-bold font-mono text-emerald-400">
-                    {calculated.targetCalories} kcal / day
-                  </span>
-                </div>
-                <div className="flex justify-between text-[11px] text-neutral-400 font-mono border-t border-neutral-800/80 pt-2">
-                  <span>P: <strong className="text-white">{calculated.targetProtein}g</strong></span>
-                  <span>C: <strong className="text-white">{calculated.targetCarbs}g</strong></span>
-                  <span>F: <strong className="text-white">{calculated.targetFat}g</strong></span>
-                </div>
-              </div>
+          {/* Action CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            {user ? (
+              <>
+                <Link
+                  href="/workouts"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold px-6 py-3 text-sm transition shadow-lg shadow-emerald-500/15"
+                >
+                  <Dumbbell className="h-4 w-4" />
+                  <span>Open Workouts</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/meals"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-6 py-3 text-sm font-semibold text-white transition"
+                >
+                  <Utensils className="h-4 w-4 text-emerald-400" />
+                  <span>View Nutrition</span>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/profile"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold px-6 py-3 text-sm transition shadow-lg shadow-emerald-500/15"
+                >
+                  <span>Get Started</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="#how-it-works"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-6 py-3 text-sm font-semibold text-neutral-300 hover:text-white transition"
+                >
+                  <span>How It Works</span>
+                  <ChevronRight className="h-4 w-4 text-neutral-500" />
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* Quick Metrics Strip */}
+          <div className="pt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto border-t border-neutral-900 mt-12 text-left">
+            <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/40 p-4">
+              <div className="text-xs font-mono text-neutral-400 uppercase">Training Splits</div>
+              <div className="text-sm font-bold text-white mt-1">PPL, Upper/Lower, Custom</div>
             </div>
-
-            <div className="pt-5 border-t border-neutral-800/80 mt-4 flex items-center justify-between">
-              <span className="text-xs text-neutral-500">Full tracker &amp; barcode OCR</span>
-              <Link
-                href="/meals"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 transition shadow-md shadow-emerald-500/15"
-              >
-                <span>Open Meals Page</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+            <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/40 p-4">
+              <div className="text-xs font-mono text-neutral-400 uppercase">Metabolic Targets</div>
+              <div className="text-sm font-bold text-white mt-1">Calibrated to your phase</div>
             </div>
-          </Card>
-
-          {/* Card 2: Workouts & Routines */}
-          <Card className="bg-neutral-900/80 border-neutral-800 p-6 flex flex-col justify-between hover:border-cyan-500/50 transition duration-300 group shadow-xl">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-105 transition">
-                  <Dumbbell className="h-5 w-5" />
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-bold text-white group-hover:text-cyan-400 transition">
-                  Workouts &amp; Periodization
-                </h3>
-                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                  Systematic RPE &amp; RIR autoregulation, customizable split templates, and progressive overload tracking.
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800/80 space-y-2">
-                <div className="flex justify-between items-baseline text-xs">
-                  <span className="text-neutral-400">Active Program:</span>
-                  <span className="text-xs font-bold font-mono text-cyan-400 truncate max-w-[180px]">
-                    {currentSplit.name}
-                  </span>
-                </div>
-                <div className="flex justify-between text-[11px] text-neutral-400 font-mono border-t border-neutral-800/80 pt-2">
-                  <span>Frequency: <strong className="text-white">{currentSplit.frequency}</strong></span>
-                  <span>Sets: <strong className="text-white">~{currentSplit.targetSets}/wk</strong></span>
-                </div>
-              </div>
+            <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/40 p-4">
+              <div className="text-xs font-mono text-neutral-400 uppercase">Intake Logging</div>
+              <div className="text-sm font-bold text-white mt-1">Barcode &amp; Nutrition OCR</div>
             </div>
-
-            <div className="pt-5 border-t border-neutral-800/80 mt-4 flex items-center justify-between">
-              <span className="text-xs text-neutral-500">Split builder &amp; logger</span>
-              <Link
-                href="/workouts"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-cyan-400 transition shadow-md shadow-cyan-500/15"
-              >
-                <span>Open Workouts Page</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+            <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/40 p-4">
+              <div className="text-xs font-mono text-neutral-400 uppercase">AI Coaching</div>
+              <div className="text-sm font-bold text-white mt-1">Direct context on your data</div>
             </div>
-          </Card>
-
-          {/* Card 3: Progress & Telemetry */}
-          <Card className="bg-neutral-900/80 border-neutral-800 p-6 flex flex-col justify-between hover:border-amber-500/50 transition duration-300 group shadow-xl">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-105 transition">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-bold text-white group-hover:text-amber-400 transition">
-                  Progress &amp; Strength Telemetry
-                </h3>
-                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                  Estimated 1-Rep Max curves, body weight trajectory tracking, and weekly volume compliance.
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800/80 space-y-2">
-                <div className="flex justify-between items-baseline text-xs">
-                  <span className="text-neutral-400">Scale Weight Target:</span>
-                  <span className="text-xs font-bold font-mono text-amber-400">
-                    {currentWeightLbs} lbs → {goalWeightLbs} lbs
-                  </span>
-                </div>
-                <div className="flex justify-between text-[11px] text-neutral-400 font-mono border-t border-neutral-800/80 pt-2">
-                  <span>Stimulus: <strong className="text-emerald-400">94.2%</strong></span>
-                  <span>1RM Gain: <strong className="text-white">+8.4%</strong></span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-5 border-t border-neutral-800/80 mt-4 flex items-center justify-between">
-              <span className="text-xs text-neutral-500">1RM curves &amp; body comp</span>
-              <Link
-                href="/progress"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-amber-400 transition shadow-md shadow-amber-500/15"
-              >
-                <span>Open Progress Page</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </Card>
-
-          {/* Card 4: AI Coach */}
-          <Card className="bg-neutral-900/80 border-neutral-800 p-6 flex flex-col justify-between hover:border-emerald-500/50 transition duration-300 group shadow-xl">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-neutral-950 shadow-md group-hover:scale-105 transition">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-bold text-white group-hover:text-emerald-400 transition">
-                  AI Strength &amp; Nutrition Coach
-                </h3>
-                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                  Interactive sports science AI consultation for exercise substitutions, joint adaptations, and fueling.
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800/80 space-y-2">
-                <div className="flex justify-between items-baseline text-xs">
-                  <span className="text-neutral-400">Context Calibration:</span>
-                  <span className="text-xs font-bold font-mono text-emerald-400">
-                    {hasProfile ? "Full Athlete Profile Linked" : "Guest Mode Active"}
-                  </span>
-                </div>
-                <div className="text-[11px] text-neutral-400 truncate border-t border-neutral-800/80 pt-2">
-                  <span>Expert in: Biomechanics, Mifflin-St Jeor &amp; Hypertrophy</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-5 border-t border-neutral-800/80 mt-4 flex items-center justify-between">
-              <span className="text-xs text-neutral-500">Autonomous chat specialist</span>
-              <Link
-                href="/coach"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-4 py-2 text-xs font-bold text-neutral-950 hover:from-emerald-400 hover:to-emerald-300 transition shadow-md shadow-emerald-500/15"
-              >
-                <span>Consult AI Coach</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </Card>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-neutral-800/80 pt-8 pb-12 text-center text-xs text-neutral-500">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Dumbbell className="h-4 w-4 text-emerald-400" />
-          <span className="font-bold text-neutral-300">StrengthWise AI Coach</span>
+      {/* ========================================================================= */}
+      {/* 2. THE FRAGMENTATION PROBLEM VS STRENGTHWISE SOLUTION                      */}
+      {/* ========================================================================= */}
+      <section id="how-it-works" className="border-b border-neutral-800/80 py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Why strength athletes need a unified system
+            </h2>
+            <p className="text-sm sm:text-base text-neutral-400">
+              Progressive overload requires coordination between lifting volume and energy availability. When your tools are disconnected, progress stalls.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* The Disconnected Approach */}
+            <div className="rounded-2xl border border-neutral-800/80 bg-neutral-900/30 p-6 sm:p-8 space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center font-bold text-sm">
+                  ✕
+                </div>
+                <h3 className="text-base font-bold text-white">The Disconnected Approach</h3>
+              </div>
+              <ul className="space-y-3.5 text-xs sm:text-sm text-neutral-400">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-400 font-bold mt-0.5">•</span>
+                  <span><strong>Scattered logs:</strong> Lifts written in a phone notes app while calories are tracked in a separate counter.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-400 font-bold mt-0.5">•</span>
+                  <span><strong>Blind targets:</strong> Nutrition calculators that do not adapt when your weekly training volume increases.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-red-400 font-bold mt-0.5">•</span>
+                  <span><strong>Isolated questions:</strong> Asking general chatbots for advice without the model knowing your current weight, split, or past injuries.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* The StrengthWise Approach */}
+            <div className="rounded-2xl border border-emerald-500/30 bg-neutral-900/50 p-6 sm:p-8 space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                  ✓
+                </div>
+                <h3 className="text-base font-bold text-white">The StrengthWise System</h3>
+              </div>
+              <ul className="space-y-3.5 text-xs sm:text-sm text-neutral-300">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-emerald-400 font-bold mt-0.5">•</span>
+                  <span><strong>Connected architecture:</strong> Your workouts, target calories, and body composition sync together in one profile.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-emerald-400 font-bold mt-0.5">•</span>
+                  <span><strong>Objective progressive overload:</strong> Structured workout splits with target sets, rep ranges, and auto-calculated volume.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-emerald-400 font-bold mt-0.5">•</span>
+                  <span><strong>Context-rich AI coaching:</strong> The AI coach analyzes your logged meals, current split, and body metrics before prescribing answers.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
-        <p>Built with Next.js 15, Tremor UI, Tailwind CSS, Supabase &amp; Prisma.</p>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 3. FOUR CORE MODULES EXPLAINED                                            */}
+      {/* ========================================================================= */}
+      <section className="border-b border-neutral-800/80 py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl space-y-16">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Built on four core pillars
+            </h2>
+            <p className="text-sm sm:text-base text-neutral-400">
+              Everything you need to plan, fuel, analyze, and optimize your strength training.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. Workouts */}
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 sm:p-8 space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <Dumbbell className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Adaptive Workouts &amp; Periodization</h3>
+                <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                  Choose from tested periodization templates like 4-Day Upper/Lower, 6-Day Push/Pull/Legs, and 3-Day Full Body, or construct your own custom split. Track weight, sets, reps, and RPE to guarantee progressive overload week over week.
+                </p>
+              </div>
+              <div className="pt-4 border-t border-neutral-800/80 flex items-center justify-between">
+                <span className="text-xs text-neutral-500 font-mono">Custom Split Engine</span>
+                <Link
+                  href={user ? "/workouts" : "/profile"}
+                  className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1 transition"
+                >
+                  <span>Explore Workouts</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* 2. Nutrition */}
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 sm:p-8 space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Utensils className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Precision Nutrition &amp; Macro Distribution</h3>
+                <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                  Calibrate your daily calories, protein, carbohydrates, and fats to match your body metrics and training phase. Log foods quickly via barcode scanning, camera Nutrition Facts OCR, or the verified database.
+                </p>
+              </div>
+              <div className="pt-4 border-t border-neutral-800/80 flex items-center justify-between">
+                <span className="text-xs text-neutral-500 font-mono">OCR &amp; Barcode Scanner</span>
+                <Link
+                  href={user ? "/meals" : "/profile"}
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1 transition"
+                >
+                  <span>Explore Nutrition</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* 3. Progress */}
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 sm:p-8 space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Strength Telemetry &amp; Progression Curves</h3>
+                <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                  Monitor estimated 1-Rep Max curves, total weekly volume load, and bodyweight trends. See exactly which lifts are accelerating and identify plateaus before they stall your training cycle.
+                </p>
+              </div>
+              <div className="pt-4 border-t border-neutral-800/80 flex items-center justify-between">
+                <span className="text-xs text-neutral-500 font-mono">1RM Curves &amp; Volume Trends</span>
+                <Link
+                  href={user ? "/progress" : "/profile"}
+                  className="text-xs font-semibold text-amber-400 hover:text-amber-300 inline-flex items-center gap-1 transition"
+                >
+                  <span>Explore Progress</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* 4. AI Coach */}
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 sm:p-8 space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  <BrainCircuit className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Context-Aware Strength Coach</h3>
+                <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                  A 24/7 coaching assistant with access to your active split, bodyweight, and logged meals. Ask for exercise substitutions, deload advice, or macro adjustments without having to explain your training history from scratch.
+                </p>
+              </div>
+              <div className="pt-4 border-t border-neutral-800/80 flex items-center justify-between">
+                <span className="text-xs text-neutral-500 font-mono">Athlete-Aware Assistance</span>
+                <Link
+                  href={user ? "/coach" : "/profile"}
+                  className="text-xs font-semibold text-purple-400 hover:text-purple-300 inline-flex items-center gap-1 transition"
+                >
+                  <span>Consult Coach</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 4. INTERACTIVE LIVE PRODUCT PREVIEW                                       */}
+      {/* ========================================================================= */}
+      <section className="border-b border-neutral-800/80 py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-neutral-950">
+        <div className="mx-auto max-w-5xl space-y-8">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              See the system in action
+            </h2>
+            <p className="text-sm sm:text-base text-neutral-400">
+              Explore how each component of StrengthWise operates in your daily routine.
+            </p>
+          </div>
+
+          {/* Tab Selector */}
+          <div className="flex items-center justify-center">
+            <div className="inline-flex rounded-xl bg-neutral-900 border border-neutral-800 p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setActivePreviewTab("workouts")}
+                className={`flex items-center gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition ${
+                  activePreviewTab === "workouts"
+                    ? "bg-neutral-800 text-white shadow-sm"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                <Dumbbell className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Workouts</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePreviewTab("nutrition")}
+                className={`flex items-center gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition ${
+                  activePreviewTab === "nutrition"
+                    ? "bg-neutral-800 text-white shadow-sm"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                <Utensils className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Nutrition</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePreviewTab("progress")}
+                className={`flex items-center gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition ${
+                  activePreviewTab === "progress"
+                    ? "bg-neutral-800 text-white shadow-sm"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                <TrendingUp className="h-3.5 w-3.5 text-amber-400" />
+                <span>Progress</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePreviewTab("coach")}
+                className={`flex items-center gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition ${
+                  activePreviewTab === "coach"
+                    ? "bg-neutral-800 text-white shadow-sm"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                <BrainCircuit className="h-3.5 w-3.5 text-purple-400" />
+                <span>AI Coach</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Content Display */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6 sm:p-8 max-w-4xl mx-auto shadow-2xl">
+            {activePreviewTab === "workouts" && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-4">
+                  <div>
+                    <h4 className="text-base font-bold text-white">Upper Body Strength (Session A)</h4>
+                    <p className="text-xs text-neutral-400">4-Day Upper / Lower Periodization Split</p>
+                  </div>
+                  <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-md self-start sm:self-auto">
+                    Target Volume: 14 Working Sets
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-neutral-800/80 bg-neutral-950 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-bold text-white">Flat Barbell Bench Press</div>
+                      <div className="text-xs text-neutral-400 mt-0.5">Primary horizontal press • Rest 2-3 min</div>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs font-mono">
+                      <span className="text-neutral-400">4 sets × 5 reps</span>
+                      <span className="text-emerald-400 font-bold">225 lbs</span>
+                      <span className="text-neutral-500">RPE 8.5</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-neutral-800/80 bg-neutral-950 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-bold text-white">Weighted Chin-ups</div>
+                      <div className="text-xs text-neutral-400 mt-0.5">Vertical pull • Rest 2 min</div>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs font-mono">
+                      <span className="text-neutral-400">4 sets × 6 reps</span>
+                      <span className="text-emerald-400 font-bold">+35 lbs</span>
+                      <span className="text-neutral-500">RPE 8.0</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-neutral-800/80 bg-neutral-950 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-bold text-white">Incline Dumbbell Press</div>
+                      <div className="text-xs text-neutral-400 mt-0.5">Upper clavicular hypertrophy • Rest 90s</div>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs font-mono">
+                      <span className="text-neutral-400">3 sets × 10 reps</span>
+                      <span className="text-emerald-400 font-bold">80 lbs/hand</span>
+                      <span className="text-neutral-500">RPE 8.0</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activePreviewTab === "nutrition" && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
+                  <div>
+                    <h4 className="text-base font-bold text-white">Metabolic Calibration Engine</h4>
+                    <p className="text-xs text-neutral-400">Calculated for 185 lbs lifter, 4 training days/week</p>
+                  </div>
+
+                  {/* Goal Switcher */}
+                  <div className="flex items-center gap-1 rounded-lg bg-neutral-950 p-1 border border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewGoal("CUT")}
+                      className={`px-2.5 py-1 text-xs font-bold rounded transition ${
+                        previewGoal === "CUT" ? "bg-emerald-500 text-neutral-950" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      Cut
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewGoal("MAINTAIN")}
+                      className={`px-2.5 py-1 text-xs font-bold rounded transition ${
+                        previewGoal === "MAINTAIN" ? "bg-emerald-500 text-neutral-950" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      Maintain
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewGoal("BULK")}
+                      className={`px-2.5 py-1 text-xs font-bold rounded transition ${
+                        previewGoal === "BULK" ? "bg-emerald-500 text-neutral-950" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      Bulk
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                    <div className="text-[11px] font-mono text-neutral-400 uppercase">Target Intake</div>
+                    <div className="text-xl sm:text-2xl font-black text-white font-mono mt-1">
+                      {previewNutrition.targetCalories} <span className="text-xs text-neutral-500 font-sans">kcal</span>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                    <div className="text-[11px] font-mono text-cyan-400 uppercase">Protein</div>
+                    <div className="text-xl sm:text-2xl font-black text-white font-mono mt-1">
+                      {previewNutrition.targetProtein} <span className="text-xs text-neutral-500 font-sans">g</span>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                    <div className="text-[11px] font-mono text-pink-400 uppercase">Carbohydrates</div>
+                    <div className="text-xl sm:text-2xl font-black text-white font-mono mt-1">
+                      {previewNutrition.targetCarbs} <span className="text-xs text-neutral-500 font-sans">g</span>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                    <div className="text-[11px] font-mono text-amber-400 uppercase">Fats</div>
+                    <div className="text-xl sm:text-2xl font-black text-white font-mono mt-1">
+                      {previewNutrition.targetFat} <span className="text-xs text-neutral-500 font-sans">g</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-xs text-neutral-400 flex items-center justify-between">
+                  <span>Fast meal logging supported via:</span>
+                  <div className="flex items-center gap-3 font-mono text-neutral-300">
+                    <span>• Barcode Scanner</span>
+                    <span>• Camera Label OCR</span>
+                    <span>• Verified Search</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activePreviewTab === "progress" && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-4">
+                  <div>
+                    <h4 className="text-base font-bold text-white">Strength Progression Curves</h4>
+                    <p className="text-xs text-neutral-400">12-week estimated 1RM trajectory &amp; volume load</p>
+                  </div>
+                  <span className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md self-start sm:self-auto">
+                    Weekly Volume: 38,400 lbs
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 space-y-2">
+                    <div className="text-xs text-neutral-400 font-mono">Barbell Bench Press</div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xl font-bold font-mono text-white">265 lbs</span>
+                      <span className="text-xs text-emerald-400 font-mono">+15 lbs / 8 wks</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-400 rounded-full w-[82%]" />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 space-y-2">
+                    <div className="text-xs text-neutral-400 font-mono">Barbell Back Squat</div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xl font-bold font-mono text-white">355 lbs</span>
+                      <span className="text-emerald-400 font-mono text-xs">+25 lbs / 8 wks</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-400 rounded-full w-[88%]" />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 space-y-2">
+                    <div className="text-xs text-neutral-400 font-mono">Conventional Deadlift</div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xl font-bold font-mono text-white">435 lbs</span>
+                      <span className="text-emerald-400 font-mono text-xs">+30 lbs / 8 wks</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-400 rounded-full w-[94%]" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activePreviewTab === "coach" && (
+              <div className="space-y-4">
+                <div className="border-b border-neutral-800 pb-3 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-base font-bold text-white">Sample AI Coach Consultation</h4>
+                    <p className="text-xs text-neutral-400">Context: 185 lbs athlete • Upper/Lower split • Hypertrophy phase</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {/* User query */}
+                  <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-3.5 max-w-[85%] ml-auto text-xs text-neutral-200">
+                    <span className="font-bold text-white block mb-1">You:</span>
+                    My left elbow is irritated when doing heavy barbell skull crushers on Upper Day A. What can I substitute that maintains tricep lateral head tension with less joint shearing?
+                  </div>
+
+                  {/* Coach response */}
+                  <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-3.5 max-w-[90%] mr-auto text-xs text-neutral-300 space-y-2">
+                    <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                      <BrainCircuit className="h-3.5 w-3.5" />
+                      <span>StrengthWise Coach:</span>
+                    </div>
+                    <p>
+                      Substitute with <strong>Cross-Body Cable Tricep Extensions</strong> or <strong>Dumbbell Tate Presses</strong> with a neutral grip.
+                    </p>
+                    <p className="text-neutral-400">
+                      Cables provide constant tension across the entire excursion curve while eliminating the peak torque spike at 90° elbow flexion that occurs with free barbell skull crushers. Program: 3 sets of 12-15 reps at RPE 8.0.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 5. THREE-STEP ONBOARDING                                                  */}
+      {/* ========================================================================= */}
+      <section className="border-b border-neutral-800/80 py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Get started in three steps
+            </h2>
+            <p className="text-sm sm:text-base text-neutral-400">
+              No complex setup. Connect your metrics and begin training.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-6 space-y-3">
+              <div className="text-xs font-mono font-bold text-emerald-400">STEP 01</div>
+              <h3 className="text-base font-bold text-white">Set Your Athlete Profile</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Enter your height, weight, activity frequency, and goal (Cut, Bulk, or Maintain) to calibrate metabolic targets.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-6 space-y-3">
+              <div className="text-xs font-mono font-bold text-emerald-400">STEP 02</div>
+              <h3 className="text-base font-bold text-white">Choose or Build Your Split</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Select from verified training templates (Upper/Lower, PPL, Full Body) or construct a custom split with your exercises.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-6 space-y-3">
+              <div className="text-xs font-mono font-bold text-emerald-400">STEP 03</div>
+              <h3 className="text-base font-bold text-white">Train, Log, and Adapt</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Log lifts, scan meals, watch strength progression curves climb, and consult the AI coach whenever adjustments are needed.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 6. CLOSING CTA BANNER                                                     */}
+      {/* ========================================================================= */}
+      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl text-center rounded-3xl border border-neutral-800 bg-neutral-900/50 p-8 sm:p-14 space-y-6">
+          <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+            Ready to train with precision?
+          </h2>
+          <p className="text-sm sm:text-base text-neutral-400 max-w-xl mx-auto">
+            Stop guessing your workout volume and daily nutrition. Start tracking with a system built specifically for strength progression.
+          </p>
+          <div className="pt-2">
+            <Link
+              href={user ? "/workouts" : "/profile"}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold px-7 py-3.5 text-sm transition shadow-lg shadow-emerald-500/20"
+            >
+              <span>{user ? "Go to Workouts" : "Create Athlete Profile"}</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 7. CLEAN MINIMALIST FOOTER                                                */}
+      {/* ========================================================================= */}
+      <footer className="border-t border-neutral-800/80 py-12 px-4 sm:px-6 lg:px-8 text-xs text-neutral-500">
+        <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Dumbbell className="h-4 w-4" />
+            </div>
+            <span className="font-bold text-neutral-300">StrengthWise AI</span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-6 text-neutral-400">
+            <Link href="/" className="hover:text-white transition">Home</Link>
+            <Link href={user ? "/meals" : "/profile"} className="hover:text-white transition">Meals</Link>
+            <Link href={user ? "/workouts" : "/profile"} className="hover:text-white transition">Workouts</Link>
+            <Link href={user ? "/progress" : "/profile"} className="hover:text-white transition">Progress</Link>
+            <Link href={user ? "/coach" : "/profile"} className="hover:text-white transition">Coach</Link>
+            <Link href="/profile" className="hover:text-white transition">Profile</Link>
+          </div>
+
+          <div>
+            <span>&copy; {new Date().getFullYear()} StrengthWise. All rights reserved.</span>
+          </div>
+        </div>
       </footer>
     </div>
   );

@@ -199,7 +199,8 @@ export function Navbar() {
 
           {navLinks.map(({ href, label, icon: Icon, id }, index) => {
             const isActive = activeSection === id;
-            const targetHref = user ? href : "/profile";
+            const isHome = href === "/";
+            const targetHref = user || isHome ? href : "/profile";
 
             return (
               <Link
@@ -208,7 +209,7 @@ export function Navbar() {
                   linkRefs.current[index] = el as unknown as HTMLAnchorElement;
                 }}
                 href={targetHref}
-                title={user ? label : `${label} (Sign up required)`}
+                title={user || isHome ? label : `${label} (Sign up required)`}
                 className={`group relative z-10 flex items-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                   isActive
                     ? "text-white font-semibold"
@@ -221,7 +222,7 @@ export function Navbar() {
                   }`}
                 />
                 <span>{label}</span>
-                {!user && !loading ? (
+                {!user && !loading && !isHome ? (
                   <Lock className="h-2.5 w-2.5 text-neutral-600 group-hover:text-emerald-400/80 transition ml-0.5" />
                 ) : null}
               </Link>
