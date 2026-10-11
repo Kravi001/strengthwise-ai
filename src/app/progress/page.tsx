@@ -9,7 +9,6 @@ import {
 } from "@/components/tremor";
 import {
   ArrowRight,
-  Award,
   Calendar,
   Check,
   CheckCircle2,
@@ -597,51 +596,6 @@ export default function ProgressPage() {
         </div>
       </Card>
 
-      {/* Estimated 1-Rep Max (1RM) Milestones */}
-      <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 text-xs uppercase font-mono tracking-wider text-amber-400 font-bold mb-1">
-              <Award className="h-3.5 w-3.5" />
-              <span>Strength Milestones</span>
-            </div>
-            <h3 className="text-xl font-bold text-white tracking-tight">
-              Estimated 1-Rep Max Progression (E1RM)
-            </h3>
-            <p className="text-xs text-neutral-400 mt-0.5">
-              Calculated dynamically using the Brzycki &amp; Wathan formulas from your logged working sets.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { lift: "Barbell Back Squat", e1rm: 315, prev: 295, gain: "+20 lbs", badge: "1.7× Bodyweight" },
-            { lift: "Barbell Bench Press", e1rm: 245, prev: 230, gain: "+15 lbs", badge: "1.3× Bodyweight" },
-            { lift: "Conventional Deadlift", e1rm: 405, prev: 385, gain: "+20 lbs", badge: "2.2× Bodyweight" },
-            { lift: "Overhead Press", e1rm: 155, prev: 145, gain: "+10 lbs", badge: "0.8× Bodyweight" },
-          ].map((l) => (
-            <div
-              key={l.lift}
-              className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-2 hover:border-neutral-700 transition"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white truncate">{l.lift}</span>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-                  {l.gain}
-                </span>
-              </div>
-              <div className="text-2xl font-black text-white font-mono flex items-baseline gap-1">
-                <span>{l.e1rm}</span>
-                <span className="text-xs text-neutral-500 font-normal">lbs E1RM</span>
-              </div>
-              <div className="text-[10px] text-cyan-400 font-mono">
-                {l.badge}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
 
       {/* QUICK LOG WEIGH-IN MODAL */}
       {isLogModalOpen && (
