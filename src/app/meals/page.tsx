@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Flame,
   Lock,
+  Pencil,
   Plus,
   Scan,
   Search,
@@ -23,6 +24,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
+import { EditMealModal, type LoggedMealItem } from "@/components/edit-meal-modal";
 import {
   getLocalDateString,
   formatDisplayDate,
@@ -94,6 +96,13 @@ export default function MealsPage() {
   const [scannerInitialMeal, setScannerInitialMeal] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">("LUNCH");
   const [scannerInitialTab, setScannerInitialTab] = useState<"scan" | "search" | "quick">("scan");
   const [selectedDate, setSelectedDate] = useState<string>(() => getLocalDateString());
+  const [editingMeal, setEditingMeal] = useState<LoggedMealItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const handleOpenEditMeal = (meal: LoggedMealItem) => {
+    setEditingMeal(meal);
+    setIsEditModalOpen(true);
+  };
   const [loggedMealsData, setLoggedMealsData] = useState<{
     meals: any[];
     grouped: { BREAKFAST: any[]; LUNCH: any[]; DINNER: any[]; SNACK: any[] };
@@ -628,22 +637,44 @@ export default function MealsPage() {
                           key={item.id}
                           className="group flex items-center justify-between p-2 rounded-xl bg-neutral-900/80 border border-neutral-800/80 hover:border-neutral-700 transition"
                         >
-                          <div className="overflow-hidden pr-1">
-                            <div className="text-[11px] font-semibold text-neutral-200 truncate">
-                              {item.name}
+                          <div className="overflow-hidden pr-2 flex-1">
+                            <div className="text-[11px] font-semibold text-neutral-200 truncate flex items-center gap-1.5">
+                              <span className="truncate">{item.name}</span>
+                              {item.serving && (
+                                <span className="text-[9px] font-mono text-neutral-500 font-normal shrink-0">
+                                  ({item.serving})
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[9px] text-neutral-500 font-mono">
-                              {item.calories} kcal • P: {item.protein}g • C: {item.carbs}g • F: {item.fat}g
+                            <div className="text-[9px] text-neutral-400 font-mono mt-0.5">
+                              <span className="text-emerald-400 font-bold">{item.calories} kcal</span>
+                              <span className="text-neutral-600"> • </span>
+                              <span className="text-cyan-400">P: {item.protein}g</span>
+                              <span className="text-neutral-600"> • </span>
+                              <span className="text-pink-400">C: {item.carbs}g</span>
+                              <span className="text-neutral-600"> • </span>
+                              <span className="text-amber-400">F: {item.fat}g</span>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteMeal(item.id)}
-                            title="Delete food entry"
-                            className="text-neutral-600 hover:text-red-400 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition shrink-0"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditMeal(item)}
+                              title="Edit food entry"
+                              className="text-neutral-500 hover:text-cyan-400 p-1 rounded-lg opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 transition"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMeal(item.id)}
+                              title="Delete food entry"
+                              className="text-neutral-500 hover:text-red-400 p-1 rounded-lg opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 transition"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
@@ -676,6 +707,18 @@ export default function MealsPage() {
         initialMealType={scannerInitialMeal}
         initialTab={scannerInitialTab}
         targetDate={selectedDate}
+      />
+
+      {/* Edit Logged Meal Modal */}
+      <EditMealModal
+        meal={editingMeal}
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingMeal(null);
+        }}
+        onMealUpdated={() => fetchLoggedMeals(selectedDate)}
+        onMealDeleted={() => fetchLoggedMeals(selectedDate)}
       />
     </div>
   );

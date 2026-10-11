@@ -226,3 +226,72 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { id, name, mealType, calories, protein, carbs, fat, fiber, serving } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Meal log ID is required." },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.mealLog.findFirst({
+      where: {
+        id,
+        userId: auth.dbUser.id,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Meal log entry not found." },
+        { status: 404 }
+      );
+    }
+
+    const validMealType =
+      mealType && ["BREAKFAST", "LUNCH", "DINNER", "SNACK"].includes(mealType)
+        ? mealType
+        : existing.mealType;
+
+    const updatedMeal = await prisma.mealLog.update({
+      where: { id },
+      data: {
+        name: name !== undefined ? String(name).trim() : existing.name,
+        mealType: validMealType,
+        calories: calories !== undefined ? Math.round(Number(calories)) : existing.calories,
+        protein: protein !== undefined ? Math.round(Number(protein || 0) * 10) / 10 : existing.protein,
+        carbs: carbs !== undefined ? Math.round(Number(carbs || 0) * 10) / 10 : existing.carbs,
+        fat: fat !== undefined ? Math.round(Number(fat || 0) * 10) / 10 : existing.fat,
+        fiber: fiber !== undefined ? Math.round(Number(fiber || 0) * 10) / 10 : existing.fiber,
+        serving: serving !== undefined ? String(serving).trim() : existing.serving,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      meal: updatedMeal,
+    });
+  } catch (error) {
+    console.error("Failed to update meal log:", error);
+    return NextResponse.json(
+      { error: "Failed to update meal log." },
+      { status: 500 }
+    );
+  }
+}
+
+export const PUT = PATCH;
+

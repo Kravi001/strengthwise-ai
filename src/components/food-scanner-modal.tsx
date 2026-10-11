@@ -87,6 +87,8 @@ export function FoodScannerModal({
 
   // Quick Add Custom Food Form
   const [customName, setCustomName] = useState("");
+  const [customQuantity, setCustomQuantity] = useState<number>(1);
+  const [customServingUnit, setCustomServingUnit] = useState<string>("serving");
   const [customCalories, setCustomCalories] = useState<string | number>("");
   const [customProtein, setCustomProtein] = useState<string | number>("");
   const [customCarbs, setCustomCarbs] = useState<string | number>("");
@@ -384,15 +386,19 @@ export function FoodScannerModal({
         setScanError("Please enter a food name and calories.");
         return;
       }
+      const qty = Math.max(0.1, Number(customQuantity) || 1);
+      const unit = customServingUnit.trim() || "serving";
+      const servingLabel = qty === 1 ? `1 ${unit}` : `${qty} ${unit}s`;
+
       payload = {
         name: customName.trim(),
         mealType,
-        calories: Number(customCalories),
-        protein: Number(customProtein) || 0,
-        carbs: Number(customCarbs) || 0,
-        fat: Number(customFat) || 0,
-        fiber: Number(customFiber) || 0,
-        serving: "Custom Entry",
+        calories: Math.round(Number(customCalories) * qty),
+        protein: Math.round((Number(customProtein) || 0) * qty * 10) / 10,
+        carbs: Math.round((Number(customCarbs) || 0) * qty * 10) / 10,
+        fat: Math.round((Number(customFat) || 0) * qty * 10) / 10,
+        fiber: Math.round((Number(customFiber) || 0) * qty * 10) / 10,
+        serving: servingLabel,
       };
     } else {
       if (!editName.trim() || editCalories === 0) {
@@ -400,6 +406,9 @@ export function FoodScannerModal({
         setScanError("Please select a food or verify the calories.");
         return;
       }
+      const servingMultiplier = Math.round((portionGrams / (baseServingGrams || 100)) * 10) / 10;
+      const servingPrefix = servingMultiplier === 1 ? "1 serving" : `${servingMultiplier} servings`;
+
       payload = {
         name: editName.trim(),
         mealType,
@@ -408,7 +417,7 @@ export function FoodScannerModal({
         carbs: currentCarbs,
         fat: currentFat,
         fiber: currentFiber,
-        serving: `${portionGrams}g (${selectedFood?.serving || "Standard Serving"})`,
+        serving: `${servingPrefix} (${portionGrams}g - ${selectedFood?.serving || "Standard Serving"})`,
       };
     }
 
@@ -896,6 +905,53 @@ export function FoodScannerModal({
               />
             </div>
 
+            {/* Quantity and Serving Unit */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-neutral-300">Quantity / Servings</label>
+                  <span className="text-[10px] text-neutral-400 font-mono">Multiplier</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0.1}
+                    step={0.1}
+                    value={customQuantity}
+                    onChange={(e) => setCustomQuantity(Math.max(0.1, Number(e.target.value)))}
+                    className="w-20 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono text-center focus:border-purple-500 focus:outline-none font-bold"
+                  />
+                  <div className="flex items-center gap-1">
+                    {[0.5, 1, 1.5, 2].map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setCustomQuantity(q)}
+                        className={`px-2 py-1.5 rounded-lg text-[10px] font-mono transition border ${
+                          customQuantity === q
+                            ? "bg-purple-500/20 text-purple-300 border-purple-500/40 font-bold"
+                            : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        {q}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-neutral-300">Portion Description / Unit</label>
+                <input
+                  type="text"
+                  value={customServingUnit}
+                  onChange={(e) => setCustomServingUnit(e.target.value)}
+                  placeholder="e.g. serving, scoop, slice, egg, 100g"
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white placeholder:text-neutral-600 focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-neutral-300">Calories (kcal) *</label>
@@ -942,6 +998,20 @@ export function FoodScannerModal({
                 />
               </div>
             </div>
+
+            {customCalories !== "" && Number(customCalories) > 0 && customQuantity !== 1 && (
+              <div className="rounded-xl bg-purple-950/30 border border-purple-500/30 p-2.5 flex items-center justify-between text-xs font-mono">
+                <span className="text-purple-300 font-sans text-[11px]">
+                  Total for {customQuantity} {customServingUnit || "serving"}(s):
+                </span>
+                <span className="text-white font-bold">
+                  {Math.round(Number(customCalories) * customQuantity)} kcal •{" "}
+                  <span className="text-emerald-400">{Math.round((Number(customProtein) || 0) * customQuantity * 10) / 10}g P</span> •{" "}
+                  <span className="text-cyan-400">{Math.round((Number(customCarbs) || 0) * customQuantity * 10) / 10}g C</span> •{" "}
+                  <span className="text-amber-400">{Math.round((Number(customFat) || 0) * customQuantity * 10) / 10}g F</span>
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -1000,6 +1070,31 @@ export function FoodScannerModal({
                 </div>
               </div>
 
+              {/* Servings Multiplier Buttons */}
+              <div className="flex items-center justify-between gap-1 pt-1 pb-1">
+                <span className="text-[11px] text-neutral-400 font-medium">Quick Servings:</span>
+                <div className="flex items-center gap-1">
+                  {[0.5, 1, 1.5, 2, 3].map((m) => {
+                    const targetGrams = Math.round((baseServingGrams || 100) * m);
+                    const isSelected = portionGrams === targetGrams;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setPortionGrams(targetGrams)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-mono transition border ${
+                          isSelected
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold"
+                            : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        {m}x ({targetGrams}g)
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <input
                 type="range"
                 min={10}
@@ -1009,14 +1104,6 @@ export function FoodScannerModal({
                 onChange={(e) => setPortionGrams(Number(e.target.value))}
                 className="w-full accent-emerald-500 h-1.5 bg-neutral-800 rounded-lg cursor-pointer"
               />
-
-              <div className="flex justify-between text-[10px] text-neutral-500 font-mono">
-                <button type="button" onClick={() => setPortionGrams(50)}>50g (Half)</button>
-                <button type="button" onClick={() => setPortionGrams(100)}>100g (Standard)</button>
-                <button type="button" onClick={() => setPortionGrams(150)}>150g</button>
-                <button type="button" onClick={() => setPortionGrams(200)}>200g (Double)</button>
-                <button type="button" onClick={() => setPortionGrams(300)}>300g</button>
-              </div>
             </div>
 
             {/* Recalculated Macros Grid with Editable Base Values */}
