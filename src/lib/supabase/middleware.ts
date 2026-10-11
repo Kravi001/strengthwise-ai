@@ -42,6 +42,7 @@ export async function updateSession(request: NextRequest) {
 
   // Paths allowed for users before signing up:
   const isAuthOrPublic =
+    pathname === "/" ||
     pathname === "/profile" ||
     pathname.startsWith("/auth/callback") ||
     pathname.startsWith("/api/auth");
