@@ -628,7 +628,7 @@ export default function ProfilePage() {
         window.dispatchEvent(new Event("sw_profile_updated"));
       }
 
-      setSaveSuccess("Athlete profile and Mifflin-St Jeor calibration saved successfully to PostgreSQL!");
+      setSaveSuccess("Athlete profile saved successfully!");
       setTimeout(() => {
         router.refresh();
       }, 500);
@@ -1190,7 +1190,6 @@ export default function ProfilePage() {
                       </div>
                       <div>
                         <h2 className="text-sm font-bold text-white">Physical Biometrics</h2>
-                        <p className="text-[11px] text-neutral-400">Required for clinical Mifflin-St Jeor metabolic equations</p>
                       </div>
                     </div>
 

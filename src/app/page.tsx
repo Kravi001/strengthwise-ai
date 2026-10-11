@@ -317,9 +317,6 @@ export default function LandingPage() {
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
             Your Coaching Command Center
           </h2>
-          <p className="text-xs sm:text-sm text-neutral-400">
-            Access dedicated, focused spaces for precision macro nutrition, autoregulated workout splits, telemetry analytics, and 24/7 AI consultation.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

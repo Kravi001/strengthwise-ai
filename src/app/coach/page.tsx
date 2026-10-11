@@ -233,9 +233,6 @@ export default function CoachPage() {
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             24/7 AI Strength &amp; Nutrition Specialist
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-400">
-            Live interactive consultation with Computer Vision. Upload lift photos, food labels, and gym machines for instant biomechanical form checks and peri-workout fueling prescriptions.
-          </p>
         </div>
 
         {/* Status Indicator */}

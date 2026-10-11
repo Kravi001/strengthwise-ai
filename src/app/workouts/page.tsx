@@ -287,9 +287,6 @@ export default function WorkoutsPage() {
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             Adaptive Workouts &amp; Progressive Overload
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-400">
-            Systematic volume autoregulation based on RPE (Rating of Perceived Exertion) and RIR (Reps in Reserve).
-          </p>
         </div>
       </div>
 
@@ -303,7 +300,7 @@ export default function WorkoutsPage() {
             <div>
               <h3 className="text-sm font-bold text-white">Default Training Split Loaded</h3>
               <p className="text-xs text-neutral-300 mt-0.5">
-                Complete your athlete profile to automatically calibrate training splits to your exact schedule and equipment availability.
+                Complete your profile to customize your training split and equipment settings.
               </p>
             </div>
           </div>

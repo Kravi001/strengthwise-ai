@@ -308,14 +308,11 @@ export default function ProgressPage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
             <TrendingUp className="h-3.5 w-3.5" />
-            <span>Telemetry &amp; Telemetry Analytics</span>
+            <span>Progress &amp; Analytics</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             Progress Telemetry &amp; Strength Analytics
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-400">
-            Track your weekly volume adherence, estimated 1-Rep Max curves, and nutritional compliance in real time.
-          </p>
         </div>
       </div>
 
@@ -329,7 +326,7 @@ export default function ProgressPage() {
             <div>
               <h3 className="text-sm font-bold text-white">Baseline Telemetry Active</h3>
               <p className="text-xs text-neutral-300 mt-0.5">
-                Complete your athlete profile biometrics and goal weight to unlock customized 1RM curves and body composition forecasting.
+                Complete your profile to customize your progress trajectory and goal metrics.
               </p>
             </div>
           </div>

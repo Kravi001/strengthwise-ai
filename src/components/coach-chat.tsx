@@ -1080,8 +1080,8 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 </button>
               )}
 
-              <span className="text-[10px] font-mono text-neutral-500">
-                Synced with Mifflin-St Jeor daily targets
+              <span className="text-[10px] text-neutral-500">
+                Synced with daily targets
               </span>
             </div>
           </div>

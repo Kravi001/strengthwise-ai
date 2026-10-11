@@ -257,9 +257,6 @@ export default function MealsPage() {
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             Metabolic Architecture &amp; Macro Distribution
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-400">
-            Clinical Mifflin-St Jeor metabolic calculations tailored to your exact bodyweight, biological sex, and training phase.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -300,7 +297,7 @@ export default function MealsPage() {
             <div>
               <h3 className="text-sm font-bold text-white">Default Macro Calibration Loaded</h3>
               <p className="text-xs text-neutral-300 mt-0.5">
-                Complete your athlete profile biometrics (weight, height, body goal) to calibrate personal Mifflin-St Jeor metabolic formulas.
+                Complete your athlete profile to personalize your daily targets.
               </p>
             </div>
           </div>
