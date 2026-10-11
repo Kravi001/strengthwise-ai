@@ -174,20 +174,11 @@ export function Navbar() {
               <span className="text-sm sm:text-base font-black tracking-tight leading-tight whitespace-nowrap">
                 Strength<span className="text-emerald-400">Wise</span>
               </span>
-              <span className="text-[9px] uppercase tracking-wider text-emerald-400/90 font-mono font-bold whitespace-nowrap">
+              <span className="text-[10px] tracking-wide text-neutral-400 font-medium whitespace-nowrap">
                 AI Coach
               </span>
             </div>
           </Link>
-
-          {/* Engine Status Pill — Desktop */}
-          <div className="hidden lg:flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-[10px] font-mono font-semibold text-emerald-400">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <span>Sports Science Engine</span>
-          </div>
         </div>
 
         {/* Center: Horizontal Navigation Links with Sliding Pill */}
@@ -195,10 +186,10 @@ export function Navbar() {
           ref={navRef}
           className="relative flex items-center gap-1 p-1 rounded-2xl bg-neutral-900/60 border border-neutral-800/80 overflow-x-auto no-scrollbar"
         >
-          {/* Real-time sliding glowing indicator pill */}
+          {/* Real-time sliding indicator pill */}
           <div
             ref={barRef}
-            className="absolute top-1 bottom-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 shadow-[0_0_12px_rgba(52,211,153,0.25)] pointer-events-none z-0 will-change-transform"
+            className="absolute top-1 bottom-1 rounded-xl bg-neutral-800/90 border border-neutral-700/60 pointer-events-none z-0 will-change-transform"
             style={{
               left: 0,
               transform: "translateX(0px)",
@@ -218,24 +209,19 @@ export function Navbar() {
                 }}
                 href={targetHref}
                 title={user ? label : `${label} (Sign up required)`}
-                className={`group relative z-10 flex items-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+                className={`group relative z-10 flex items-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                   isActive
-                    ? "text-emerald-400 font-bold"
-                    : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
+                    ? "text-white font-semibold"
+                    : "text-neutral-400 hover:text-white"
                 }`}
               >
                 <Icon
-                  className={`h-4 w-4 shrink-0 transition-transform duration-200 ${
-                    isActive ? "text-emerald-400 scale-110" : "text-neutral-400 group-hover:text-white"
+                  className={`h-4 w-4 shrink-0 transition-colors duration-200 ${
+                    isActive ? "text-white" : "text-neutral-400 group-hover:text-white"
                   }`}
                 />
                 <span>{label}</span>
-                {isActive ? (
-                  <span className="relative flex h-1.5 w-1.5 shrink-0 ml-0.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-                  </span>
-                ) : !user && !loading ? (
+                {!user && !loading ? (
                   <Lock className="h-2.5 w-2.5 text-neutral-600 group-hover:text-emerald-400/80 transition ml-0.5" />
                 ) : null}
               </Link>
