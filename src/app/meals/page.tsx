@@ -407,7 +407,7 @@ export default function MealsPage() {
               data={chartData}
               label="Target Grams"
               valueFormatter={(v) => `${v}g`}
-              className="h-44 w-44"
+              className="w-full py-1"
             />
 
             {/* Macros grid */}

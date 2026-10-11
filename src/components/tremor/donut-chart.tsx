@@ -16,12 +16,14 @@ export interface DonutChartProps extends React.HTMLAttributes<HTMLDivElement> {
   index?: string;
   valueFormatter?: (value: number) => string;
   label?: string;
+  showLegend?: boolean;
 }
 
 export function DonutChart({
   data,
   valueFormatter = (val: number) => `${val}`,
   label,
+  showLegend = true,
   className,
   ...props
 }: DonutChartProps) {
@@ -35,9 +37,9 @@ export function DonutChart({
       className={cn("relative flex flex-col items-center justify-center", className)}
       {...props}
     >
-      <div className="relative h-48 w-full max-w-[220px]">
+      <div className="relative h-48 w-48 shrink-0">
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+          <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
             <Tooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
@@ -84,20 +86,22 @@ export function DonutChart({
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-neutral-300">
-        {data.map((item) => (
-          <div key={item.name} className="flex items-center gap-1.5">
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: item.color }}
-            />
-            <span>{item.name}</span>
-            <span className="font-mono text-neutral-500">
-              ({valueFormatter(item.value)})
-            </span>
-          </div>
-        ))}
-      </div>
+      {showLegend && (
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-neutral-300">
+          {data.map((item) => (
+            <div key={item.name} className="flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+              <span>{item.name}</span>
+              <span className="font-mono text-neutral-500">
+                ({valueFormatter(item.value)})
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

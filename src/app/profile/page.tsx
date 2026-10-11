@@ -1520,7 +1520,7 @@ export default function ProfilePage() {
                         data={macroChartData}
                         label="Macro Split"
                         valueFormatter={(num: number) => `${num}g`}
-                        className="h-36 w-full mt-2"
+                        className="w-full mt-2"
                       />
                     </div>
 
