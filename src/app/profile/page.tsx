@@ -187,8 +187,8 @@ export default function ProfilePage() {
   }, [age, gender, heightCm, numWeightKg, goalWeightLbs, activityLevel, goal, dietPreference, equipment, splitDays]);
 
   const macroChartData = useMemo(() => [
-    { name: "Protein", value: calculatedTargets.targetProtein, color: "#10b981" },
-    { name: "Carbs", value: calculatedTargets.targetCarbs, color: "#06b6d4" },
+    { name: "Protein", value: calculatedTargets.targetProtein, color: "#06b6d4" },
+    { name: "Carbs", value: calculatedTargets.targetCarbs, color: "#ec4899" },
     { name: "Fats", value: calculatedTargets.targetFat, color: "#f59e0b" },
   ], [calculatedTargets]);
 
@@ -1499,17 +1499,17 @@ export default function ProfilePage() {
                         Target Macronutrient Breakdown
                       </div>
                       <div className="grid grid-cols-3 gap-2">
-                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-                          <div className="text-xs font-bold text-emerald-400">Protein</div>
+                        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-center">
+                          <div className="text-xs font-bold text-cyan-400">Protein</div>
                           <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetProtein}g</div>
                           <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.proteinPercent}% kcal</div>
                         </div>
-                        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-center">
-                          <div className="text-xs font-bold text-cyan-400">Carbs</div>
+                        <div className="rounded-xl border border-pink-500/30 bg-pink-500/10 p-3 text-center">
+                          <div className="text-xs font-bold text-pink-400">Carbs</div>
                           <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetCarbs}g</div>
                           <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.carbsPercent}% kcal</div>
                         </div>
-                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center">
+                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-center">
                           <div className="text-xs font-bold text-amber-400">Fats</div>
                           <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetFat}g</div>
                           <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.fatPercent}% kcal</div>

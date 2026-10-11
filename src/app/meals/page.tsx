@@ -79,8 +79,8 @@ export default function MealsPage() {
   }, [age, gender, heightCm, numWeightKg, activityLevel, goal, customCalories, customProtein, customCarbs, customFat]);
 
   const chartData = [
-    { name: "Protein", value: calculated.targetProtein, color: "#10b981" },
-    { name: "Carbs", value: calculated.targetCarbs, color: "#06b6d4" },
+    { name: "Protein", value: calculated.targetProtein, color: "#06b6d4" },
+    { name: "Carbs", value: calculated.targetCarbs, color: "#ec4899" },
     { name: "Fats", value: calculated.targetFat, color: "#f59e0b" },
   ];
 
@@ -315,8 +315,14 @@ export default function MealsPage() {
       )}
 
       {/* Prescribed Daily Fuel Target Card */}
-      <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 shadow-2xl flex flex-col items-center justify-center space-y-5">
-        <div className="text-center">
+      <Card className="relative overflow-hidden bg-gradient-to-b from-neutral-900/90 via-neutral-900/70 to-neutral-950/90 border border-neutral-800/80 p-6 sm:p-8 shadow-2xl flex flex-col items-center justify-center space-y-6">
+        {/* Subtle Ambient Background Mesh */}
+        <div 
+          className="absolute -top-32 left-1/2 -translate-x-1/2 w-[520px] h-[360px] rounded-full bg-gradient-to-b from-cyan-500/15 via-pink-500/10 to-amber-500/5 blur-3xl pointer-events-none -z-10" 
+          aria-hidden="true" 
+        />
+
+        <div className="text-center relative">
           <Text className="text-neutral-400 text-xs uppercase tracking-wider font-semibold">
             Prescribed Daily Fuel
           </Text>
@@ -340,21 +346,21 @@ export default function MealsPage() {
         />
 
         {/* Macros grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-xl text-center">
-          <div className="rounded-xl bg-neutral-950 p-3 border border-emerald-500/20">
-            <div className="text-[10px] uppercase font-bold text-emerald-400">Protein</div>
-            <div className="text-base sm:text-lg font-extrabold text-white font-mono">{calculated.targetProtein}g</div>
-            <div className="text-[10px] text-neutral-400">2.0g / kg</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 w-full max-w-xl text-center">
+          <div className="rounded-2xl bg-gradient-to-b from-cyan-950/40 to-neutral-950/90 p-3.5 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
+            <div className="text-[10px] uppercase font-bold text-cyan-400 tracking-wider">Protein</div>
+            <div className="text-lg font-black text-white font-mono mt-0.5">{calculated.targetProtein}g</div>
+            <div className="text-[10px] text-neutral-400 font-mono">2.0g / kg</div>
           </div>
-          <div className="rounded-xl bg-neutral-950 p-3 border border-cyan-500/20">
-            <div className="text-[10px] uppercase font-bold text-cyan-400">Carbs</div>
-            <div className="text-base sm:text-lg font-extrabold text-white font-mono">{calculated.targetCarbs}g</div>
-            <div className="text-[10px] text-neutral-400">Glycogen fuel</div>
+          <div className="rounded-2xl bg-gradient-to-b from-pink-950/40 to-neutral-950/90 p-3.5 border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.1)]">
+            <div className="text-[10px] uppercase font-bold text-pink-400 tracking-wider">Carbs</div>
+            <div className="text-lg font-black text-white font-mono mt-0.5">{calculated.targetCarbs}g</div>
+            <div className="text-[10px] text-neutral-400 font-mono">Glycogen fuel</div>
           </div>
-          <div className="rounded-xl bg-neutral-950 p-3 border border-amber-500/20">
-            <div className="text-[10px] uppercase font-bold text-amber-400">Fats</div>
-            <div className="text-base sm:text-lg font-extrabold text-white font-mono">{calculated.targetFat}g</div>
-            <div className="text-[10px] text-neutral-400">Hormone health</div>
+          <div className="rounded-2xl bg-gradient-to-b from-amber-950/40 to-neutral-950/90 p-3.5 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]">
+            <div className="text-[10px] uppercase font-bold text-amber-400 tracking-wider">Fats</div>
+            <div className="text-lg font-black text-white font-mono mt-0.5">{calculated.targetFat}g</div>
+            <div className="text-[10px] text-neutral-400 font-mono">Hormone health</div>
           </div>
         </div>
       </Card>
@@ -431,13 +437,13 @@ export default function MealsPage() {
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
               <span className="text-neutral-300 font-semibold">Protein</span>
-              <span className="font-mono text-emerald-400 font-bold">
+              <span className="font-mono text-cyan-400 font-bold">
                 {loggedMealsData.totals.protein}g / {calculated.targetProtein}g
               </span>
             </div>
             <ProgressBar
               value={Math.min(100, Math.round((loggedMealsData.totals.protein / (calculated.targetProtein || 150)) * 100))}
-              color="emerald"
+              color="cyan"
               className="h-2 rounded-full"
             />
             <div className="text-[10px] text-neutral-500 font-mono">
@@ -449,13 +455,13 @@ export default function MealsPage() {
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
               <span className="text-neutral-300 font-semibold">Carbs</span>
-              <span className="font-mono text-cyan-400 font-bold">
+              <span className="font-mono text-pink-400 font-bold">
                 {loggedMealsData.totals.carbs}g / {calculated.targetCarbs}g
               </span>
             </div>
             <ProgressBar
               value={Math.min(100, Math.round((loggedMealsData.totals.carbs / (calculated.targetCarbs || 200)) * 100))}
-              color="cyan"
+              color="pink"
               className="h-2 rounded-full"
             />
             <div className="text-[10px] text-neutral-500 font-mono">

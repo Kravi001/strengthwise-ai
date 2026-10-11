@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export interface ProgressBarProps extends React.HTMLAttributes<HTMLDivElement> {
   value: number; // 0 to 100
-  color?: "emerald" | "blue" | "amber" | "rose" | "purple" | "cyan";
+  color?: "emerald" | "blue" | "amber" | "rose" | "purple" | "cyan" | "pink";
   label?: string;
   showAnimation?: boolean;
 }
@@ -15,6 +15,7 @@ const colorMap = {
   rose: "bg-rose-500 shadow-sm shadow-rose-500/20",
   purple: "bg-purple-500 shadow-sm shadow-purple-500/20",
   cyan: "bg-cyan-500 shadow-sm shadow-cyan-500/20",
+  pink: "bg-pink-500 shadow-sm shadow-pink-500/20",
 };
 
 export function ProgressBar({
