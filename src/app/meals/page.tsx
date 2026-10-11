@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Card,
   Text,
-  Title,
   DonutChart,
   ProgressBar,
 } from "@/components/tremor";
@@ -315,119 +314,47 @@ export default function MealsPage() {
         </div>
       )}
 
-      {/* Live Interactive Nutrition Calculator Card */}
-      <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 shadow-2xl">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Breakdown details */}
-          <div className="lg:col-span-6 space-y-6">
-            <div>
-              <div className="text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold mb-1">
-                Athlete Targets
-              </div>
-              <Title className="text-white text-base">
-                {fullName ? `${fullName}'s Nutritional Blueprint` : "Daily Metabolic Fuel"}
-              </Title>
-              <Text className="text-neutral-400 text-xs mb-3">
-                Calibrated for {numWeightLbs} lbs ({Math.round(numWeightKg)} kg) athlete in {goal === "CUT" ? "Fat Loss (-20%)" : goal === "BULK" ? "Muscle Surplus (+10%)" : "Maintenance"} phase:
-              </Text>
-
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setGoal("CUT")}
-                  className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                    goal === "CUT"
-                      ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm"
-                      : "bg-neutral-800/60 border-neutral-700 text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  Fat Loss (-20%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGoal("MAINTAIN")}
-                  className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                    goal === "MAINTAIN"
-                      ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-sm"
-                      : "bg-neutral-800/60 border-neutral-700 text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  Maintenance
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGoal("BULK")}
-                  className={`rounded-xl py-2.5 px-3 text-xs font-bold transition border ${
-                    goal === "BULK"
-                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
-                      : "bg-neutral-800/60 border-neutral-700 text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  Muscle Surplus (+10%)
-                </button>
-              </div>
-            </div>
-
-            {/* Summary Breakdown */}
-            <div className="rounded-xl bg-neutral-950 p-4 border border-neutral-800 space-y-2 text-xs">
-              <div className="flex justify-between text-neutral-400">
-                <span>Computed Basal Metabolic Rate (BMR):</span>
-                <span className="text-neutral-200 font-mono">{calculated.bmr} kcal</span>
-              </div>
-              <div className="flex justify-between text-neutral-400">
-                <span>Active Expenditure (TDEE × 1.55):</span>
-                <span className="text-neutral-200 font-mono">{calculated.tdee} kcal</span>
-              </div>
-              <div className="flex justify-between font-bold border-t border-neutral-800/80 pt-2 text-white items-center">
-                <span>Target Daily Intake:</span>
-                <div className="flex items-center gap-2">
-                  {calculated.isCustom && (
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-400">
-                      Coach Target
-                    </span>
-                  )}
-                  <span className="text-emerald-400 font-mono text-sm">{calculated.targetCalories} kcal / day</span>
-                </div>
-              </div>
-            </div>
+      {/* Prescribed Daily Fuel Target Card */}
+      <Card className="bg-neutral-900/80 border-neutral-800 p-6 sm:p-8 shadow-2xl flex flex-col items-center justify-center space-y-5">
+        <div className="text-center">
+          <Text className="text-neutral-400 text-xs uppercase tracking-wider font-semibold">
+            Prescribed Daily Fuel
+          </Text>
+          <div className="text-3xl sm:text-4xl font-extrabold text-white font-mono mt-1">
+            {calculated.targetCalories} <span className="text-xs text-neutral-500 font-sans">KCAL</span>
           </div>
-
-          {/* Live Chart Visual */}
-          <div className="lg:col-span-6 flex flex-col items-center justify-center p-6 rounded-2xl bg-neutral-950/70 border border-neutral-800/80 space-y-4">
-            <div className="text-center">
-              <Text className="text-neutral-400 text-xs uppercase tracking-wider font-semibold">
-                Prescribed Daily Fuel
-              </Text>
-              <div className="text-3xl font-extrabold text-white font-mono mt-1">
-                {calculated.targetCalories} <span className="text-xs text-neutral-500 font-sans">KCAL</span>
-              </div>
+          {calculated.isCustom && (
+            <div className="mt-1.5">
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-400">
+                Coach Target
+              </span>
             </div>
+          )}
+        </div>
 
-            <DonutChart
-              data={chartData}
-              label="Target Grams"
-              valueFormatter={(v) => `${v}g`}
-              className="w-full py-1"
-            />
+        <DonutChart
+          data={chartData}
+          label="Target Grams"
+          valueFormatter={(v) => `${v}g`}
+          className="w-full py-1"
+        />
 
-            {/* Macros grid */}
-            <div className="grid grid-cols-3 gap-3 w-full text-center">
-              <div className="rounded-xl bg-neutral-900 p-2.5 border border-emerald-500/20">
-                <div className="text-[10px] uppercase font-bold text-emerald-400">Protein</div>
-                <div className="text-base font-extrabold text-white font-mono">{calculated.targetProtein}g</div>
-                <div className="text-[10px] text-neutral-400">2.0g / kg</div>
-              </div>
-              <div className="rounded-xl bg-neutral-900 p-2.5 border border-cyan-500/20">
-                <div className="text-[10px] uppercase font-bold text-cyan-400">Carbs</div>
-                <div className="text-base font-extrabold text-white font-mono">{calculated.targetCarbs}g</div>
-                <div className="text-[10px] text-neutral-400">Glycogen fuel</div>
-              </div>
-              <div className="rounded-xl bg-neutral-900 p-2.5 border border-amber-500/20">
-                <div className="text-[10px] uppercase font-bold text-amber-400">Fats</div>
-                <div className="text-base font-extrabold text-white font-mono">{calculated.targetFat}g</div>
-                <div className="text-[10px] text-neutral-400">Hormone health</div>
-              </div>
-            </div>
+        {/* Macros grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-xl text-center">
+          <div className="rounded-xl bg-neutral-950 p-3 border border-emerald-500/20">
+            <div className="text-[10px] uppercase font-bold text-emerald-400">Protein</div>
+            <div className="text-base sm:text-lg font-extrabold text-white font-mono">{calculated.targetProtein}g</div>
+            <div className="text-[10px] text-neutral-400">2.0g / kg</div>
+          </div>
+          <div className="rounded-xl bg-neutral-950 p-3 border border-cyan-500/20">
+            <div className="text-[10px] uppercase font-bold text-cyan-400">Carbs</div>
+            <div className="text-base sm:text-lg font-extrabold text-white font-mono">{calculated.targetCarbs}g</div>
+            <div className="text-[10px] text-neutral-400">Glycogen fuel</div>
+          </div>
+          <div className="rounded-xl bg-neutral-950 p-3 border border-amber-500/20">
+            <div className="text-[10px] uppercase font-bold text-amber-400">Fats</div>
+            <div className="text-base sm:text-lg font-extrabold text-white font-mono">{calculated.targetFat}g</div>
+            <div className="text-[10px] text-neutral-400">Hormone health</div>
           </div>
         </div>
       </Card>
