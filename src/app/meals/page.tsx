@@ -15,9 +15,7 @@ import {
   Plus,
   Scan,
   Search,
-  Sparkles,
   Trash2,
-  Utensils,
   Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -250,10 +248,6 @@ export default function MealsPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-6">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-            <Utensils className="h-3.5 w-3.5" />
-            <span>Precision Sports Nutrition</span>
-          </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             Metabolic Architecture &amp; Macro Distribution
           </h1>
@@ -327,10 +321,8 @@ export default function MealsPage() {
             {calculated.targetCalories} <span className="text-xs text-neutral-500 font-sans">KCAL</span>
           </div>
           {calculated.isCustom && (
-            <div className="mt-1.5">
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-400">
-                Coach Target
-              </span>
+            <div className="mt-1 text-xs font-mono text-cyan-400 font-medium">
+              Coach Target
             </div>
           )}
         </div>
@@ -367,11 +359,7 @@ export default function MealsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
           <div>
             <div className="flex items-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <h3 className="text-base font-bold text-white">Daily Food &amp; Macro Intake Log</h3>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
-                USDA Verified
-              </span>
             </div>
             <p className="text-xs text-neutral-400 mt-1">
               Log meals via precision barcode scanner, Nutrition Facts OCR, or 3M+ food database search

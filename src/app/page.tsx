@@ -310,10 +310,6 @@ export default function LandingPage() {
       {/* ========================================================================= */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Dedicated App Modules</span>
-          </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
             Your Coaching Command Center
           </h2>
@@ -327,9 +323,6 @@ export default function LandingPage() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition">
                   <Utensils className="h-5 w-5" />
                 </div>
-                <span className="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
-                  Mifflin-St Jeor Engine
-                </span>
               </div>
 
               <div>
@@ -375,9 +368,6 @@ export default function LandingPage() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-105 transition">
                   <Dumbbell className="h-5 w-5" />
                 </div>
-                <span className="text-[10px] font-mono font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-lg">
-                  Autoregulated Volume
-                </span>
               </div>
 
               <div>
@@ -422,9 +412,6 @@ export default function LandingPage() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-105 transition">
                   <TrendingUp className="h-5 w-5" />
                 </div>
-                <span className="text-[10px] font-mono font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">
-                  Real-Time Analytics
-                </span>
               </div>
 
               <div>
@@ -469,10 +456,6 @@ export default function LandingPage() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-neutral-950 shadow-md group-hover:scale-105 transition">
                   <Sparkles className="h-5 w-5" />
                 </div>
-                <span className="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>24/7 AI Ready</span>
-                </span>
               </div>
 
               <div>

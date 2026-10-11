@@ -13,7 +13,6 @@ import {
   Dumbbell,
   Apple,
   Activity,
-  ShieldCheck,
   ChevronRight,
   Key,
   AlertCircle,
@@ -1222,35 +1221,19 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
       {/* 1. Sleek Chatbot Header */}
       <div className="border-b border-neutral-800 bg-neutral-950/80 px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="relative">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-600 text-neutral-950 font-black shadow-lg shadow-emerald-500/25">
-              <BrainCircuit className="h-6 w-6" />
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-neutral-950"></span>
-            </span>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-600 text-neutral-950 font-black shadow-lg shadow-emerald-500/25">
+            <BrainCircuit className="h-6 w-6" />
           </div>
 
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                StrengthWise AI Coach
-              </h3>
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 font-mono">
-                <ShieldCheck className="h-3 w-3" />
-                Generative AI Specialist
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 font-mono">
-                Neural Strength Engine
-              </span>
-            </div>
-            <p className="text-[11px] text-neutral-400 flex items-center gap-1.5 mt-0.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+            <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
+              StrengthWise AI Coach
+            </h3>
+            <p className="text-[11px] text-neutral-400 mt-0.5">
               Rate Limited (10/min) • Real-time Sports Science
               {athleteContext?.weightLbs && (
                 <span className="hidden sm:inline text-neutral-500">
-                  • {athleteContext.weightLbs} lbs • {athleteContext.splitType || "Active Split"}
+                  {" "}• {athleteContext.weightLbs} lbs • {athleteContext.splitType || "Active Split"}
                 </span>
               )}
             </p>

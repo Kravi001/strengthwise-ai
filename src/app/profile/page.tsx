@@ -28,7 +28,6 @@ import {
   Scale,
   Scan,
   Search,
-  ShieldCheck,
   Sliders,
   Sparkles,
   TrendingUp,
@@ -714,10 +713,6 @@ export default function ProfilePage() {
           <div className="max-w-md mx-auto py-8 sm:py-16 space-y-6">
             {/* Header */}
             <div className="text-center space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold text-emerald-400 shadow-sm">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Supabase Cloud Authentication</span>
-              </div>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 {authMode === "signup" ? "Create Your Athlete Profile" : "Sign In to Your Profile"}
               </h1>
@@ -1033,10 +1028,6 @@ export default function ProfilePage() {
                     </div>
                   )}
                   <div className="space-y-1">
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-emerald-400">
-                      <ShieldCheck className="h-3 w-3" />
-                      <span>{user.app_metadata?.provider === "google" ? "Google Verified Athlete" : "Supabase Account Connected"}</span>
-                    </div>
                     <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                       {firstName || lastName ? `${firstName} ${lastName}`.trim() : user.email?.split("@")[0] || "Athlete"}
                     </h1>

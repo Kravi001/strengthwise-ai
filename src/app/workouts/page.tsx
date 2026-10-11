@@ -280,10 +280,6 @@ export default function WorkoutsPage() {
       {/* Page Header */}
       <div className="border-b border-neutral-800/80 pb-6">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-400">
-            <Dumbbell className="h-3.5 w-3.5" />
-            <span>Resistance Training &amp; Periodization</span>
-          </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             Adaptive Workouts &amp; Progressive Overload
           </h1>

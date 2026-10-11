@@ -306,10 +306,6 @@ export default function ProgressPage() {
       {/* Page Header */}
       <div className="border-b border-neutral-800/80 pb-6">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span>Progress &amp; Analytics</span>
-          </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             Progress Telemetry &amp; Strength Analytics
           </h1>
