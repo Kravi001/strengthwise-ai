@@ -28,6 +28,7 @@ import {
   Plus,
   Flame,
 } from "lucide-react";
+import { getLocalDateString } from "@/lib/date";
 
 export interface ChatMessage {
   id: string;
@@ -397,6 +398,10 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
     const fatVal = food.fat !== undefined ? food.fat : food.fats !== undefined ? food.fats : 0;
 
     try {
+      const today = getLocalDateString();
+      const offset = new Date().getTimezoneOffset();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
       await fetch("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -410,12 +415,14 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
           fiber: food.fiber ?? 0,
           serving: food.serving || "1 serving",
           notes: food.notes || "Logged via StrengthWise AI Coach",
+          date: today,
+          offset,
+          timezone,
         }),
       });
 
       // Synchronize client storage for guest/offline or instant UI reflection
       try {
-        const today = new Date().toISOString().split("T")[0];
         const localKey = `sw_meals_${today}`;
         const existing = JSON.parse(localStorage.getItem(localKey) || "[]");
         const newMeal = {

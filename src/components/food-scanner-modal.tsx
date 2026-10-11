@@ -35,6 +35,7 @@ interface FoodScannerModalProps {
   initialMealType?: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
   initialTab?: "scan" | "search" | "quick";
   preSelectedFood?: FoodItem | null;
+  targetDate?: string;
 }
 
 export function FoodScannerModal({
@@ -44,6 +45,7 @@ export function FoodScannerModal({
   initialMealType = "LUNCH",
   initialTab = "scan",
   preSelectedFood = null,
+  targetDate,
 }: FoodScannerModalProps) {
   const [activeTab, setActiveTab] = useState<"scan" | "search" | "quick">(initialTab);
   const [mealType, setMealType] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">(initialMealType);
@@ -411,10 +413,17 @@ export function FoodScannerModal({
     }
 
     try {
+      const offset = new Date().getTimezoneOffset();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const res = await fetch("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          date: targetDate,
+          offset,
+          timezone,
+        }),
       });
 
       if (!res.ok) {

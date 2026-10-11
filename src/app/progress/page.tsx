@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { getLocalDateString } from "@/lib/date";
 import type { User } from "@supabase/supabase-js";
 
 interface WeightLogItem {
@@ -86,7 +87,7 @@ export default function ProgressPage() {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [weightInput, setWeightInput] = useState("");
   const [weightUnit, setWeightUnit] = useState<"LBS" | "KG">("LBS");
-  const [logDateInput, setLogDateInput] = useState(() => new Date().toISOString().split("T")[0]);
+  const [logDateInput, setLogDateInput] = useState(() => getLocalDateString());
   const [noteInput, setNoteInput] = useState("");
   const [isSavingWeight, setIsSavingWeight] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -199,7 +200,7 @@ export default function ProgressPage() {
   const openLogModal = () => {
     setWeightInput(currentWeightLbs ? String(currentWeightLbs) : "185");
     setWeightUnit("LBS");
-    setLogDateInput(new Date().toISOString().split("T")[0]);
+    setLogDateInput(getLocalDateString());
     setNoteInput("");
     setIsLogModalOpen(true);
   };

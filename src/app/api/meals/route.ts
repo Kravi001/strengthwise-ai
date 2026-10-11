@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/user";
+import { getLocalDayBounds, parseOffsetMinutes } from "@/lib/date";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,14 +15,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date"); // YYYY-MM-DD
+    const offsetParam = searchParams.get("offset");
+    const timezoneParam = searchParams.get("timezone");
 
-    // Define day window
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const offsetMinutes = parseOffsetMinutes(offsetParam, timezoneParam);
+    const { date: targetDateStr, startOfDay, endOfDay } = getLocalDayBounds(dateParam, offsetMinutes);
 
     // Fetch meals for this day
     const meals = await prisma.mealLog.findMany({
@@ -76,8 +74,11 @@ export async function GET(request: NextRequest) {
       SNACK: meals.filter((m) => m.mealType === "SNACK"),
     };
 
+    const todayStr = getLocalDayBounds(null, offsetMinutes).date;
+
     return NextResponse.json({
-      date: startOfDay.toISOString().split("T")[0],
+      date: targetDateStr,
+      isToday: targetDateStr === todayStr,
       meals,
       grouped,
       totals,
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, mealType, calories, protein, carbs, fat, fiber, serving } = body;
+    const { name, mealType, calories, protein, carbs, fat, fiber, serving, date, loggedAt, offset, timezone } = body;
 
     if (!name || calories === undefined) {
       return NextResponse.json(
@@ -123,6 +124,23 @@ export async function POST(request: NextRequest) {
       ? mealType
       : "SNACK";
 
+    const offsetMinutes = parseOffsetMinutes(offset, timezone);
+    let logDateTime = new Date();
+
+    if (loggedAt) {
+      const parsed = new Date(loggedAt);
+      if (!Number.isNaN(parsed.getTime())) {
+        logDateTime = parsed;
+      }
+    } else if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const todayBounds = getLocalDayBounds(null, offsetMinutes);
+      if (date !== todayBounds.date) {
+        // Logging for a past or future date: default to 12:00 PM local noon
+        const [y, m, d] = date.split("-").map(Number);
+        logDateTime = new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0) + offsetMinutes * 60000);
+      }
+    }
+
     const newMeal = await prisma.mealLog.create({
       data: {
         userId: auth.dbUser.id,
@@ -134,7 +152,7 @@ export async function POST(request: NextRequest) {
         fat: Math.round(Number(fat || 0) * 10) / 10,
         fiber: Math.round(Number(fiber || 0) * 10) / 10,
         serving: serving ? String(serving).trim() : "1 serving",
-        loggedAt: new Date(),
+        loggedAt: logDateTime,
       },
     });
 
@@ -163,6 +181,27 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const clearDay = searchParams.get("clearDay");
+
+    if (clearDay === "true") {
+      const dateParam = searchParams.get("date");
+      const offsetParam = searchParams.get("offset");
+      const timezoneParam = searchParams.get("timezone");
+      const offsetMinutes = parseOffsetMinutes(offsetParam, timezoneParam);
+      const { startOfDay, endOfDay } = getLocalDayBounds(dateParam, offsetMinutes);
+
+      await prisma.mealLog.deleteMany({
+        where: {
+          userId: auth.dbUser.id,
+          loggedAt: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+        },
+      });
+
+      return NextResponse.json({ success: true, message: "Day cleared." });
+    }
 
     if (!id) {
       return NextResponse.json(

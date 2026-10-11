@@ -10,6 +10,8 @@ import {
 } from "@/components/tremor";
 import {
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Flame,
   Lock,
   Plus,
@@ -21,6 +23,11 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
+import {
+  getLocalDateString,
+  formatDisplayDate,
+  addDaysToDateString,
+} from "@/lib/date";
 import type { User } from "@supabase/supabase-js";
 
 export default function MealsPage() {
@@ -86,6 +93,7 @@ export default function MealsPage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerInitialMeal, setScannerInitialMeal] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">("LUNCH");
   const [scannerInitialTab, setScannerInitialTab] = useState<"scan" | "search" | "quick">("scan");
+  const [selectedDate, setSelectedDate] = useState<string>(() => getLocalDateString());
   const [loggedMealsData, setLoggedMealsData] = useState<{
     meals: any[];
     grouped: { BREAKFAST: any[]; LUNCH: any[]; DINNER: any[]; SNACK: any[] };
@@ -98,9 +106,13 @@ export default function MealsPage() {
     remaining: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
   });
 
-  const fetchLoggedMeals = async () => {
+  const fetchLoggedMeals = async (targetDate: string = selectedDate) => {
     try {
-      const res = await fetch("/api/meals");
+      const offset = new Date().getTimezoneOffset();
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const res = await fetch(
+        `/api/meals?date=${targetDate}&offset=${offset}&timezone=${encodeURIComponent(tz)}`
+      );
       if (res.ok) {
         const data = await res.json();
         setLoggedMealsData(data);
@@ -113,10 +125,66 @@ export default function MealsPage() {
   const handleDeleteMeal = async (id: string) => {
     try {
       await fetch(`/api/meals?id=${id}`, { method: "DELETE" });
-      await fetchLoggedMeals();
+      await fetchLoggedMeals(selectedDate);
     } catch (err) {
       console.warn("Failed to delete meal:", err);
     }
+  };
+
+  // Automated 12:00 AM midnight reset watcher
+  useEffect(() => {
+    let lastLocalDate = getLocalDateString();
+
+    const checkMidnightRollover = () => {
+      const currentLocalDate = getLocalDateString();
+      if (currentLocalDate !== lastLocalDate) {
+        // 12:00 AM local midnight reached — reset to new day!
+        const wasViewingToday = selectedDate === lastLocalDate;
+        lastLocalDate = currentLocalDate;
+        if (wasViewingToday) {
+          setSelectedDate(currentLocalDate);
+          fetchLoggedMeals(currentLocalDate);
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkMidnightRollover, 10000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        checkMidnightRollover();
+      }
+    };
+
+    window.addEventListener("focus", checkMidnightRollover);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", checkMidnightRollover);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [selectedDate]);
+
+  const todayStr = getLocalDateString();
+  const isToday = selectedDate === todayStr;
+
+  const handlePrevDay = () => {
+    const prev = addDaysToDateString(selectedDate, -1);
+    setSelectedDate(prev);
+    fetchLoggedMeals(prev);
+  };
+
+  const handleNextDay = () => {
+    const next = addDaysToDateString(selectedDate, 1);
+    setSelectedDate(next);
+    fetchLoggedMeals(next);
+  };
+
+  const handleJumpToToday = () => {
+    const today = getLocalDateString();
+    setSelectedDate(today);
+    fetchLoggedMeals(today);
   };
 
   useEffect(() => {
@@ -164,7 +232,7 @@ export default function MealsPage() {
               if (data.profile.targetFat) setCustomFat(data.profile.targetFat);
             }
           }
-          await fetchLoggedMeals();
+          await fetchLoggedMeals(selectedDate);
         }
 
         // Local storage fallback
@@ -227,7 +295,7 @@ export default function MealsPage() {
           }
         }
       } catch {}
-      fetchLoggedMeals();
+      fetchLoggedMeals(selectedDate);
     };
 
     if (typeof window !== "undefined") {
@@ -392,6 +460,49 @@ export default function MealsPage() {
               <Search className="h-3.5 w-3.5 text-cyan-400" />
               <span>Search Database</span>
             </button>
+          </div>
+        </div>
+
+        {/* Date Selector & Daily 12:00 AM Reset Indicator */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-950/60 border border-neutral-800/80 rounded-2xl px-4 py-3">
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center rounded-xl border border-neutral-800 bg-neutral-900/90 p-1">
+              <button
+                type="button"
+                onClick={handlePrevDay}
+                title="Previous Day"
+                className="rounded-lg p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <div className="px-3 py-1 text-xs font-bold text-white min-w-[170px] text-center font-mono">
+                {formatDisplayDate(selectedDate, todayStr)}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleNextDay}
+                title="Next Day"
+                className="rounded-lg p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            {!isToday && (
+              <button
+                type="button"
+                onClick={handleJumpToToday}
+                className="rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 transition"
+              >
+                Today
+              </button>
+            )}
+          </div>
+
+          <div className="text-[11px] text-neutral-500 font-medium">
+            Resets daily at 12:00 AM
           </div>
         </div>
 
@@ -561,9 +672,10 @@ export default function MealsPage() {
       <FoodScannerModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        onMealLogged={fetchLoggedMeals}
+        onMealLogged={() => fetchLoggedMeals(selectedDate)}
         initialMealType={scannerInitialMeal}
         initialTab={scannerInitialTab}
+        targetDate={selectedDate}
       />
     </div>
   );
