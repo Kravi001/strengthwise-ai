@@ -398,7 +398,8 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
     const fatVal = food.fat !== undefined ? food.fat : food.fats !== undefined ? food.fats : 0;
 
     try {
-      const today = getLocalDateString();
+      const savedReset = typeof window !== "undefined" ? (localStorage.getItem("sw_meal_reset_time") || "00:00") : "00:00";
+      const today = getLocalDateString(new Date(), savedReset);
       const offset = new Date().getTimezoneOffset();
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -418,6 +419,7 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
           date: today,
           offset,
           timezone,
+          resetTime: savedReset,
         }),
       });
 

@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAuthenticatedUser } from "@/lib/user";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { formatResetTimeDisplay } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ interface AthleteContext {
   targetFat?: number;
   equipment?: string;
   injuryNotes?: string;
+  mealResetTime?: string;
 }
 
 // 10 requests per 60-second sliding window for fair free usage
@@ -132,6 +134,7 @@ export async function POST(request: NextRequest) {
             targetCarbs: dbProfile.targetCarbs || enrichedContext.targetCarbs,
             targetFat: dbProfile.targetFat || enrichedContext.targetFat,
             equipment: dbProfile.equipment || enrichedContext.equipment,
+            mealResetTime: dbProfile.mealResetTime || enrichedContext.mealResetTime || "00:00",
           };
         }
       } catch {
@@ -167,6 +170,9 @@ export async function POST(request: NextRequest) {
           }g, Carbs: ${enrichedContext.targetCarbs || 250}g, Fat: ${
             enrichedContext.targetFat || 70
           }g)`
+        : null,
+      enrichedContext.mealResetTime
+        ? `Daily Meal Log Reset Time: ${formatResetTimeDisplay(enrichedContext.mealResetTime)} (daily calorie totals & meal buckets reset at this time)`
         : null,
     ].filter(Boolean);
 

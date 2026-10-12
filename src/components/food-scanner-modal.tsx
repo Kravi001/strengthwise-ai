@@ -432,6 +432,7 @@ export function FoodScannerModal({
           date: targetDate,
           offset,
           timezone,
+          resetTime: typeof window !== "undefined" ? (localStorage.getItem("sw_meal_reset_time") || "00:00") : "00:00",
         }),
       });
 

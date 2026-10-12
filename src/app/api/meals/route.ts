@@ -17,9 +17,16 @@ export async function GET(request: NextRequest) {
     const dateParam = searchParams.get("date"); // YYYY-MM-DD
     const offsetParam = searchParams.get("offset");
     const timezoneParam = searchParams.get("timezone");
+    const resetTimeParam = searchParams.get("resetTime");
 
+    // Fetch athlete profile for target comparisons and mealResetTime
+    const profile = await prisma.profile.findUnique({
+      where: { userId: auth.dbUser.id },
+    });
+
+    const resetTime = resetTimeParam || profile?.mealResetTime || "00:00";
     const offsetMinutes = parseOffsetMinutes(offsetParam, timezoneParam);
-    const { date: targetDateStr, startOfDay, endOfDay } = getLocalDayBounds(dateParam, offsetMinutes);
+    const { date: targetDateStr, startOfDay, endOfDay } = getLocalDayBounds(dateParam, offsetMinutes, resetTime);
 
     // Fetch meals for this day
     const meals = await prisma.mealLog.findMany({
@@ -33,11 +40,6 @@ export async function GET(request: NextRequest) {
       orderBy: {
         loggedAt: "asc",
       },
-    });
-
-    // Fetch athlete profile for target comparisons
-    const profile = await prisma.profile.findUnique({
-      where: { userId: auth.dbUser.id },
     });
 
     const targetCalories = profile?.targetCalories ?? 2200;
@@ -74,11 +76,12 @@ export async function GET(request: NextRequest) {
       SNACK: meals.filter((m) => m.mealType === "SNACK"),
     };
 
-    const todayStr = getLocalDayBounds(null, offsetMinutes).date;
+    const todayStr = getLocalDayBounds(null, offsetMinutes, resetTime).date;
 
     return NextResponse.json({
       date: targetDateStr,
       isToday: targetDateStr === todayStr,
+      resetTime,
       meals,
       grouped,
       totals,
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, mealType, calories, protein, carbs, fat, fiber, serving, date, loggedAt, offset, timezone } = body;
+    const { name, mealType, calories, protein, carbs, fat, fiber, serving, date, loggedAt, offset, timezone, resetTime: bodyResetTime } = body;
 
     if (!name || calories === undefined) {
       return NextResponse.json(
@@ -124,6 +127,14 @@ export async function POST(request: NextRequest) {
       ? mealType
       : "SNACK";
 
+    let resetTime = bodyResetTime;
+    if (!resetTime) {
+      const profile = await prisma.profile.findUnique({
+        where: { userId: auth.dbUser.id },
+      });
+      resetTime = profile?.mealResetTime || "00:00";
+    }
+
     const offsetMinutes = parseOffsetMinutes(offset, timezone);
     let logDateTime = new Date();
 
@@ -133,11 +144,11 @@ export async function POST(request: NextRequest) {
         logDateTime = parsed;
       }
     } else if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      const todayBounds = getLocalDayBounds(null, offsetMinutes);
+      const todayBounds = getLocalDayBounds(null, offsetMinutes, resetTime);
       if (date !== todayBounds.date) {
-        // Logging for a past or future date: default to 12:00 PM local noon
-        const [y, m, d] = date.split("-").map(Number);
-        logDateTime = new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0) + offsetMinutes * 60000);
+        // Logging for a past or future date: default to 12 hours after startOfDay
+        const targetBounds = getLocalDayBounds(date, offsetMinutes, resetTime);
+        logDateTime = new Date(targetBounds.startOfDay.getTime() + 12 * 3600 * 1000);
       }
     }
 
@@ -187,8 +198,14 @@ export async function DELETE(request: NextRequest) {
       const dateParam = searchParams.get("date");
       const offsetParam = searchParams.get("offset");
       const timezoneParam = searchParams.get("timezone");
+      const resetTimeParam = searchParams.get("resetTime");
+
+      const profile = await prisma.profile.findUnique({
+        where: { userId: auth.dbUser.id },
+      });
+      const resetTime = resetTimeParam || profile?.mealResetTime || "00:00";
       const offsetMinutes = parseOffsetMinutes(offsetParam, timezoneParam);
-      const { startOfDay, endOfDay } = getLocalDayBounds(dateParam, offsetMinutes);
+      const { startOfDay, endOfDay } = getLocalDayBounds(dateParam, offsetMinutes, resetTime);
 
       await prisma.mealLog.deleteMany({
         where: {

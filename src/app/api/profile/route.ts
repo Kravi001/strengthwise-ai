@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
       targetFat,
       targetFiber,
       targetWaterLiters,
+      mealResetTime,
     } = body;
 
     // Fetch existing profile to preserve existing fields during partial updates (e.g. from AI coach)
@@ -152,6 +153,11 @@ export async function POST(request: NextRequest) {
     const finalTargetFiber = parsedTargetFiber ?? existing?.targetFiber ?? targets.targetFiber;
     const finalTargetWater = parsedTargetWater ?? existing?.targetWaterLiters ?? targets.targetWaterLiters;
 
+    const resolvedMealResetTime =
+      mealResetTime !== undefined && mealResetTime !== null
+        ? String(mealResetTime).trim()
+        : existing?.mealResetTime ?? "00:00";
+
     // Guaranteed upsert into PostgreSQL via Prisma
     const profile = await prisma.profile.upsert({
       where: { userId: auth.dbUser.id },
@@ -176,6 +182,7 @@ export async function POST(request: NextRequest) {
         targetFat: finalTargetFat,
         targetFiber: finalTargetFiber,
         targetWaterLiters: finalTargetWater,
+        mealResetTime: resolvedMealResetTime,
       },
       create: {
         userId: auth.dbUser.id,
@@ -199,6 +206,7 @@ export async function POST(request: NextRequest) {
         targetFat: finalTargetFat,
         targetFiber: finalTargetFiber,
         targetWaterLiters: finalTargetWater,
+        mealResetTime: resolvedMealResetTime,
       },
     });
 

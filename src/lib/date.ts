@@ -1,15 +1,44 @@
 /**
  * Local Date & Timezone Utilities
- * Ensures daily resets occur precisely at 12:00 AM (midnight) in the user's local timezone.
+ * Supports custom daily reset times (e.g. 12:00 AM, 3:00 AM, 4:00 AM) in the user's local timezone.
  */
 
 /**
- * Returns a 'YYYY-MM-DD' string for a date in the local timezone (not UTC).
+ * Parses a reset time string ("HH:mm" or "H:mm") into hours and minutes.
+ * Defaults to 0:00 (12:00 AM midnight).
  */
-export function getLocalDateString(date: Date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+export function parseResetTime(resetTime?: string | null): { hours: number; minutes: number } {
+  if (!resetTime) return { hours: 0, minutes: 0 };
+  const match = String(resetTime).trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return { hours: 0, minutes: 0 };
+  const hours = Math.max(0, Math.min(23, parseInt(match[1], 10)));
+  const minutes = Math.max(0, Math.min(59, parseInt(match[2], 10)));
+  return { hours, minutes };
+}
+
+/**
+ * Formats a reset time string ("04:00") into a human-friendly format ("4:00 AM", "12:00 AM").
+ */
+export function formatResetTimeDisplay(resetTime?: string | null): string {
+  const { hours, minutes } = parseResetTime(resetTime);
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+  const displayMinutes = minutes > 0 ? `:${String(minutes).padStart(2, "0")}` : ":00";
+  return `${displayHours}${displayMinutes} ${period}`;
+}
+
+/**
+ * Returns a 'YYYY-MM-DD' string for a date in the local timezone (not UTC),
+ * taking into account an optional daily reset time (default "00:00" = 12:00 AM).
+ * If the current time is before the reset time, it falls under the previous calendar day.
+ */
+export function getLocalDateString(date: Date = new Date(), resetTime: string = "00:00"): string {
+  const { hours, minutes } = parseResetTime(resetTime);
+  const shiftMs = (hours * 60 + minutes) * 60 * 1000;
+  const effective = new Date(date.getTime() - shiftMs);
+  const year = effective.getFullYear();
+  const month = String(effective.getMonth() + 1).padStart(2, "0");
+  const day = String(effective.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -24,7 +53,10 @@ export function addDaysToDateString(dateStr: string, days: number): string {
   const [y, m, d] = parts;
   const date = new Date(y, m - 1, d);
   date.setDate(date.getDate() + days);
-  return getLocalDateString(date);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -66,13 +98,18 @@ export function parseOffsetMinutes(
 }
 
 /**
- * Calculates the exact UTC start (12:00:00.000 AM local) and end (11:59:59.999 PM local)
- * bounds for a given calendar day in the user's timezone.
+ * Calculates the exact UTC start and end bounds for a given calendar day in the user's timezone,
+ * accounting for a custom daily reset time (default "00:00" = 12:00 AM midnight).
+ * For a date 'YYYY-MM-DD' with resetTime '04:00', the bounds are:
+ * Start: YYYY-MM-DD 04:00:00.000 local
+ * End: (YYYY-MM-DD + 1 day) 03:59:59.999 local (24 hours minus 1 ms later)
  */
 export function getLocalDayBounds(
   dateStr?: string | null,
-  offsetMinutes: number = 0
+  offsetMinutes: number = 0,
+  resetTime: string = "00:00"
 ): { date: string; startOfDay: Date; endOfDay: Date } {
+  const { hours: rH, minutes: rM } = parseResetTime(resetTime);
   let y: number;
   let m: number;
   let d: number;
@@ -83,17 +120,18 @@ export function getLocalDayBounds(
     m = parts[1];
     d = parts[2];
   } else {
-    // Current time shifted by offset into local time
+    // Current time shifted by timezone offset AND reset time
     const now = new Date();
-    const localNow = new Date(now.getTime() - offsetMinutes * 60000);
+    const shiftMs = (offsetMinutes + rH * 60 + rM) * 60000;
+    const localNow = new Date(now.getTime() - shiftMs);
     y = localNow.getUTCFullYear();
     m = localNow.getUTCMonth() + 1;
     d = localNow.getUTCDate();
   }
 
   const formattedDate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) + offsetMinutes * 60000);
-  const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) + offsetMinutes * 60000);
+  const startOfDay = new Date(Date.UTC(y, m - 1, d, rH, rM, 0, 0) + offsetMinutes * 60000);
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000 - 1);
 
   return {
     date: formattedDate,

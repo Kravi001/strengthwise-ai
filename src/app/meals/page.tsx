@@ -12,6 +12,7 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Flame,
   Lock,
   Pencil,
@@ -25,10 +26,12 @@ import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
 import { EditMealModal, type LoggedMealItem } from "@/components/edit-meal-modal";
+import { MealResetModal } from "@/components/meal-reset-modal";
 import {
   getLocalDateString,
   formatDisplayDate,
   addDaysToDateString,
+  formatResetTimeDisplay,
 } from "@/lib/date";
 import type { User } from "@supabase/supabase-js";
 
@@ -95,7 +98,19 @@ export default function MealsPage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerInitialMeal, setScannerInitialMeal] = useState<"BREAKFAST" | "LUNCH" | "DINNER" | "SNACK">("LUNCH");
   const [scannerInitialTab, setScannerInitialTab] = useState<"scan" | "search" | "quick">("scan");
-  const [selectedDate, setSelectedDate] = useState<string>(() => getLocalDateString());
+  // Meal Reset Time State
+  const [mealResetTime, setMealResetTime] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sw_meal_reset_time") || "00:00";
+    }
+    return "00:00";
+  });
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const savedReset = typeof window !== "undefined" ? (localStorage.getItem("sw_meal_reset_time") || "00:00") : "00:00";
+    return getLocalDateString(new Date(), savedReset);
+  });
   const [editingMeal, setEditingMeal] = useState<LoggedMealItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -115,44 +130,72 @@ export default function MealsPage() {
     remaining: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
   });
 
-  const fetchLoggedMeals = async (targetDate: string = selectedDate) => {
+  const fetchLoggedMeals = async (targetDate: string = selectedDate, currentResetTime: string = mealResetTime) => {
     try {
       const offset = new Date().getTimezoneOffset();
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const res = await fetch(
-        `/api/meals?date=${targetDate}&offset=${offset}&timezone=${encodeURIComponent(tz)}`
+        `/api/meals?date=${targetDate}&offset=${offset}&timezone=${encodeURIComponent(tz)}&resetTime=${encodeURIComponent(currentResetTime)}`
       );
       if (res.ok) {
         const data = await res.json();
         setLoggedMealsData(data);
+        if (data.resetTime && data.resetTime !== currentResetTime) {
+          setMealResetTime(data.resetTime);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("sw_meal_reset_time", data.resetTime);
+          }
+        }
       }
     } catch (err) {
       console.warn("Failed to fetch meals:", err);
     }
   };
 
+  const handleSaveResetTime = async (newResetTime: string) => {
+    setMealResetTime(newResetTime);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sw_meal_reset_time", newResetTime);
+    }
+
+    try {
+      await fetch("/api/meals/reset-time", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetTime: newResetTime }),
+      });
+    } catch (err) {
+      console.warn("Failed to sync reset time to server:", err);
+    }
+
+    // Recalculate today's date according to new reset time
+    const newToday = getLocalDateString(new Date(), newResetTime);
+    setSelectedDate(newToday);
+    await fetchLoggedMeals(newToday, newResetTime);
+  };
+
   const handleDeleteMeal = async (id: string) => {
     try {
       await fetch(`/api/meals?id=${id}`, { method: "DELETE" });
-      await fetchLoggedMeals(selectedDate);
+      await fetchLoggedMeals(selectedDate, mealResetTime);
     } catch (err) {
       console.warn("Failed to delete meal:", err);
     }
   };
 
-  // Automated 12:00 AM midnight reset watcher
+  // Automated daily reset watcher with custom resetTime support
   useEffect(() => {
-    let lastLocalDate = getLocalDateString();
+    let lastLocalDate = getLocalDateString(new Date(), mealResetTime);
 
     const checkMidnightRollover = () => {
-      const currentLocalDate = getLocalDateString();
+      const currentLocalDate = getLocalDateString(new Date(), mealResetTime);
       if (currentLocalDate !== lastLocalDate) {
-        // 12:00 AM local midnight reached — reset to new day!
+        // Daily reset reached — reset to new day!
         const wasViewingToday = selectedDate === lastLocalDate;
         lastLocalDate = currentLocalDate;
         if (wasViewingToday) {
           setSelectedDate(currentLocalDate);
-          fetchLoggedMeals(currentLocalDate);
+          fetchLoggedMeals(currentLocalDate, mealResetTime);
         }
       }
     };
@@ -173,27 +216,27 @@ export default function MealsPage() {
       window.removeEventListener("focus", checkMidnightRollover);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [selectedDate]);
+  }, [selectedDate, mealResetTime]);
 
-  const todayStr = getLocalDateString();
+  const todayStr = getLocalDateString(new Date(), mealResetTime);
   const isToday = selectedDate === todayStr;
 
   const handlePrevDay = () => {
     const prev = addDaysToDateString(selectedDate, -1);
     setSelectedDate(prev);
-    fetchLoggedMeals(prev);
+    fetchLoggedMeals(prev, mealResetTime);
   };
 
   const handleNextDay = () => {
     const next = addDaysToDateString(selectedDate, 1);
     setSelectedDate(next);
-    fetchLoggedMeals(next);
+    fetchLoggedMeals(next, mealResetTime);
   };
 
   const handleJumpToToday = () => {
-    const today = getLocalDateString();
+    const today = getLocalDateString(new Date(), mealResetTime);
     setSelectedDate(today);
-    fetchLoggedMeals(today);
+    fetchLoggedMeals(today, mealResetTime);
   };
 
   useEffect(() => {
@@ -239,9 +282,15 @@ export default function MealsPage() {
               if (data.profile.targetProtein) setCustomProtein(data.profile.targetProtein);
               if (data.profile.targetCarbs) setCustomCarbs(data.profile.targetCarbs);
               if (data.profile.targetFat) setCustomFat(data.profile.targetFat);
+              if (data.profile.mealResetTime) {
+                setMealResetTime(data.profile.mealResetTime);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("sw_meal_reset_time", data.profile.mealResetTime);
+                }
+              }
             }
           }
-          await fetchLoggedMeals(selectedDate);
+          await fetchLoggedMeals(selectedDate, mealResetTime);
         }
 
         // Local storage fallback
@@ -510,9 +559,21 @@ export default function MealsPage() {
             )}
           </div>
 
-          <div className="text-[11px] text-neutral-500 font-medium">
-            Resets daily at 12:00 AM
-          </div>
+          {/* Daily Reset Time Badge / Interactive Button */}
+          <button
+            type="button"
+            onClick={() => setIsResetModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-800 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-medium transition group shadow-sm"
+            title="Configure daily reset time"
+          >
+            <Clock className="h-3.5 w-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span>
+              Resets daily at <strong className="text-emerald-400 font-mono">{formatResetTimeDisplay(mealResetTime)}</strong>
+            </span>
+            <span className="text-[10px] text-neutral-400 ml-1 border border-neutral-700/80 rounded px-1.5 py-0.5 group-hover:border-emerald-500/50 group-hover:text-emerald-300 transition">
+              Change
+            </span>
+          </button>
         </div>
 
         {/* Daily Progress Bars vs Mifflin-St Jeor Targets */}
@@ -703,7 +764,7 @@ export default function MealsPage() {
       <FoodScannerModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        onMealLogged={() => fetchLoggedMeals(selectedDate)}
+        onMealLogged={() => fetchLoggedMeals(selectedDate, mealResetTime)}
         initialMealType={scannerInitialMeal}
         initialTab={scannerInitialTab}
         targetDate={selectedDate}
@@ -717,8 +778,16 @@ export default function MealsPage() {
           setIsEditModalOpen(false);
           setEditingMeal(null);
         }}
-        onMealUpdated={() => fetchLoggedMeals(selectedDate)}
-        onMealDeleted={() => fetchLoggedMeals(selectedDate)}
+        onMealUpdated={() => fetchLoggedMeals(selectedDate, mealResetTime)}
+        onMealDeleted={() => fetchLoggedMeals(selectedDate, mealResetTime)}
+      />
+
+      {/* Configure Daily Meal Log Reset Time Modal */}
+      <MealResetModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        currentResetTime={mealResetTime}
+        onSave={handleSaveResetTime}
       />
     </div>
   );

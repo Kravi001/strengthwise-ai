@@ -13,6 +13,7 @@ import {
   Calendar,
   CheckCircle2,
   ChevronRight,
+  Clock,
   Database,
   Dumbbell,
   ExternalLink,
@@ -51,6 +52,7 @@ import {
   type CalculatedTargets,
 } from "@/lib/calc";
 import { Card, DonutChart, ProgressBar } from "@/components/tremor";
+import { formatResetTimeDisplay } from "@/lib/date";
 import type { FoodItem } from "@/lib/usda-foods";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -144,6 +146,12 @@ export default function ProfilePage() {
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
   const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
   const [dietPreference, setDietPreference] = useState<string>("STANDARD");
+  const [mealResetTime, setMealResetTime] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sw_meal_reset_time") || "00:00";
+    }
+    return "00:00";
+  });
 
   // Status & Notifications
   const [isSaving, setIsSaving] = useState(false);
@@ -338,6 +346,12 @@ export default function ProfilePage() {
             );
           }
           if (data.profile.dietPreference) setDietPreference(data.profile.dietPreference);
+          if (data.profile.mealResetTime) {
+            setMealResetTime(data.profile.mealResetTime);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("sw_meal_reset_time", data.profile.mealResetTime);
+            }
+          }
         }
       }
     } catch (err) {
@@ -584,6 +598,7 @@ export default function ProfilePage() {
         activityLevel,
         goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
         dietPreference,
+        mealResetTime,
         experienceLevel: "INTERMEDIATE",
       };
 
@@ -619,10 +634,12 @@ export default function ProfilePage() {
           activityLevel,
           goal,
           dietPreference,
+          mealResetTime,
           targets: calculatedTargets,
           updatedAt: new Date().toISOString(),
         };
         localStorage.setItem("sw_athlete_profile", JSON.stringify(localData));
+        localStorage.setItem("sw_meal_reset_time", mealResetTime);
         document.cookie = `sw_athlete_profile=${encodeURIComponent(JSON.stringify(localData))}; path=/; max-age=31536000; SameSite=Lax`;
         window.dispatchEvent(new Event("sw_profile_updated"));
       }
@@ -1431,6 +1448,55 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* Daily Meal Log Reset Time Section */}
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-emerald-400" />
+                        <label className="text-sm font-bold text-white">Daily Meal Log Reset Time</label>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+                        {formatResetTimeDisplay(mealResetTime)}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-neutral-400 leading-relaxed">
+                      Decide when your meals tracker resets each day. Meals eaten before this time count towards the previous day&apos;s totals.
+                    </p>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { time: "00:00", label: "12:00 AM (Midnight)" },
+                        { time: "02:00", label: "2:00 AM" },
+                        { time: "03:00", label: "3:00 AM (Night Owl)" },
+                        { time: "04:00", label: "4:00 AM (Late Shift)" },
+                      ].map((preset) => (
+                        <button
+                          key={preset.time}
+                          type="button"
+                          onClick={() => setMealResetTime(preset.time)}
+                          className={`py-2.5 px-2 rounded-xl border text-center transition ${
+                            mealResetTime === preset.time
+                              ? "border-emerald-500 bg-emerald-500/20 text-white font-bold"
+                              : "border-neutral-800 bg-neutral-950/60 text-neutral-400 hover:text-white hover:border-neutral-700"
+                          }`}
+                        >
+                          <div className="text-xs font-mono">{preset.label}</div>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <span className="text-xs text-neutral-400">Or pick custom:</span>
+                      <input
+                        type="time"
+                        value={mealResetTime}
+                        onChange={(e) => setMealResetTime(e.target.value)}
+                        className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1.5 text-xs text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
                   </div>
 
                   {/* Save Profile Button */}
