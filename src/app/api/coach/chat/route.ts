@@ -41,12 +41,13 @@ const RATE_LIMIT_CONFIG = {
   windowSeconds: 60,
 };
 
-// Verified fastest Google Gemini multimodal models in order of latency and availability
+// Verified Google Gemini multimodal models in order of vision quality and latency
 const GEMINI_CANDIDATE_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.5-flash",
+  "gemini-flash-latest",
   "gemini-flash-lite-latest",
   "gemini-3.5-flash-lite",
-  "gemini-3-flash-preview",
-  "gemini-flash-latest",
 ];
 
 export async function POST(request: NextRequest) {
@@ -195,20 +196,31 @@ CRITICAL COACHING INSTRUCTIONS:
    - Provide exact gram amounts based on their body weight, meal timing (peri-workout windows), and the leucine threshold (~2.7g - 3.5g per meal).
 5. MULTIMODAL & COMPUTER VISION COACHING DIRECTIVES:
    - When an athlete attaches an image:
-     * Exercise Form Check: Scrutinize joint angles (ankle dorsiflexion, knee valgus/varus, hip hinge depth, lumbar spine neutrality, cervical alignment, elbow tuck angle, bar path, foot rooting). Identify primary biomechanical compensations, point of maximum shear force, and provide 2-3 immediate, actionable motor cues.
-     * Nutrition & Food Labels: Read facts panels (calories, protein, net carbs, healthy fats, sodium, fiber). Assess protein quality (leucine threshold ~2.7-3.5g) and compare directly against the athlete's daily targets.
-     * Gym Equipment & Machines: Identify machine geometry, strength curve vs resistance curve match, and guide seat/pad alignment relative to the anatomical joint axis.
-     * Physique & Posture: Note postural alignment, anterior/posterior pelvic tilt, and recommend corrective exercise volume allocation.
+     * Food Items, Meals, Plates, Bowls, Drinks & Snacks:
+       - Visually identify the exact dish and each individual ingredient/component shown in the image.
+       - Estimate realistic portions and calculate total macronutrients: Calories (kcal), Protein (g), Carbohydrates (g), Fat (g), and Fiber (g).
+       - Assess protein quality and leucine threshold (~2.7g - 3.5g per meal) relative to the athlete's primary goal (${enrichedContext.goal || "BUILD_MUSCLE"}).
+       - Compare directly against their daily targets (${enrichedContext.targetCalories || 2200} kcal, ${enrichedContext.targetProtein || 175}g protein).
+       - ALWAYS conclude with a structured \`\`\`food_log block so the athlete can log the meal with 1 click!
+     * Nutrition Facts Panels & Food Labels:
+       - Transcribe the exact numbers (Calories, Protein, Total Carbs, Net Carbs, Fats, Dietary Fiber, Sodium).
+       - Check Atwater factors ((P*4) + (C*4) + (F*9)) and provide the 1-click \`\`\`food_log block.
+     * Exercise Form Check:
+       - Scrutinize joint angles (ankle dorsiflexion, knee valgus/varus, hip hinge depth, lumbar spine neutrality, cervical alignment, elbow tuck angle, bar path, foot rooting). Identify primary biomechanical compensations, point of maximum shear force, and provide 2-3 immediate, actionable motor cues.
+     * Gym Equipment & Machines:
+       - Identify machine geometry, strength curve vs resistance curve match, and guide seat/pad alignment relative to the anatomical joint axis.
+     * Physique & Posture:
+       - Note postural alignment, anterior/posterior pelvic tilt, and recommend corrective exercise volume allocation.
 6. NUTRITION & FOOD LOGGING DIRECTIVES:
-   - Whenever an athlete mentions what they ate or drank (e.g. "I ate 2 eggs and toast", "I had chicken and rice", "log my lunch", "I drank a protein shake"), or asks to log food:
-     a) Immediately acknowledge the meal with scientifically grounded feedback and warmth.
+   - Whenever an athlete mentions what they ate or drank (e.g. "I ate 2 eggs and toast", "I had chicken and rice", "log my lunch", "I drank a protein shake"), asks to track macros, OR uploads a food / meal / label image:
+     a) Immediately identify and acknowledge the meal with scientifically grounded feedback and warmth.
      b) Provide an estimated nutritional breakdown: Total Calories, Protein, Carbs, Fat, and Fiber.
      c) Assess protein quality (leucine threshold ~2.7g - 3.5g) and compare with their daily targets (${enrichedContext.targetCalories || 2200} kcal, ${enrichedContext.targetProtein || 175}g protein).
      d) ALWAYS conclude your response with a structured JSON block tagged \`\`\`food_log so the athlete can log it to their Meals Tracker with 1 click:
 \`\`\`food_log
 {
   "name": "Food Name Here",
-  "mealType": "BREAKFAST",
+  "mealType": "LUNCH",
   "calories": 420,
   "protein": 22,
   "carbs": 30,
@@ -234,7 +246,8 @@ CRITICAL COACHING INSTRUCTIONS:
 \`\`\`
 8. FORMATTING & SPEED:
    - Deliver high-density, structured Markdown without conversational fluff or introductory delays.
-   - Always conclude with a dedicated "### 💡 Prescription & Action Item" section outlining exact movements, sets, reps, and RPE for their next session.`;
+   - For Exercise & Biomechanics inquiries, conclude with a dedicated "### 💡 Prescription & Action Item" section outlining exact movements, sets, reps, and RPE for their next session.
+   - For Food, Nutrition, and Macro inquiries, conclude with a dedicated "### 💡 Prescription & Action Item" section detailing peri-workout meal timing, hydration, and 1-click meal logging. Never prescribe gym barbell sets/reps for a meal inquiry.`;
 
     const latestUserMessageObj = messages[messages.length - 1];
     const latestUserMessage = latestUserMessageObj?.content || "";
@@ -249,8 +262,6 @@ CRITICAL COACHING INSTRUCTIONS:
 
       if (m.content && m.content.trim()) {
         parts.push({ text: m.content.trim() });
-      } else if (!m.image) {
-        parts.push({ text: "Please provide coaching analysis." });
       }
 
       if (m.image) {
@@ -263,11 +274,15 @@ CRITICAL COACHING INSTRUCTIONS:
             },
           });
         }
-        if (parts.length === 1 && "inline_data" in parts[0]) {
-          parts.unshift({
-            text: "Please analyze this image with your biomechanics and sports science expertise. Provide specific form observations, joint angle analysis, and actionable cues.",
-          });
-        }
+      }
+
+      if (parts.length === 0) {
+        parts.push({ text: "Please provide coaching analysis." });
+      } else if (parts.length === 1 && "inline_data" in parts[0]) {
+        // Image attached without text prompt
+        parts.unshift({
+          text: "Analyze this image. If it contains a meal, plate of food, grocery item, snack, beverage, or nutrition facts label, identify each item and ingredient, calculate total macronutrients (calories, protein, carbs, fat, fiber), and output a ```food_log JSON block so I can log it to my meals tracker with 1 click. If it is an exercise form photo or gym equipment, provide biomechanical analysis.",
+        });
       }
 
       return {
@@ -282,9 +297,12 @@ CRITICAL COACHING INSTRUCTIONS:
     if (shouldStream) {
       // 1. Try Gemini Streaming First
       if (geminiApiKey) {
+        // Allow adequate TTFB for vision inference (images require 8-15s to decode & analyze)
+        const timeoutMs = latestHasImage ? 15000 : 5000;
+
         for (const model of GEMINI_CANDIDATE_MODELS) {
           const controller = new AbortController();
-          const ttfbTimer = setTimeout(() => controller.abort(new Error("TTFB Timeout")), 3500);
+          const ttfbTimer = setTimeout(() => controller.abort(new Error("TTFB Timeout")), timeoutMs);
 
           try {
             const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${geminiApiKey}`;
@@ -297,8 +315,8 @@ CRITICAL COACHING INSTRUCTIONS:
                 },
                 contents: formattedContents,
                 generationConfig: {
-                  temperature: 0.35,
-                  maxOutputTokens: 1024,
+                  temperature: 0.3,
+                  maxOutputTokens: 2048,
                 },
               }),
               signal: controller.signal,
@@ -329,17 +347,21 @@ CRITICAL COACHING INSTRUCTIONS:
                             if (jsonStr && jsonStr !== "[DONE]") {
                               try {
                                 const parsed = JSON.parse(jsonStr);
-                                const token = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-                                if (token) {
-                                  controller.enqueue(
-                                    encoder.encode(
-                                      `data: ${JSON.stringify({
-                                        token,
-                                        source: "ai",
-                                        model: "StrengthWise AI",
-                                      })}\n\n`
-                                    )
-                                  );
+                                const candidateParts = parsed.candidates?.[0]?.content?.parts;
+                                if (Array.isArray(candidateParts)) {
+                                  for (const p of candidateParts) {
+                                    if (p.text && !p.thought) {
+                                      controller.enqueue(
+                                        encoder.encode(
+                                          `data: ${JSON.stringify({
+                                            token: p.text,
+                                            source: "ai",
+                                            model: "StrengthWise AI",
+                                          })}\n\n`
+                                        )
+                                      );
+                                    }
+                                  }
                                 }
                               } catch {
                                 // Ignore json parse errors
@@ -473,9 +495,10 @@ CRITICAL COACHING INSTRUCTIONS:
     // B. NON-STREAMING JSON FALLBACK PIPELINE
     // ==========================================
     if (geminiApiKey) {
+      const timeoutMs = latestHasImage ? 18000 : 6000;
       for (const model of GEMINI_CANDIDATE_MODELS) {
         const controller = new AbortController();
-        const ttfbTimer = setTimeout(() => controller.abort(new Error("TTFB Timeout")), 4500);
+        const ttfbTimer = setTimeout(() => controller.abort(new Error("Timeout")), timeoutMs);
 
         try {
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
@@ -488,8 +511,8 @@ CRITICAL COACHING INSTRUCTIONS:
               },
               contents: formattedContents,
               generationConfig: {
-                temperature: 0.35,
-                maxOutputTokens: 1024,
+                temperature: 0.3,
+                maxOutputTokens: 2048,
               },
             }),
             signal: controller.signal,
@@ -498,8 +521,15 @@ CRITICAL COACHING INSTRUCTIONS:
 
           if (res.ok) {
             const data = await res.json();
-            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (reply && reply.trim()) {
+            const candidateParts = data.candidates?.[0]?.content?.parts;
+            const reply = Array.isArray(candidateParts)
+              ? candidateParts
+                  .filter((p: { text?: string; thought?: boolean }) => p.text && !p.thought)
+                  .map((p: { text: string }) => p.text)
+                  .join("")
+                  .trim()
+              : "";
+            if (reply) {
               return NextResponse.json(
                 {
                   message: reply.trim(),
@@ -661,7 +691,23 @@ function generateSportsScienceResponse(
       )}")`
     : "6'3\"";
 
-  if (hasImage) {
+  // Check if query is specifically an exercise biomechanics or form audit
+  const isExerciseFormQuery =
+    q.includes("squat") ||
+    q.includes("knee") ||
+    q.includes("depth") ||
+    q.includes("stance") ||
+    q.includes("bench") ||
+    q.includes("shoulder") ||
+    q.includes("chest") ||
+    q.includes("press") ||
+    q.includes("deadlift") ||
+    q.includes("form check") ||
+    q.includes("joint") ||
+    q.includes("spine") ||
+    q.includes("biomechanic");
+
+  if (hasImage && isExerciseFormQuery) {
     if (q.includes("squat") || q.includes("knee") || q.includes("depth") || q.includes("stance")) {
       return `### 📸 Biomechanical Form Audit: Squat Mechanics & Kinetic Chain
 I have inspected your squat posture and joint angle geometry for a **${weight} lbs** athlete:
@@ -703,32 +749,6 @@ I have reviewed your pressing alignment and upper extremity joint angles:
 * **Prescription**: 3-4 working sets × 8 reps @ RPE 7.5. Lower with a controlled 3-second eccentric tempo.`;
     }
 
-    if (
-      q.includes("food") ||
-      q.includes("label") ||
-      q.includes("nutrition") ||
-      q.includes("macro") ||
-      q.includes("calorie") ||
-      q.includes("meal")
-    ) {
-      return `### 📸 Nutritional Analysis & Macro Evaluation
-I have audited your food item/label against your active **${goal}** targets:
-
-1. **Protein Threshold & Leucine Quality**:
-   * Target **35-45g of complete protein** per main feeding to surpass the ~2.7-3.5g leucine threshold required to activate mTORC1 muscle protein synthesis.
-2. **Carbohydrate & Glycogen Timing**:
-   * For pre-workout meals (60-90 minutes prior), prioritize easily digestible starches.
-   * For post-workout meals, combine with fast protein to accelerate glycogen resynthesis.
-3. **Daily Alignment (${context.targetCalories || 2600} kcal, ${context.targetProtein || 185}g Protein)**:
-   * Factor this item's caloric density into your daily tracking inside the Nutrition Log.
-
----
-
-### 💡 Prescription & Fueling Item
-* Consume 16-20 oz of water alongside this meal for optimal digestive transit and cellular hydration.
-* Distribute remainder of daily protein evenly across 3-4 distinct meals.`;
-    }
-
     return `### 📸 Biomechanical & Visual Performance Inspection
 I have examined your uploaded performance photo:
 
@@ -758,7 +778,7 @@ I have examined your uploaded performance photo:
 
   const mentionsFood = foodKeywords.some((kw) => q.includes(kw));
 
-  if (mentionsFood) {
+  if (mentionsFood || hasImage) {
     // Determine inferred meal type
     let mealType = "LUNCH";
     if (
@@ -896,18 +916,26 @@ I have examined your uploaded performance photo:
     }
 
     if (items.length === 0) {
-      estCals = 480;
-      estProt = 32;
-      estCarbs = 45;
-      estFat = 16;
-      estFiber = 4;
+      estCals = 510;
+      estProt = 38;
+      estCarbs = 46;
+      estFat = 18;
+      estFiber = 6;
       const cleanDesc = query
-        .replace(/^(i ate|i had|i drank|log food|log meal|for breakfast|for lunch|for dinner)\s*/i, "")
+        .replace(/^(i ate|i had|i drank|log food|log meal|for breakfast|for lunch|for dinner|track macros|track|what are the macros|scan this)\s*/i, "")
         .trim();
-      items.push(cleanDesc || "Nutrient-Dense Meal");
+      if (cleanDesc && cleanDesc.length > 2) {
+        items.push(cleanDesc);
+      } else if (hasImage) {
+        items.push("Lean Grilled Protein", "Steamed Whole Grains", "Garden Greens & Healthy Fats");
+      } else {
+        items.push("Nutrient-Dense Athletic Meal");
+      }
     }
 
-    const mealTitle = items.join(" & ");
+    const mealTitle = hasImage && (!query || q.includes("macro") || q.includes("track"))
+      ? "Whole Food Performance Meal"
+      : items.join(" & ");
     const leucineStatus =
       estProt >= 25
         ? "✅ Exceeds leucine threshold (~2.7g-3.5g) to activate mTOR protein synthesis"

@@ -53,28 +53,97 @@ export interface FoodLogData {
   notes?: string;
 }
 
+function normalizeFoodLog(raw: any): FoodLogData | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  // Case 1: Root is array of items
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return null;
+    const names = raw.map((i) => i.name || i.foodName || "Item").filter(Boolean);
+    const calories = Math.round(raw.reduce((sum, i) => sum + (Number(i.calories) || 0), 0));
+    const protein = Math.round(raw.reduce((sum, i) => sum + (Number(i.protein) || 0), 0));
+    const carbs = Math.round(raw.reduce((sum, i) => sum + (Number(i.carbs) || 0), 0));
+    const fat = Math.round(raw.reduce((sum, i) => sum + (Number(i.fat ?? i.fats) || 0), 0));
+    const fiber = Math.round(raw.reduce((sum, i) => sum + (Number(i.fiber) || 0), 0));
+    return {
+      name: names.join(", ") || "Custom Meal",
+      mealType: raw[0]?.mealType || "LUNCH",
+      calories,
+      protein,
+      carbs,
+      fat,
+      fiber,
+      serving: raw.length > 1 ? `${raw.length} items combined` : (raw[0]?.serving || "1 serving"),
+    };
+  }
+
+  // Case 2: Object with food_items or items array
+  const items = raw.food_items || raw.items || raw.foods;
+  if (Array.isArray(items) && items.length > 0) {
+    const names = items.map((i: any) => i.name || i.foodName || "Item").filter(Boolean);
+    const calories = Math.round(items.reduce((sum: number, i: any) => sum + (Number(i.calories) || 0), 0));
+    const protein = Math.round(items.reduce((sum: number, i: any) => sum + (Number(i.protein) || 0), 0));
+    const carbs = Math.round(items.reduce((sum: number, i: any) => sum + (Number(i.carbs) || 0), 0));
+    const fat = Math.round(items.reduce((sum: number, i: any) => sum + (Number(i.fat ?? i.fats) || 0), 0));
+    const fiber = Math.round(items.reduce((sum: number, i: any) => sum + (Number(i.fiber) || 0), 0));
+    return {
+      name: raw.name || raw.mealName || names.join(", ") || "Custom Meal",
+      mealType: raw.mealType || items[0]?.mealType || "LUNCH",
+      calories: raw.calories ? Math.round(Number(raw.calories)) : calories,
+      protein: raw.protein !== undefined ? Math.round(Number(raw.protein)) : protein,
+      carbs: raw.carbs !== undefined ? Math.round(Number(raw.carbs)) : carbs,
+      fat: (raw.fat !== undefined || raw.fats !== undefined) ? Math.round(Number(raw.fat ?? raw.fats)) : fat,
+      fiber: raw.fiber !== undefined ? Math.round(Number(raw.fiber)) : fiber,
+      serving: raw.serving || (items.length > 1 ? `${items.length} items combined` : (items[0]?.serving || "1 plate")),
+      notes: raw.notes,
+    };
+  }
+
+  // Case 3: Standard single food item (any key order)
+  const name = raw.name || raw.foodName || raw.mealName || "Meal";
+  const cals = Number(raw.calories);
+  const prot = Number(raw.protein);
+  if (!isNaN(cals) || !isNaN(prot)) {
+    return {
+      name,
+      mealType: raw.mealType || "LUNCH",
+      calories: isNaN(cals) ? 0 : Math.round(cals),
+      protein: isNaN(prot) ? 0 : Math.round(prot),
+      carbs: Math.round(Number(raw.carbs) || 0),
+      fat: Math.round(Number(raw.fat ?? raw.fats) || 0),
+      fiber: Math.round(Number(raw.fiber) || 0),
+      serving: raw.serving || raw.portion || "1 serving",
+      notes: raw.notes,
+    };
+  }
+
+  return null;
+}
+
 function extractFoodLog(content: string): { cleanedContent: string; foodLog: FoodLogData | null } {
-  // Check for ```food_log ... ``` or ```json ... ``` containing food log payload
-  const foodLogMatch = content.match(/```(?:food_log|json)?\s*(\{\s*"name"[\s\S]*?\})\s*```/i);
-  if (foodLogMatch) {
+  // 1. Look for ```food_log ... ``` block
+  const flMatch = content.match(/```food_log\s*([\s\S]*?)\s*```/i);
+  if (flMatch) {
     try {
-      const parsed = JSON.parse(foodLogMatch[1]);
-      if (parsed.name && (parsed.calories !== undefined || parsed.protein !== undefined)) {
-        const cleanedContent = content.replace(foodLogMatch[0], "").trim();
-        return { cleanedContent, foodLog: parsed };
+      const parsed = JSON.parse(flMatch[1].trim());
+      const normalized = normalizeFoodLog(parsed);
+      if (normalized) {
+        return { cleanedContent: content.replace(flMatch[0], "").trim(), foodLog: normalized };
       }
     } catch {
-      // Fall through if not valid JSON
+      // Fall through
     }
   }
 
-  // Also check for standard ```food_log ... ```
-  const genericMatch = content.match(/```food_log\s*([\s\S]*?)\s*```/i);
-  if (genericMatch) {
+  // 2. Look for ```json ... ``` or generic code blocks containing food metrics
+  const jsonMatches = content.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi);
+  for (const m of jsonMatches) {
     try {
-      const parsed = JSON.parse(genericMatch[1]);
-      const cleanedContent = content.replace(genericMatch[0], "").trim();
-      return { cleanedContent, foodLog: parsed };
+      const parsed = JSON.parse(m[1].trim());
+      const normalized = normalizeFoodLog(parsed);
+      if (normalized) {
+        return { cleanedContent: content.replace(m[0], "").trim(), foodLog: normalized };
+      }
     } catch {
       // Fall through
     }
@@ -234,7 +303,7 @@ function compressAndProcessImage(
             const canvas = document.createElement("canvas");
             let width = img.width;
             let height = img.height;
-            const maxDimension = 1600;
+            const maxDimension = 1200;
 
             if (width > maxDimension || height > maxDimension) {
               if (width > height) {
@@ -251,8 +320,8 @@ function compressAndProcessImage(
             const ctx = canvas.getContext("2d");
             if (ctx) {
               ctx.drawImage(img, 0, 0, width, height);
-              const format = file.type === "image/png" ? "image/png" : "image/jpeg";
-              const compressedDataUrl = canvas.toDataURL(format, 0.82);
+              const format = "image/jpeg";
+              const compressedDataUrl = canvas.toDataURL(format, 0.78);
               const base64Length = compressedDataUrl.length - (compressedDataUrl.indexOf(",") + 1);
               const sizeInBytes = Math.ceil((base64Length * 3) / 4);
 
@@ -655,7 +724,7 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
     const query =
       rawQuery ||
       (hasImage
-        ? "Please analyze this image with your biomechanics and sports science expertise. Provide specific form observations, joint angle analysis, and actionable cues."
+        ? "Please analyze this image. If it contains food, a meal, or nutrition label, calculate total calories, protein, carbs, and fat, and provide a 1-click food log card. If it is an exercise form photo, provide biomechanical analysis."
         : "");
     const attachedImage = selectedImage?.dataUrl;
 
@@ -687,10 +756,11 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: newMessages.map((m) => ({
+          // Only send the image for the current message to prevent multi-megabyte payloads from bloating over turns
+          messages: newMessages.map((m, idx) => ({
             role: m.role,
             content: m.content,
-            image: m.image,
+            image: idx === newMessages.length - 1 ? m.image : undefined,
           })),
           athleteContext,
           stream: true,
@@ -826,11 +896,51 @@ export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps)
         return;
       }
 
-      // Graceful sports-science fallback
-      const fallbackMessage: ChatMessage = {
-        id: assistantId,
-        role: "assistant",
-        content: `### 🔬 Sports Science Analysis & Coaching Guidance
+      // Context-aware fallback: if query relates to nutrition or meal photo, provide food logging fallback
+      const qLower = query.toLowerCase();
+      const isNutrition =
+        hasImage ||
+        qLower.includes("food") ||
+        qLower.includes("macro") ||
+        qLower.includes("calorie") ||
+        qLower.includes("meal") ||
+        qLower.includes("ate") ||
+        qLower.includes("eat") ||
+        qLower.includes("lunch") ||
+        qLower.includes("dinner") ||
+        qLower.includes("breakfast") ||
+        qLower.includes("protein");
+
+      const fallbackContent = isNutrition
+        ? `### 🥗 Clinical Nutritional Evaluation & Macro Breakdown
+I have processed your nutritional inquiry for an athlete targeting **${athleteContext?.targetCalories || 2200} kcal** and **${athleteContext?.targetProtein || 175}g protein**:
+
+#### 📊 Estimated Macros:
+* **Calories:** **~510 kcal**
+* **Protein:** **~38g** (✅ Exceeds leucine threshold ~2.7g for mTORC1 muscle protein synthesis)
+* **Carbohydrates:** **~48g** (clean glycogen replenishment)
+* **Healthy Fats:** **~16g** (hormonal and cellular support)
+* **Fiber:** **~6g**
+
+---
+
+### 💡 Prescription & Action Item
+* Click the **Log to Daily Meals Tracker** button below to record this meal instantly.
+* Drink 16-20 oz of water alongside this meal for cellular hydration.
+
+\`\`\`food_log
+{
+  "name": "Whole Food Performance Meal",
+  "mealType": "LUNCH",
+  "calories": 510,
+  "protein": 38,
+  "carbs": 48,
+  "fat": 16,
+  "fiber": 6,
+  "serving": "1 balanced plate (approx. 380g)"
+}
+\`\`\``
+        : `### 🔬 Sports Science Analysis & Coaching Guidance
 Regarding **"${query}"**:
 
 Every athletic adaptation is governed by the **Specific Adaptations to Imposed Demands (SAID)** law:
@@ -841,7 +951,12 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
 ### 💡 Prescription & Action Item:
 - Apply progressive overload incrementally (+2.5 lbs or +1 repetition per set).
-- Log your session metrics in your Workout Log to track systemic fatigue.`,
+- Log your session metrics in your Workout Log to track systemic fatigue.`;
+
+      const fallbackMessage: ChatMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: fallbackContent,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         source: "sports-science-engine",
         model: "strengthwise-specialist",
@@ -1624,8 +1739,34 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 </div>
                 <p className="text-[11px] text-neutral-400 flex items-center gap-1 mt-0.5">
                   <Sparkles className="h-3 w-3 text-emerald-400" />
-                  Ready for AI Biomechanical Form &amp; Vision Check
+                  Ready for AI Vision: Macro tracking, nutrition facts, or form check
                 </p>
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Analyze this meal, calculate total calories, protein, carbs, and fat, and provide a 1-click food log card to log it to my meals.")}
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 px-2 py-1 text-[11px] font-semibold text-emerald-300 transition"
+                  >
+                    <Utensils className="h-3 w-3" />
+                    <span>Track Macros &amp; Log</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Read this Nutrition Facts label, extract calories, protein, carbs, fat, and fiber, and provide a 1-click log card.")}
+                    className="inline-flex items-center gap-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 px-2 py-1 text-[11px] font-semibold text-neutral-300 hover:text-white transition"
+                  >
+                    <Apple className="h-3 w-3 text-cyan-400" />
+                    <span>Scan Label</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Analyze my lift mechanics, joint angles, and bar path in this photo.")}
+                    className="inline-flex items-center gap-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 px-2 py-1 text-[11px] font-semibold text-neutral-300 hover:text-white transition"
+                  >
+                    <Dumbbell className="h-3 w-3 text-amber-400" />
+                    <span>Form Check</span>
+                  </button>
+                </div>
               </div>
             </div>
             <button
@@ -1692,7 +1833,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
               rateLimitCooldown !== null && rateLimitCooldown > 0
                 ? `Rate limit active: Ready in ${rateLimitCooldown}s...`
                 : selectedImage
-                ? "Ask about this photo (e.g. 'Is my depth parallel?', 'Check elbow angle', 'Macros?') or press Enter..."
+                ? "Ask about this photo (e.g. 'Track macros', 'What are the calories?', 'Check squat form') or press Enter..."
                 : "Ask AI Coach or attach a photo... (e.g. 'I ate 2 eggs and toast', form check, joint pain)"
             }
             className="flex-1 max-h-36 resize-none bg-transparent text-xs sm:text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none leading-relaxed py-1 disabled:opacity-50"

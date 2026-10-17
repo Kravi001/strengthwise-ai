@@ -85,8 +85,14 @@ Return ONLY valid JSON matching this exact structure with no markdown backticks,
   "notes": "Short explanation of detected values and Atwater validation"
 }`;
 
-    // Call Gemini 3.5 Flash (with fallback to 3.1-flash-lite)
-    const geminiModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite"];
+    // Call Gemini multimodal vision models in order of precision and speed
+    const geminiModels = [
+      "gemini-3.8-flash",
+      "gemini-3.5-flash",
+      "gemini-flash-latest",
+      "gemini-3.5-flash-lite",
+      "gemini-flash-lite-latest",
+    ];
     let candidateText = "";
 
     for (const model of geminiModels) {
@@ -118,8 +124,14 @@ Return ONLY valid JSON matching this exact structure with no markdown backticks,
 
         if (geminiRes.ok) {
           const geminiData = await geminiRes.json();
-          candidateText =
-            geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+          const candidateParts = geminiData.candidates?.[0]?.content?.parts;
+          candidateText = Array.isArray(candidateParts)
+            ? candidateParts
+                .filter((p: { text?: string; thought?: boolean }) => p.text && !p.thought)
+                .map((p: { text: string }) => p.text)
+                .join("")
+                .trim()
+            : "";
           if (candidateText) break;
         }
       } catch (callErr) {
