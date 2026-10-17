@@ -27,6 +27,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { FoodItem } from "@/lib/usda-foods";
+import { processImageFile } from "@/lib/image-processing";
 
 interface FoodScannerModalProps {
   isOpen: boolean;
@@ -333,18 +334,22 @@ export function FoodScannerModal({
     }
   };
 
-  // 6. Image File Upload Handler
+  // 6. Image File Upload Handler (with HEIC support & compression)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      setScannedImagePreview(dataUrl);
-      await analyzeImageWithAI(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const processed = await processImageFile(file);
+      if (processed && processed.dataUrl) {
+        setScannedImagePreview(processed.dataUrl);
+        await analyzeImageWithAI(processed.dataUrl);
+      }
+    } catch (err: unknown) {
+      console.warn("Error processing food scan image:", err);
+    } finally {
+      if (e.target) e.target.value = "";
+    }
   };
 
 

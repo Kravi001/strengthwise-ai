@@ -914,6 +914,50 @@ I have examined your uploaded performance photo:
       estFiber += 2;
       items.push("2 tbsp peanut butter");
     }
+    if (q.includes("bean") || q.includes("legume")) {
+      estCals += 130;
+      estProt += 8;
+      estCarbs += 23;
+      estFat += 0.8;
+      estFiber += 7;
+      items.push("1/2 cup beans");
+    }
+    if (q.includes("pasta") || q.includes("noodle") || q.includes("spaghetti")) {
+      estCals += 220;
+      estProt += 8;
+      estCarbs += 43;
+      estFat += 1.2;
+      estFiber += 2.5;
+      items.push("1 cup pasta");
+    }
+    if (q.includes("turkey")) {
+      estCals += 210;
+      estProt += 36;
+      estFat += 6;
+      items.push("6oz lean ground turkey");
+    }
+    if (q.includes("tuna")) {
+      estCals += 150;
+      estProt += 33;
+      estFat += 1.5;
+      items.push("1 can light tuna");
+    }
+    if (q.includes("chickpea") || q.includes("hummus") || q.includes("lentil")) {
+      estCals += 140;
+      estProt += 7.5;
+      estCarbs += 22;
+      estFat += 2;
+      estFiber += 6;
+      items.push("1/2 cup chickpeas/lentils");
+    }
+    if (q.includes("broccoli") || q.includes("veggie") || q.includes("vegetable") || q.includes("salad") || q.includes("spinach")) {
+      estCals += 45;
+      estProt += 3;
+      estCarbs += 8;
+      estFat += 0.5;
+      estFiber += 4;
+      items.push("Steamed garden vegetables");
+    }
 
     if (items.length === 0) {
       estCals = 510;

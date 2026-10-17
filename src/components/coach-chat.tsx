@@ -29,6 +29,7 @@ import {
   Flame,
 } from "lucide-react";
 import { getLocalDateString } from "@/lib/date";
+import { processImageFile as compressAndProcessImage } from "@/lib/image-processing";
 
 export interface ChatMessage {
   id: string;
@@ -271,107 +272,6 @@ I have full contextual integration with your biometrics, daily macros, and worko
   source: "ai",
   model: "StrengthWise AI",
 };
-
-/**
- * Bulletproof client-side image processing.
- * Tries canvas compression to ~150-300KB for fast uploads;
- * if canvas is unsupported or fails (HEIC, iOS memory), gracefully falls back to raw data URL.
- * NEVER rejects or throws errors.
- */
-function compressAndProcessImage(
-  file: File
-): Promise<{ dataUrl: string; name: string; sizeKb: number }> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const rawDataUrl = (e.target?.result as string) || "";
-      if (!rawDataUrl) {
-        resolve({
-          dataUrl: "",
-          name: file.name,
-          sizeKb: Math.round(file.size / 1024),
-        });
-        return;
-      }
-
-      // Attempt HTML5 Canvas compression
-      try {
-        const img = new window.Image();
-        img.onload = () => {
-          try {
-            const canvas = document.createElement("canvas");
-            let width = img.width;
-            let height = img.height;
-            const maxDimension = 1200;
-
-            if (width > maxDimension || height > maxDimension) {
-              if (width > height) {
-                height = Math.round((height * maxDimension) / width);
-                width = maxDimension;
-              } else {
-                width = Math.round((width * maxDimension) / height);
-                height = maxDimension;
-              }
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, width, height);
-              const format = "image/jpeg";
-              const compressedDataUrl = canvas.toDataURL(format, 0.78);
-              const base64Length = compressedDataUrl.length - (compressedDataUrl.indexOf(",") + 1);
-              const sizeInBytes = Math.ceil((base64Length * 3) / 4);
-
-              resolve({
-                dataUrl: compressedDataUrl,
-                name: file.name,
-                sizeKb: Math.round(sizeInBytes / 1024),
-              });
-              return;
-            }
-          } catch {
-            // Fallback to raw data URL if canvas fails
-          }
-          resolve({
-            dataUrl: rawDataUrl,
-            name: file.name,
-            sizeKb: Math.round(file.size / 1024),
-          });
-        };
-
-        img.onerror = () => {
-          // Fallback to raw data URL if image element fails
-          resolve({
-            dataUrl: rawDataUrl,
-            name: file.name,
-            sizeKb: Math.round(file.size / 1024),
-          });
-        };
-
-        img.src = rawDataUrl;
-      } catch {
-        resolve({
-          dataUrl: rawDataUrl,
-          name: file.name,
-          sizeKb: Math.round(file.size / 1024),
-        });
-      }
-    };
-
-    reader.onerror = () => {
-      resolve({
-        dataUrl: "",
-        name: file.name,
-        sizeKb: Math.round(file.size / 1024),
-      });
-    };
-
-    reader.readAsDataURL(file);
-  });
-}
 
 export function CoachChat({ athleteContext, hasProfile = true }: CoachChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1594,8 +1494,19 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                           >
                             <img
                               src={msg.image}
-                              alt="Attached form check or nutrition photo"
+                              alt="Attached photo"
                               className="max-h-60 w-auto object-cover rounded-xl transition duration-200 group-hover/img:scale-[1.02]"
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                target.style.display = "none";
+                                const parent = target.parentElement;
+                                if (parent && !parent.querySelector(".img-fallback")) {
+                                  const fallback = document.createElement("div");
+                                  fallback.className = "img-fallback p-3 flex items-center gap-2 text-xs text-emerald-300 font-mono";
+                                  fallback.innerText = "📸 Photo Attached";
+                                  parent.appendChild(fallback);
+                                }
+                              }}
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center gap-1.5 text-[11px] font-semibold text-white backdrop-blur-[1px]">
                               <Maximize2 className="h-4 w-4 text-emerald-400" />
