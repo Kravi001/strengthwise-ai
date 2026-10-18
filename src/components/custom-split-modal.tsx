@@ -166,15 +166,15 @@ export function CustomSplitModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-neutral-950/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 animate-in fade-in duration-150 ease-out">
       <div
-        className="relative w-full max-w-2xl rounded-3xl border border-neutral-800 bg-neutral-900/95 p-5 sm:p-7 shadow-2xl space-y-6 text-neutral-100 max-h-[92vh] overflow-y-auto"
+        className="relative w-full max-w-2xl rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:p-7 shadow-xl space-y-6 text-neutral-100 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between pb-3 border-b border-neutral-800">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300">
               <Layers className="h-5 w-5" />
             </div>
             <div>
@@ -182,7 +182,7 @@ export function CustomSplitModal({
                 <h3 className="text-base sm:text-lg font-bold text-white">
                   Custom Split Builder
                 </h3>
-                <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                <span className="text-[10px] text-neutral-300 font-mono bg-neutral-800 border border-neutral-700 px-2 py-0.5 rounded">
                   Personalized Routine
                 </span>
               </div>
@@ -194,7 +194,7 @@ export function CustomSplitModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
+            className="rounded-xl p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors duration-150 ease-out"
           >
             <X className="h-5 w-5" />
           </button>
@@ -202,7 +202,7 @@ export function CustomSplitModal({
 
         {/* Notifications */}
         {errorMsg && (
-          <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+          <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{errorMsg}</span>
           </div>
@@ -215,10 +215,10 @@ export function CustomSplitModal({
         )}
 
         {/* Template Starter Presets */}
-        <div className="space-y-2 rounded-2xl border border-neutral-800/80 bg-neutral-950/60 p-3.5">
+        <div className="space-y-2 rounded-2xl border border-neutral-800 bg-neutral-950 p-3.5">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+              <Sparkles className="h-3.5 w-3.5 text-neutral-400" />
               <span>Seed From Starter Template:</span>
             </label>
             <span className="text-[10px] text-neutral-500">1-click populate &amp; customize</span>
@@ -229,7 +229,7 @@ export function CustomSplitModal({
                 key={tmpl.id}
                 type="button"
                 onClick={() => handleLoadTemplate(tmpl.split)}
-                className="text-xs px-2.5 py-1.5 rounded-xl border border-neutral-800 bg-neutral-900/90 text-neutral-300 hover:border-cyan-500/50 hover:text-cyan-300 transition font-medium flex items-center gap-1.5"
+                className="text-xs px-2.5 py-1.5 rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-700 hover:text-white transition-colors duration-150 ease-out font-medium flex items-center gap-1.5"
               >
                 <span>{tmpl.name}</span>
                 <span className="text-[10px] text-neutral-500 font-mono">({tmpl.daysCount}D)</span>
@@ -251,7 +251,7 @@ export function CustomSplitModal({
                 placeholder="e.g. My Arnold Classic Split, Push/Pull Strength..."
                 value={splitName}
                 onChange={(e) => setSplitName(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-cyan-500 focus:outline-none transition"
+                className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
               />
             </div>
             <div className="space-y-1.5">
@@ -264,7 +264,7 @@ export function CustomSplitModal({
                 max={30}
                 value={targetSets}
                 onChange={(e) => setTargetSets(Number(e.target.value))}
-                className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none transition"
+                className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
               />
             </div>
           </div>
@@ -279,7 +279,7 @@ export function CustomSplitModal({
               placeholder="e.g. Focused on chest/lat hypertrophy with high frequency arm volume."
               value={splitDescription}
               onChange={(e) => setSplitDescription(e.target.value)}
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2 text-xs text-neutral-300 placeholder:text-neutral-600 focus:border-cyan-500 focus:outline-none transition"
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2 text-xs text-neutral-300 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
             />
           </div>
 
@@ -295,7 +295,7 @@ export function CustomSplitModal({
               <button
                 type="button"
                 onClick={handleAddDay}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 transition"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition-colors duration-150 ease-out"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Add Day</span>
@@ -306,7 +306,7 @@ export function CustomSplitModal({
               {days.map((day, idx) => (
                 <div
                   key={idx}
-                  className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-3.5 sm:p-4 space-y-3 relative group"
+                  className="rounded-2xl border border-neutral-800 bg-neutral-950 p-3.5 sm:p-4 space-y-3 relative group"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 flex-1">
@@ -319,14 +319,14 @@ export function CustomSplitModal({
                         placeholder={`Day ${idx + 1}: Name (e.g. Chest & Biceps)`}
                         value={day.name}
                         onChange={(e) => handleDayChange(idx, "name", e.target.value)}
-                        className="flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-xs font-bold text-emerald-400 placeholder:text-neutral-600 focus:border-cyan-500 focus:outline-none transition"
+                        className="flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-xs font-bold text-white placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                       />
                     </div>
                     {days.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveDay(idx)}
-                        className="rounded-lg p-1.5 text-neutral-600 hover:text-red-400 hover:bg-neutral-800 transition"
+                        className="rounded-lg p-1.5 text-neutral-500 hover:text-rose-400 hover:bg-neutral-850 transition-colors duration-150 ease-out"
                         title="Remove Day"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -344,7 +344,7 @@ export function CustomSplitModal({
                       placeholder="e.g. Incline DB Bench (4×8-10), Barbell Row (4×8), Lateral Raises (4×15)..."
                       value={day.lifts}
                       onChange={(e) => handleDayChange(idx, "lifts", e.target.value)}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-900 p-2.5 text-xs text-neutral-200 placeholder:text-neutral-600 focus:border-cyan-500 focus:outline-none transition font-mono leading-relaxed"
+                      className="w-full rounded-xl border border-neutral-800 bg-neutral-900 p-2.5 text-xs text-neutral-200 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out font-mono leading-relaxed"
                     />
                   </div>
                 </div>
@@ -357,14 +357,14 @@ export function CustomSplitModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white transition"
+              className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white transition-colors duration-150 ease-out"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-bold text-neutral-950 hover:bg-cyan-400 disabled:opacity-50 transition shadow-lg shadow-cyan-500/20"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 disabled:opacity-50 transition-colors duration-150 ease-out shadow-sm"
             >
               <Zap className="h-4 w-4 text-neutral-950 fill-neutral-950" />
               <span>{isSubmitting ? "Saving Split..." : "Save & Activate Custom Split"}</span>

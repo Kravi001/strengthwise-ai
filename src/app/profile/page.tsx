@@ -169,6 +169,19 @@ export default function ProfilePage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerFood, setScannerFood] = useState<FoodItem | null>(null);
 
+  // Protected Action Redirect Target
+  const [redirectTarget, setRedirectTarget] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get("redirect");
+      if (r && r.startsWith("/")) {
+        setRedirectTarget(r);
+      }
+    }
+  }, []);
+
   // 1. Metric conversions for sports science formulas
   const numWeightLbs = Number(currentWeightLbs) || 185;
   const numWeightKg = numWeightLbs / 2.20462;
@@ -388,10 +401,11 @@ export default function ProfilePage() {
 
     try {
       const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const nextTarget = redirectTarget || "/profile";
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?next=/profile`,
+          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextTarget)}`,
         },
       });
 
@@ -445,7 +459,7 @@ export default function ProfilePage() {
               full_name: fullNameClean,
               name: fullNameClean,
             },
-            emailRedirectTo: `${origin}/auth/callback?next=/profile`,
+            emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(redirectTarget || "/profile")}`,
           },
         });
 
@@ -459,7 +473,12 @@ export default function ProfilePage() {
           setUser(data.session.user);
           hydrateFromGoogle(data.session.user);
           setFirstName(fullNameClean.split(" ")[0] || usernameClean);
-          setAuthSuccessMsg("Account created and profile ready to customize!");
+          setAuthSuccessMsg(redirectTarget ? `Account created! Redirecting to ${redirectTarget}...` : "Account created and profile ready to customize!");
+          if (redirectTarget) {
+            setTimeout(() => {
+              router.push(redirectTarget);
+            }, 600);
+          }
         } else {
           setEmailConfirmationSent(true);
           setAuthSuccessMsg("Account created! Check your email or use Instant Dev Verify below.");
@@ -516,7 +535,12 @@ export default function ProfilePage() {
         if (data.user) {
           setUser(data.user);
           hydrateFromGoogle(data.user);
-          setAuthSuccessMsg("Signed in! Loading your profile...");
+          setAuthSuccessMsg(redirectTarget ? `Signed in! Redirecting to ${redirectTarget}...` : "Signed in! Loading your profile...");
+          if (redirectTarget) {
+            setTimeout(() => {
+              router.push(redirectTarget);
+            }, 600);
+          }
         }
       }
     } catch (err: unknown) {
@@ -644,10 +668,14 @@ export default function ProfilePage() {
         window.dispatchEvent(new Event("sw_profile_updated"));
       }
 
-      setSaveSuccess("Athlete profile saved successfully!");
+      setSaveSuccess(redirectTarget ? `Athlete profile saved! Returning to ${redirectTarget}...` : "Athlete profile saved successfully!");
       setTimeout(() => {
-        router.refresh();
-      }, 500);
+        if (redirectTarget) {
+          router.push(redirectTarget);
+        } else {
+          router.refresh();
+        }
+      }, 600);
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : "Failed to save profile. Please verify your connection.");
     } finally {
@@ -667,14 +695,14 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 pb-20 animate-in fade-in duration-300">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 pb-20 animate-in fade-in duration-150 ease-out">
       {/* Top Subheader Navigation */}
-      <header className="border-b border-neutral-800/80 bg-neutral-950/60 backdrop-blur-xl px-4 lg:px-8 py-3.5">
+      <header className="border-b border-neutral-800 bg-neutral-950 px-4 lg:px-8 py-3.5">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white transition font-medium"
+              className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white transition-colors duration-150 ease-out font-medium"
             >
               <ArrowLeft className="h-4 w-4" />
               <span>Back to Dashboard</span>
@@ -693,7 +721,7 @@ export default function ProfilePage() {
                   setScannerFood(null);
                   setIsScannerOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-3.5 py-1.5 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-neutral-950 shadow-sm hover:bg-emerald-400 transition-colors duration-150 ease-out"
               >
                 <Scan className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Barcode &amp; Macro Scanner</span>
@@ -708,7 +736,7 @@ export default function ProfilePage() {
                 </span>
                 <button
                   onClick={handleSignOut}
-                  className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-red-400 transition border border-neutral-800 bg-neutral-900/60 px-2.5 py-1.5 rounded-lg"
+                  className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-rose-400 transition-colors duration-150 ease-out border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 rounded-lg"
                   title="Sign out"
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -741,14 +769,20 @@ export default function ProfilePage() {
             </div>
 
             {/* Profile Auth Card */}
-            <Card className="bg-neutral-900/90 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur-xl rounded-2xl">
+            <Card className="bg-neutral-900 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-sm rounded-2xl">
+              {redirectTarget && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-400 flex items-center justify-between">
+                  <span>Sign in or create profile to save your progress on <strong className="text-white font-mono">{redirectTarget}</strong>.</span>
+                </div>
+              )}
+
               {/* Google OAuth Button */}
               <div className="space-y-2">
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={googleLoading}
-                  className="w-full flex items-center justify-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 hover:border-emerald-500/40 px-5 py-3 text-sm font-semibold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors duration-150 ease-out disabled:opacity-50"
                 >
                   {googleLoading ? (
                     <RefreshCw className="h-4 w-4 animate-spin text-emerald-400" />
@@ -958,7 +992,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={authSubmitting}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 px-5 py-3 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-5 py-3 text-sm font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out disabled:opacity-50"
                 >
                   {authSubmitting ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1033,14 +1067,13 @@ export default function ProfilePage() {
         {user && !authLoading && (
           <div className="space-y-8">
             {/* Authenticated Identity Banner */}
-            <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-neutral-900 to-cyan-950/30 p-6 md:p-8 shadow-2xl">
-              <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+            <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 p-6 md:p-8 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
                 <div className="flex items-center gap-4">
                   {avatar?.startsWith("data:") || avatar?.startsWith("http") ? (
-                    <img src={avatar} alt="Avatar" className="h-16 w-16 rounded-2xl object-cover border-2 border-emerald-500/40 shadow-lg" />
+                    <img src={avatar} alt="Avatar" className="h-16 w-16 rounded-2xl object-cover border border-neutral-700 shadow-sm" />
                   ) : (
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-900 border border-emerald-500/30 text-3xl shadow-inner">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-950 border border-neutral-800 text-3xl shadow-inner">
                       {avatar || "🏋️‍♂️"}
                     </div>
                   )}
@@ -1061,9 +1094,9 @@ export default function ProfilePage() {
                       {calculatedTargets.targetCalories} <span className="text-xs text-neutral-500 font-normal">kcal</span>
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 px-4 py-2 text-center">
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-center">
                     <div className="text-[10px] uppercase font-mono text-neutral-400">Active Split</div>
-                    <div className="text-lg font-black font-mono text-cyan-400 truncate max-w-[130px]">
+                    <div className="text-lg font-black font-mono text-white truncate max-w-[130px]">
                       {isCustomSplit ? "Custom Split" : `${splitDays}D Split`}
                     </div>
                   </div>
@@ -1076,10 +1109,10 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("profile")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 ease-out ${
                   activeTab === "profile"
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm"
-                    : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 shadow-sm"
+                    : "text-neutral-400 hover:text-white hover:bg-neutral-800"
                 }`}
               >
                 <UserIcon className="h-4 w-4" />
@@ -1089,10 +1122,10 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("usda-database")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 ease-out ${
                   activeTab === "usda-database"
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-sm"
-                    : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 shadow-sm"
+                    : "text-neutral-400 hover:text-white hover:bg-neutral-800"
                 }`}
               >
                 <Database className="h-4 w-4" />
@@ -1153,10 +1186,10 @@ export default function ProfilePage() {
                             key={p}
                             type="button"
                             onClick={() => setAvatar(p)}
-                            className={`flex h-11 w-11 items-center justify-center rounded-xl border text-xl transition hover:scale-105 ${
+                            className={`flex h-11 w-11 items-center justify-center rounded-xl border text-xl transition-colors duration-150 ease-out ${
                               avatar === p
-                                ? "border-emerald-500 bg-emerald-500/20 shadow-md shadow-emerald-500/20"
-                                : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
+                                ? "border-emerald-500 bg-emerald-500/10 text-white"
+                                : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
                             }`}
                           >
                             {p}
@@ -1376,7 +1409,7 @@ export default function ProfilePage() {
                   {/* Section 4: Training Split Frequency */}
                   <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 md:p-6 space-y-4">
                     <div className="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700">
                         <Calendar className="h-4 w-4" />
                       </div>
                       <div>
@@ -1401,10 +1434,10 @@ export default function ProfilePage() {
                             setIsCustomSplit(false);
                             setSplitDays(s.days);
                           }}
-                          className={`py-3 px-2 rounded-xl border text-center transition ${
+                          className={`py-3 px-2 rounded-xl border text-center transition-colors duration-150 ease-out ${
                             !isCustomSplit && splitDays === s.days
-                              ? "border-emerald-500 bg-emerald-500/20 shadow-md shadow-emerald-500/20"
-                              : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
+                              ? "border-emerald-500 bg-emerald-500/10 text-white"
+                              : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
                           }`}
                         >
                           <div className="text-base sm:text-lg font-black text-white font-mono">{s.days} Days</div>
@@ -1418,14 +1451,14 @@ export default function ProfilePage() {
                           setIsCustomSplit(true);
                           setSplitDays(customSplit.daysCount || customSplit.days.length || 4);
                         }}
-                        className={`py-3 px-2 rounded-xl border text-center transition col-span-2 sm:col-span-1 ${
+                        className={`py-3 px-2 rounded-xl border text-center transition-colors duration-150 ease-out col-span-2 sm:col-span-1 ${
                           isCustomSplit
-                            ? "border-cyan-500 bg-cyan-500/20 shadow-md shadow-cyan-500/20"
-                            : "border-neutral-800 bg-neutral-950/60 hover:border-neutral-700"
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                            : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
                         }`}
                       >
-                        <div className="text-base sm:text-lg font-black text-cyan-400 font-mono flex items-center justify-center gap-1">
-                          <Sliders className="h-4 w-4" />
+                        <div className="text-base sm:text-lg font-black text-white font-mono flex items-center justify-center gap-1">
+                          <Sliders className="h-4 w-4 text-emerald-400" />
                           <span>Custom</span>
                         </div>
                         <div className="text-[10px] text-neutral-400">
@@ -1435,13 +1468,13 @@ export default function ProfilePage() {
                     </div>
 
                     {isCustomSplit && (
-                      <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-2">
+                      <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-cyan-400 font-mono">{customSplit.name}</span>
+                          <span className="text-xs font-bold text-white font-mono">{customSplit.name}</span>
                           <button
                             type="button"
                             onClick={() => setIsCustomSplitModalOpen(true)}
-                            className="text-xs text-cyan-300 underline font-semibold"
+                            className="text-xs text-emerald-400 underline font-semibold transition-colors duration-150 ease-out hover:text-emerald-300"
                           >
                             Edit Custom Split Days
                           </button>
@@ -1451,13 +1484,13 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Daily Meal Log Reset Time Section */}
-                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-4">
+                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-emerald-400" />
+                        <Clock className="h-4 w-4 text-neutral-400" />
                         <label className="text-sm font-bold text-white">Daily Meal Log Reset Time</label>
                       </div>
-                      <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+                      <span className="text-xs font-mono font-bold text-emerald-400 bg-neutral-950 border border-neutral-800 px-2.5 py-1 rounded-lg">
                         {formatResetTimeDisplay(mealResetTime)}
                       </span>
                     </div>
@@ -1477,10 +1510,10 @@ export default function ProfilePage() {
                           key={preset.time}
                           type="button"
                           onClick={() => setMealResetTime(preset.time)}
-                          className={`py-2.5 px-2 rounded-xl border text-center transition ${
+                          className={`py-2.5 px-2 rounded-xl border text-center transition-colors duration-150 ease-out ${
                             mealResetTime === preset.time
-                              ? "border-emerald-500 bg-emerald-500/20 text-white font-bold"
-                              : "border-neutral-800 bg-neutral-950/60 text-neutral-400 hover:text-white hover:border-neutral-700"
+                              ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
+                              : "border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white hover:border-neutral-700"
                           }`}
                         >
                           <div className="text-xs font-mono">{preset.label}</div>
@@ -1494,7 +1527,7 @@ export default function ProfilePage() {
                         type="time"
                         value={mealResetTime}
                         onChange={(e) => setMealResetTime(e.target.value)}
-                        className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1.5 text-xs text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
+                        className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-1.5 text-xs text-white font-mono font-bold focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                       />
                     </div>
                   </div>
@@ -1504,7 +1537,7 @@ export default function ProfilePage() {
                     <button
                       type="submit"
                       disabled={isSaving}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 px-6 py-3.5 text-sm font-bold text-neutral-950 shadow-lg shadow-emerald-500/20 transition active:scale-[0.99] disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-6 py-3.5 text-sm font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out disabled:opacity-50"
                     >
                       {isSaving ? (
                         <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1518,7 +1551,7 @@ export default function ProfilePage() {
 
                 {/* Right 5 Columns: Calculated Macro Summary */}
                 <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-20">
-                  <Card className="bg-neutral-900/80 border-neutral-800 p-6 space-y-6 shadow-2xl">
+                  <Card className="bg-neutral-900 border-neutral-800 p-6 space-y-6 shadow-sm">
                     <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
                       <div>
                         <div className="inline-flex items-center gap-1 text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold mb-1">
@@ -1529,12 +1562,12 @@ export default function ProfilePage() {
                           Your Target Calorie Profile
                         </h3>
                       </div>
-                      <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-400">
+                      <span className="rounded-lg bg-neutral-800 border border-neutral-700 px-2.5 py-1 text-xs font-mono font-semibold text-neutral-300">
                         {goal === "CUT" ? "-20% Deficit" : goal === "BULK" ? "+10% Surplus" : "Maintenance"}
                       </span>
                     </div>
 
-                    <div className="rounded-2xl bg-neutral-950 p-4 border border-neutral-800/80 space-y-3">
+                    <div className="rounded-2xl bg-neutral-950 p-4 border border-neutral-800 space-y-3">
                       <div className="flex items-baseline justify-between">
                         <span className="text-xs text-neutral-400">Daily Target Calories:</span>
                         <div className="text-right">
@@ -1555,18 +1588,18 @@ export default function ProfilePage() {
                         Target Macronutrient Breakdown
                       </div>
                       <div className="grid grid-cols-3 gap-2">
-                        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-center">
-                          <div className="text-xs font-bold text-cyan-400">Protein</div>
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-center">
+                          <div className="text-xs font-bold text-neutral-300">Protein</div>
                           <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetProtein}g</div>
                           <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.proteinPercent}% kcal</div>
                         </div>
-                        <div className="rounded-xl border border-pink-500/30 bg-pink-500/10 p-3 text-center">
-                          <div className="text-xs font-bold text-pink-400">Carbs</div>
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-center">
+                          <div className="text-xs font-bold text-neutral-300">Carbs</div>
                           <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetCarbs}g</div>
                           <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.carbsPercent}% kcal</div>
                         </div>
-                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-center">
-                          <div className="text-xs font-bold text-amber-400">Fats</div>
+                        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-center">
+                          <div className="text-xs font-bold text-neutral-300">Fats</div>
                           <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetFat}g</div>
                           <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.fatPercent}% kcal</div>
                         </div>
@@ -1581,11 +1614,11 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="pt-2 border-t border-neutral-800 flex items-center justify-between text-xs">
-                      <Link href="/meals" className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1">
+                      <Link href="/meals" className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 transition-colors duration-150 ease-out">
                         <span>Go to Meals Tracker</span>
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Link>
-                      <Link href="/workouts" className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
+                      <Link href="/workouts" className="text-neutral-400 hover:text-white font-semibold flex items-center gap-1 transition-colors duration-150 ease-out">
                         <span>Go to Workouts</span>
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Link>
@@ -1595,7 +1628,7 @@ export default function ProfilePage() {
               </form>
             ) : (
               /* Active Tab: USDA FoodData Central Explorer */
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 space-y-6">
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6 space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
                   <div>
                     <h3 className="text-xl font-bold text-white">USDA FoodData Central Reference Standard</h3>
@@ -1608,14 +1641,14 @@ export default function ProfilePage() {
                       placeholder="Search chicken breast, oats..."
                       value={foodSearchQuery}
                       onChange={(e) => setFoodSearchQuery(e.target.value)}
-                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-cyan-500 focus:outline-none"
+                      className="w-full rounded-xl border border-neutral-800 bg-neutral-950 pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                     />
                   </div>
                 </div>
 
                 {loadingFoods ? (
                   <div className="py-12 flex items-center justify-center space-y-2">
-                    <RefreshCw className="h-6 w-6 text-cyan-400 animate-spin" />
+                    <RefreshCw className="h-6 w-6 text-emerald-400 animate-spin" />
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -1625,20 +1658,20 @@ export default function ProfilePage() {
                           <th className="py-3 px-3">Food Item</th>
                           <th className="py-3 px-3">Serving</th>
                           <th className="py-3 px-3">Calories</th>
-                          <th className="py-3 px-3 text-emerald-400">Protein</th>
-                          <th className="py-3 px-3 text-cyan-400">Carbs</th>
-                          <th className="py-3 px-3 text-amber-400">Fat</th>
+                          <th className="py-3 px-3 text-neutral-300">Protein</th>
+                          <th className="py-3 px-3 text-neutral-300">Carbs</th>
+                          <th className="py-3 px-3 text-neutral-300">Fat</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-neutral-800/60 font-mono">
+                      <tbody className="divide-y divide-neutral-800 font-mono">
                         {foodDatabase.slice(0, 15).map((f) => (
-                          <tr key={f.id} className="hover:bg-neutral-800/40 transition">
+                          <tr key={f.id} className="hover:bg-neutral-800 transition-colors duration-150 ease-out">
                             <td className="py-3 px-3 font-sans font-medium text-white">{f.name}</td>
                             <td className="py-3 px-3 text-neutral-400">{f.serving}</td>
                             <td className="py-3 px-3 font-bold text-white">{f.calories}</td>
-                            <td className="py-3 px-3 text-emerald-400 font-bold">{f.protein}g</td>
-                            <td className="py-3 px-3 text-cyan-400 font-bold">{f.carbs}g</td>
-                            <td className="py-3 px-3 text-amber-400 font-bold">{f.fat}g</td>
+                            <td className="py-3 px-3 text-neutral-200 font-bold">{f.protein}g</td>
+                            <td className="py-3 px-3 text-neutral-200 font-bold">{f.carbs}g</td>
+                            <td className="py-3 px-3 text-neutral-200 font-bold">{f.fat}g</td>
                           </tr>
                         ))}
                       </tbody>

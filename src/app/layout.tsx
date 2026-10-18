@@ -46,7 +46,7 @@ export default function RootLayout({
         className={`${inter.variable} min-h-screen bg-neutral-950 text-neutral-100 antialiased flex flex-col font-sans`}
       >
         <Navbar />
-        <main id="main-content" className="flex-1 w-full overflow-y-auto scroll-smooth">
+        <main id="main-content" className="flex-1 w-full overflow-y-auto scroll-smooth pb-20 md:pb-0">
           {children}
         </main>
       </body>

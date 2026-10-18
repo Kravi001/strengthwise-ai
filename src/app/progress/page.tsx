@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getLocalDateString } from "@/lib/date";
+import { GuestAuthModal } from "@/components/guest-auth-modal";
 import type { User } from "@supabase/supabase-js";
 
 interface WeightLogItem {
@@ -64,6 +65,66 @@ interface WeightTelemetry {
   };
 }
 
+const generateDemoTelemetry = (): WeightTelemetry => {
+  const points: ChartPoint[] = [];
+  const logs: WeightLogItem[] = [];
+  const startWeight = 195.0;
+  const goalWeight = 175.0;
+  const weights = [195.0, 193.8, 192.5, 191.8, 190.4, 189.2, 188.0, 187.1, 186.2, 185.4, 184.8, 184.2];
+  const notes = [
+    "Baseline check-in",
+    "Morning Fasted",
+    "Post-refeed day",
+    "Morning Fasted",
+    "Consistent hydration",
+    "Morning Fasted",
+    "Post-deload week",
+    "Morning Fasted",
+    "Morning Fasted",
+    "New low weigh-in",
+    "Morning Fasted",
+    "Morning Fasted - Target pace",
+  ];
+
+  const now = Date.now();
+  for (let i = 0; i < weights.length; i++) {
+    const d = new Date(now - (weights.length - 1 - i) * 7 * 24 * 60 * 60 * 1000);
+    const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const rawDate = d.toISOString().split("T")[0];
+    points.push({
+      date: dateStr,
+      rawDate,
+      weight: weights[i],
+      goal: goalWeight,
+      note: notes[i],
+    });
+    logs.unshift({
+      id: `demo-w-${i}`,
+      weightLbs: weights[i],
+      weightKg: Math.round((weights[i] / 2.20462) * 10) / 10,
+      note: notes[i],
+      loggedAt: d.toISOString(),
+    });
+  }
+
+  return {
+    logs,
+    chartData: points,
+    summary: {
+      startingWeightLbs: startWeight,
+      currentWeightLbs: weights[weights.length - 1],
+      goalWeightLbs: goalWeight,
+      goalType: "CUT",
+      totalChangeLbs: -10.8,
+      remainingToGoalLbs: 9.2,
+      weeklyRateLbs: -0.9,
+      projectedWeeks: 10,
+      convergencePercent: 54,
+      hasLogs: true,
+    },
+  };
+};
+
 export default function ProgressPage() {
   const supabase = createClient();
 
@@ -71,11 +132,28 @@ export default function ProgressPage() {
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Guest Auth Intercept Modal State
+  const [isGuestAuthModalOpen, setIsGuestAuthModalOpen] = useState(false);
+  const [guestModalTitle, setGuestModalTitle] = useState("Create an athlete profile to record weigh-ins");
+  const [guestModalDescription, setGuestModalDescription] = useState(
+    "StrengthWise AI monitors body composition trajectory, weekly delta velocity, and goal convergence with PostgreSQL telemetry."
+  );
+
+  const handleProtectedAction = (title?: string, description?: string) => {
+    if (!authUser) {
+      if (title) setGuestModalTitle(title);
+      if (description) setGuestModalDescription(description);
+      setIsGuestAuthModalOpen(true);
+      return false;
+    }
+    return true;
+  };
+
   // Profile data
   const [fullName, setFullName] = useState("");
-  const [currentWeightLbs, setCurrentWeightLbs] = useState<number>(185);
+  const [currentWeightLbs, setCurrentWeightLbs] = useState<number>(184.2);
   const [goalWeightLbs, setGoalWeightLbs] = useState<number>(175);
-  const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
+  const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("CUT");
   const [userSplitDays, setUserSplitDays] = useState<number>(4);
 
   // Weight telemetry data
@@ -139,9 +217,13 @@ export default function ProgressPage() {
         setAuthUser(currentUser);
 
         if (!currentUser) {
-          if (typeof window !== "undefined") {
-            window.location.replace("/profile");
-          }
+          setHasProfile(false);
+          const demo = generateDemoTelemetry();
+          setWeightData(demo);
+          setCurrentWeightLbs(demo.summary.currentWeightLbs);
+          setGoalWeightLbs(demo.summary.goalWeightLbs);
+          setGoal("CUT");
+          setLoading(false);
           return;
         }
 
@@ -193,11 +275,14 @@ export default function ProgressPage() {
   // Handle range switch
   const handleRangeChange = (range: "7D" | "30D" | "90D" | "ALL") => {
     setSelectedRange(range);
-    fetchWeightTelemetry(range);
+    if (authUser) {
+      fetchWeightTelemetry(range);
+    }
   };
 
   // Open modal with prefilled current weight
   const openLogModal = () => {
+    if (!handleProtectedAction("Create an athlete profile to log weigh-ins", "Sign in or create an athlete profile to record weigh-ins and track your progress telemetry.")) return;
     setWeightInput(currentWeightLbs ? String(currentWeightLbs) : "185");
     setWeightUnit("LBS");
     setLogDateInput(getLocalDateString());
@@ -208,6 +293,7 @@ export default function ProgressPage() {
   // Save new weight entry
   const handleSaveWeight = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!handleProtectedAction("Create an athlete profile to save weigh-ins", "Sign in or create an athlete profile to record weigh-ins and track your progress telemetry.")) return;
     const parsedVal = parseFloat(weightInput);
     if (!parsedVal || isNaN(parsedVal) || parsedVal <= 0) {
       alert("Please enter a valid weight number.");
@@ -251,6 +337,7 @@ export default function ProgressPage() {
 
   // Delete an existing weight log
   const handleDeleteWeight = async (id: string) => {
+    if (!handleProtectedAction("Create an athlete profile to manage weigh-ins", "Sign in or create an athlete profile to manage your logs.")) return;
     if (!confirm("Are you sure you want to delete this weigh-in entry?")) return;
     setDeletingId(id);
     try {
@@ -295,17 +382,17 @@ export default function ProgressPage() {
   }, [weightData, activeCurrentWeight, activeGoalWeight]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-10 animate-in fade-in duration-300">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-10 animate-in fade-in duration-150 ease-out">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 flex items-center gap-2 rounded-xl bg-emerald-500/95 px-4 py-2.5 text-xs font-bold text-neutral-950 shadow-2xl backdrop-blur-md animate-in slide-in-from-top duration-200">
+        <div className="fixed top-20 right-6 z-50 flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-semibold text-neutral-950 shadow-md border border-emerald-400 animate-in fade-in duration-150 ease-out">
           <CheckCircle2 className="h-4 w-4" />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Page Header */}
-      <div className="border-b border-neutral-800/80 pb-6">
+      <div className="border-b border-neutral-800 pb-6">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
             Progress Telemetry &amp; Strength Analytics
@@ -315,21 +402,21 @@ export default function ProgressPage() {
 
       {/* Gated Overlay if Profile Not Configured */}
       {!hasProfile && !loading && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 sm:p-6 backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 text-neutral-300">
               <Lock className="h-5 w-5" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Baseline Telemetry Active</h3>
-              <p className="text-xs text-neutral-300 mt-0.5">
+              <p className="text-xs text-neutral-400 mt-0.5">
                 Complete your profile to customize your progress trajectory and goal metrics.
               </p>
             </div>
           </div>
           <Link
-            href="/profile"
-            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-amber-400 transition shrink-0"
+            href="/profile?redirect=/progress"
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 transition-colors duration-150 ease-out shrink-0"
           >
             <span>Complete Profile Settings</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -338,9 +425,9 @@ export default function ProgressPage() {
       )}
 
       {/* WEIGHT OVER TIME & GOAL CONVERGENCE FEATURE */}
-      <Card className="bg-neutral-900/70 border-neutral-800 p-6 sm:p-8 space-y-6">
+      <Card className="bg-neutral-900 border-neutral-800 p-4 sm:p-6 space-y-6">
         {/* Header with Title, Goal Tag, and Quick Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold">
               <Scale className="h-4 w-4" />
@@ -356,7 +443,7 @@ export default function ProgressPage() {
 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Goal Badge */}
-            <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-xs font-mono font-semibold text-emerald-400">
+            <span className="rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-1.5 text-xs font-mono font-semibold text-neutral-300">
               {goal === "CUT"
                 ? "Fat Loss Target (Cut)"
                 : goal === "BULK"
@@ -367,7 +454,7 @@ export default function ProgressPage() {
             {/* Log Weigh-In Button */}
             <button
               onClick={openLogModal}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-neutral-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition active:scale-95"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 transition-colors duration-150 ease-out shadow-sm"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Log Weigh-in</span>
@@ -378,53 +465,53 @@ export default function ProgressPage() {
         {/* 4 Interactive KPI Metric Pillars */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Current Scale Weight */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-1">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-1">
             <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider flex items-center justify-between">
               <span>Current Weight</span>
               <Scale className="h-3.5 w-3.5 text-neutral-500" />
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white font-mono flex items-baseline gap-1">
+            <div className="text-2xl sm:text-3xl font-black text-white font-mono tabular-nums flex items-baseline gap-1">
               <span>{activeCurrentWeight}</span>
               <span className="text-xs text-neutral-500 font-normal">lbs</span>
             </div>
-            <div className="text-[10px] text-neutral-400 font-mono">
-              {Math.round(activeCurrentWeight / 2.20462 * 10) / 10} kg metric
+            <div className="text-[10px] text-neutral-400 font-mono tabular-nums">
+              {Math.round((activeCurrentWeight / 2.20462) * 10) / 10} kg metric
             </div>
           </div>
 
           {/* Target Calibrated Weight */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-1">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-1">
             <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider flex items-center justify-between">
               <span>Goal Target</span>
-              <Target className="h-3.5 w-3.5 text-cyan-400" />
+              <Target className="h-3.5 w-3.5 text-neutral-400" />
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-cyan-400 font-mono flex items-baseline gap-1">
+            <div className="text-2xl sm:text-3xl font-black text-white font-mono tabular-nums flex items-baseline gap-1">
               <span>{activeGoalWeight}</span>
               <span className="text-xs text-neutral-500 font-normal">lbs</span>
             </div>
-            <div className="text-[10px] text-cyan-400/80 font-mono">
-              {weightDelta === 0 ? "Target reached! 🎉" : `${weightDelta} lbs to target`}
+            <div className="text-[10px] text-neutral-400 font-mono tabular-nums">
+              {weightDelta === 0 ? "Target reached" : `${weightDelta} lbs to target`}
             </div>
           </div>
 
           {/* Net Change Since Baseline */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-1">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-1">
             <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider flex items-center justify-between">
               <span>Total Trajectory</span>
               {netChange <= 0 ? (
                 <TrendingDown className="h-3.5 w-3.5 text-emerald-400" />
               ) : (
-                <TrendingUp className="h-3.5 w-3.5 text-amber-400" />
+                <TrendingUp className="h-3.5 w-3.5 text-neutral-400" />
               )}
             </div>
             <div
-              className={`text-2xl sm:text-3xl font-black font-mono flex items-baseline gap-1 ${
+              className={`text-2xl sm:text-3xl font-black font-mono tabular-nums flex items-baseline gap-1 ${
                 netChange === 0
                   ? "text-neutral-300"
                   : goal === "CUT"
                   ? netChange < 0
                     ? "text-emerald-400"
-                    : "text-amber-400"
+                    : "text-neutral-300"
                   : netChange > 0
                   ? "text-emerald-400"
                   : "text-neutral-300"
@@ -439,12 +526,12 @@ export default function ProgressPage() {
           </div>
 
           {/* Weekly Velocity / Goal Projection */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 p-4 space-y-1">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-1">
             <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider flex items-center justify-between">
               <span>Pace Velocity</span>
-              <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+              <Sparkles className="h-3.5 w-3.5 text-neutral-400" />
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono flex items-baseline gap-1">
+            <div className="text-2xl sm:text-3xl font-black text-white font-mono tabular-nums flex items-baseline gap-1">
               <span>{weeklyRate !== 0 ? `${weeklyRate > 0 ? "+" : ""}${weeklyRate}` : "~0.0"}</span>
               <span className="text-xs text-neutral-500 font-normal">lbs/wk</span>
             </div>
@@ -459,13 +546,13 @@ export default function ProgressPage() {
         </div>
 
         {/* Goal Convergence Progress Bar */}
-        <div className="rounded-2xl border border-neutral-800/80 bg-neutral-950/60 p-4 space-y-2">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-2">
           <div className="flex justify-between items-center text-xs">
             <div className="flex items-center gap-1.5 text-neutral-300 font-medium">
               <Target className="h-3.5 w-3.5 text-emerald-400" />
               <span>Goal Convergence Progress</span>
             </div>
-            <span className="font-mono text-emerald-400 font-bold">
+            <span className="font-mono text-emerald-400 font-semibold">
               {convergencePercent}% on track
             </span>
           </div>
@@ -481,22 +568,22 @@ export default function ProgressPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-4 text-xs font-mono">
               <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 <span className="text-neutral-300 font-semibold">Actual Weight</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" />
+                <span className="h-2.5 w-2.5 rounded-full bg-neutral-500" />
                 <span className="text-neutral-400">Target Goal</span>
               </div>
             </div>
 
             {/* Range Toggle Buttons */}
-            <div className="flex items-center gap-1 rounded-xl bg-neutral-950/90 border border-neutral-800 p-1 self-start sm:self-auto">
+            <div className="flex items-center gap-1 rounded-xl bg-neutral-950 border border-neutral-800 p-1 self-start sm:self-auto">
               {(["7D", "30D", "90D", "ALL"] as const).map((r) => (
                 <button
                   key={r}
                   onClick={() => handleRangeChange(r)}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-mono font-semibold transition ${
+                  className={`rounded-lg px-2.5 py-1 text-[11px] font-mono font-semibold transition-colors duration-150 ease-out ${
                     selectedRange === r
                       ? "bg-neutral-800 text-white shadow-sm"
                       : "text-neutral-400 hover:text-neutral-200"
@@ -509,12 +596,12 @@ export default function ProgressPage() {
           </div>
 
           {/* Area Chart Component */}
-          <div className="rounded-2xl border border-neutral-800/80 bg-neutral-950/70 p-4">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
             <AreaChart
               data={chartData}
               index="date"
               categories={["Actual Weight", "Goal Target"]}
-              colors={["#10b981", "#06b6d4"]}
+              colors={["#10b981", "#71717a"]}
               autoDomain={true}
               showGridLines={true}
               valueFormatter={(v) => `${v} lbs`}
@@ -524,10 +611,10 @@ export default function ProgressPage() {
         </div>
 
         {/* History Accordion / Management */}
-        <div className="pt-2 border-t border-neutral-800/80">
+        <div className="pt-2 border-t border-neutral-800">
           <button
             onClick={() => setShowHistory((prev) => !prev)}
-            className="w-full flex items-center justify-between text-xs text-neutral-400 hover:text-neutral-200 font-mono py-1 transition"
+            className="w-full flex items-center justify-between text-xs text-neutral-400 hover:text-neutral-200 font-mono py-1 transition-colors duration-150 ease-out"
           >
             <div className="flex items-center gap-2">
               <Calendar className="h-3.5 w-3.5 text-neutral-500" />
@@ -537,9 +624,9 @@ export default function ProgressPage() {
           </button>
 
           {showHistory && (
-            <div className="mt-4 space-y-2 animate-in fade-in duration-200">
+            <div className="mt-4 space-y-2 animate-in fade-in duration-150 ease-out">
               {weightData?.logs && weightData.logs.length > 0 ? (
-                <div className="divide-y divide-neutral-800/60 rounded-xl border border-neutral-800 bg-neutral-950/80 overflow-hidden max-h-64 overflow-y-auto">
+                <div className="divide-y divide-neutral-800 rounded-xl border border-neutral-800 bg-neutral-950 overflow-hidden max-h-64 overflow-y-auto">
                   {weightData.logs.map((log) => {
                     const logDate = new Date(log.loggedAt).toLocaleDateString("en-US", {
                       weekday: "short",
@@ -550,7 +637,7 @@ export default function ProgressPage() {
                     return (
                       <div
                         key={log.id}
-                        className="flex items-center justify-between px-4 py-3 hover:bg-neutral-900/50 transition text-xs"
+                        className="flex items-center justify-between px-4 py-3 hover:bg-neutral-900 transition-colors duration-150 ease-out text-xs"
                       >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
@@ -568,7 +655,7 @@ export default function ProgressPage() {
                         <button
                           onClick={() => handleDeleteWeight(log.id)}
                           disabled={deletingId === log.id}
-                          className="p-1.5 text-neutral-500 hover:text-rose-400 transition rounded-lg hover:bg-rose-500/10 disabled:opacity-50"
+                          className="p-1.5 text-neutral-500 hover:text-rose-400 transition-colors duration-150 ease-out rounded-lg hover:bg-neutral-800 disabled:opacity-50"
                           title="Delete entry"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -578,7 +665,7 @@ export default function ProgressPage() {
                   })}
                 </div>
               ) : (
-                <div className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-6 text-center text-xs text-neutral-500 space-y-1">
+                <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-6 text-center text-xs text-neutral-500 space-y-1">
                   <p>No historical weigh-ins logged yet.</p>
                   <p className="text-[11px] text-neutral-400">
                     Click &ldquo;Log Weigh-in&rdquo; to start tracking your daily or weekly weight progression!
@@ -593,12 +680,12 @@ export default function ProgressPage() {
 
       {/* QUICK LOG WEIGH-IN MODAL */}
       {isLogModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-900 p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150 ease-out">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl space-y-5 animate-in fade-in duration-150 ease-out">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-800 text-neutral-200">
                   <Scale className="h-4 w-4" />
                 </div>
                 <div>
@@ -608,7 +695,7 @@ export default function ProgressPage() {
               </div>
               <button
                 onClick={() => setIsLogModalOpen(false)}
-                className="rounded-lg p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+                className="rounded-lg p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -631,14 +718,14 @@ export default function ProgressPage() {
                     value={weightInput}
                     onChange={(e) => setWeightInput(e.target.value)}
                     placeholder="e.g. 184.5"
-                    className="flex-1 rounded-xl border border-neutral-700 bg-neutral-950 px-3.5 py-2.5 text-lg font-mono font-bold text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+                    className="flex-1 rounded-xl border border-neutral-700 bg-neutral-950 px-3.5 py-2.5 text-lg font-mono font-bold text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors duration-150 ease-out"
                   />
                   {/* Unit Toggle */}
                   <div className="flex rounded-xl bg-neutral-950 border border-neutral-700 p-1">
                     <button
                       type="button"
                       onClick={() => setWeightUnit("LBS")}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-mono font-bold transition ${
+                      className={`rounded-lg px-3 py-1.5 text-xs font-mono font-bold transition-colors duration-150 ease-out ${
                         weightUnit === "LBS"
                           ? "bg-emerald-500 text-neutral-950 shadow-sm"
                           : "text-neutral-400 hover:text-neutral-200"
@@ -649,7 +736,7 @@ export default function ProgressPage() {
                     <button
                       type="button"
                       onClick={() => setWeightUnit("KG")}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-mono font-bold transition ${
+                      className={`rounded-lg px-3 py-1.5 text-xs font-mono font-bold transition-colors duration-150 ease-out ${
                         weightUnit === "KG"
                           ? "bg-emerald-500 text-neutral-950 shadow-sm"
                           : "text-neutral-400 hover:text-neutral-200"
@@ -672,7 +759,7 @@ export default function ProgressPage() {
                   required
                   value={logDateInput}
                   onChange={(e) => setLogDateInput(e.target.value)}
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3.5 py-2 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3.5 py-2 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors duration-150 ease-out"
                 />
               </div>
 
@@ -681,16 +768,16 @@ export default function ProgressPage() {
                 <label className="text-xs font-semibold text-neutral-300">
                   Condition / Note (Optional)
                 </label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex wrap gap-1.5">
                   {notePresets.map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => setNoteInput(tag)}
-                      className={`rounded-lg px-2.5 py-1 text-[11px] font-mono transition ${
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-mono transition-colors duration-150 ease-out ${
                         noteInput === tag
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                          : "bg-neutral-800 text-neutral-400 hover:text-neutral-200 border border-transparent"
+                          ? "bg-emerald-500 text-neutral-950 font-semibold"
+                          : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
                       }`}
                     >
                       {tag}
@@ -702,7 +789,7 @@ export default function ProgressPage() {
                   value={noteInput}
                   onChange={(e) => setNoteInput(e.target.value)}
                   placeholder="Or custom note (e.g. fasted morning)..."
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors duration-150 ease-out"
                 />
               </div>
 
@@ -711,14 +798,14 @@ export default function ProgressPage() {
                 <button
                   type="button"
                   onClick={() => setIsLogModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingWeight}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 shadow-sm transition-colors duration-150 ease-out disabled:opacity-50"
                 >
                   {isSavingWeight ? (
                     <span>Recording...</span>
@@ -734,6 +821,15 @@ export default function ProgressPage() {
           </div>
         </div>
       )}
+
+      {/* Guest Athlete Profile Intercept Modal */}
+      <GuestAuthModal
+        isOpen={isGuestAuthModalOpen}
+        onClose={() => setIsGuestAuthModalOpen(false)}
+        title={guestModalTitle}
+        description={guestModalDescription}
+        redirectPath="/progress"
+      />
     </div>
   );
 }

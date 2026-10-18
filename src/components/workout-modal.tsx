@@ -159,21 +159,21 @@ export function WorkoutModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-neutral-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 animate-in fade-in duration-150 ease-out">
       <div
-        className="relative w-full max-w-lg rounded-3xl border border-neutral-800 bg-neutral-900/95 p-5 sm:p-6 shadow-2xl space-y-5 text-neutral-100 max-h-[92vh] overflow-y-auto"
+        className="relative w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:p-6 shadow-xl space-y-5 text-neutral-100 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between pb-3 border-b border-neutral-800">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300">
               <Dumbbell className="h-5 w-5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>Record Workout Session</span>
-                <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                <span className="text-[10px] text-neutral-400 font-mono bg-neutral-800 border border-neutral-700 px-2 py-0.5 rounded">
                   PostgreSQL Synced
                 </span>
               </h3>
@@ -185,14 +185,14 @@ export function WorkoutModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
+            className="rounded-xl p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors duration-150 ease-out"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Tab Mode Switcher */}
-        <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-neutral-950/80 p-1 border border-neutral-800/80">
+        <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-neutral-950 p-1 border border-neutral-800">
           <button
             type="button"
             onClick={() => {
@@ -203,7 +203,7 @@ export function WorkoutModal({
               }
               setRandomBanner(null);
             }}
-            className={`py-2 px-2 text-xs font-semibold rounded-xl transition text-center ${
+            className={`py-2 px-2 text-xs font-semibold rounded-lg transition-colors duration-150 ease-out text-center ${
               activeTab === "routine"
                 ? "bg-neutral-800 text-white shadow-sm"
                 : "text-neutral-400 hover:text-white"
@@ -217,13 +217,13 @@ export function WorkoutModal({
               setActiveTab("random");
               handleRollRandom();
             }}
-            className={`py-2 px-2 text-xs font-semibold rounded-xl transition text-center flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-2 text-xs font-semibold rounded-lg transition-colors duration-150 ease-out text-center flex items-center justify-center gap-1.5 ${
               activeTab === "random"
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                ? "bg-neutral-800 text-white shadow-sm"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
-            <Shuffle className="h-3.5 w-3.5 text-cyan-400" />
+            <Shuffle className="h-3.5 w-3.5 text-neutral-400" />
             <span>Random Picks</span>
           </button>
           <button
@@ -232,7 +232,7 @@ export function WorkoutModal({
               setActiveTab("freeform");
               handleClearFreeform();
             }}
-            className={`py-2 px-2 text-xs font-semibold rounded-xl transition text-center ${
+            className={`py-2 px-2 text-xs font-semibold rounded-lg transition-colors duration-150 ease-out text-center ${
               activeTab === "freeform"
                 ? "bg-neutral-800 text-white shadow-sm"
                 : "text-neutral-400 hover:text-white"
@@ -268,10 +268,10 @@ export function WorkoutModal({
                   key={idx}
                   type="button"
                   onClick={() => handleSelectPreset(session)}
-                  className={`text-xs px-3 py-1.5 rounded-xl border transition font-medium ${
+                  className={`text-xs px-3 py-1.5 rounded-xl border transition-colors duration-150 ease-out font-medium ${
                     workoutName === session.name
-                      ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold shadow-sm"
-                      : "bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700"
+                      ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400 font-semibold shadow-sm"
+                      : "bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700"
                   }`}
                 >
                   {session.name}
@@ -283,16 +283,16 @@ export function WorkoutModal({
 
         {/* Tab 2: Random Workout Selector & Roll Button */}
         {activeTab === "random" && (
-          <div className="space-y-2.5 rounded-2xl border border-neutral-800/80 bg-neutral-950/60 p-3">
+          <div className="space-y-2.5 rounded-xl border border-neutral-800 bg-neutral-950 p-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-neutral-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                <Sparkles className="h-3.5 w-3.5 text-neutral-400" />
                 <span>Random Workout Generator</span>
               </span>
               <button
                 type="button"
                 onClick={handleRollRandom}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500/20 border border-cyan-500/40 px-3 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition-colors duration-150 ease-out shadow-sm"
               >
                 <Shuffle className="h-3 w-3" />
                 <span>Roll Another</span>
@@ -300,7 +300,7 @@ export function WorkoutModal({
             </div>
 
             {randomBanner && (
-              <div className="text-xs text-cyan-300 font-medium bg-cyan-950/40 border border-cyan-800/40 px-2.5 py-1 rounded-lg flex items-center justify-between">
+              <div className="text-xs text-neutral-300 font-medium bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded-lg flex items-center justify-between">
                 <span>{randomBanner}</span>
                 <span className="text-[10px] text-neutral-400 font-mono">Auto-populated</span>
               </div>
@@ -313,9 +313,9 @@ export function WorkoutModal({
                   key={idx}
                   type="button"
                   onClick={() => handleSelectRandomTemplate(rw)}
-                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors duration-150 ease-out font-medium ${
                     workoutName === rw.name
-                      ? "bg-cyan-500/25 border-cyan-400 text-white font-bold"
+                      ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400 font-semibold"
                       : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700"
                   }`}
                 >
@@ -333,7 +333,7 @@ export function WorkoutModal({
             <button
               type="button"
               onClick={handleClearFreeform}
-              className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+              className="text-[11px] text-neutral-400 hover:text-neutral-200 underline flex items-center gap-1 transition-colors duration-150 ease-out"
             >
               <RotateCcw className="h-3 w-3" />
               <span>Clear Inputs</span>
@@ -353,7 +353,7 @@ export function WorkoutModal({
               placeholder="e.g. Upper A (Strength), Legs Hypertrophy, 5km Conditioning, BJJ Open Mat..."
               value={workoutName}
               onChange={(e) => setWorkoutName(e.target.value)}
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-cyan-500 focus:outline-none transition"
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
             />
           </div>
 
@@ -361,7 +361,7 @@ export function WorkoutModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-cyan-400" />
+                <Clock className="h-3.5 w-3.5 text-neutral-400" />
                 <span>Duration (minutes)</span>
               </label>
               <input
@@ -371,7 +371,7 @@ export function WorkoutModal({
                 required
                 value={durationMinutes}
                 onChange={(e) => handleDurationChange(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none transition"
+                className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
               />
               {/* Quick duration helpers */}
               <div className="flex gap-1 pt-0.5">
@@ -380,7 +380,7 @@ export function WorkoutModal({
                     key={mins}
                     type="button"
                     onClick={() => handleDurationChange(mins)}
-                    className="flex-1 text-[10px] font-mono py-1 rounded-lg bg-neutral-800/80 border border-neutral-700/80 text-neutral-300 hover:text-white hover:bg-neutral-700 transition"
+                    className="flex-1 text-[10px] font-mono py-1 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-700 transition-colors duration-150 ease-out"
                   >
                     {mins}m
                   </button>
@@ -390,7 +390,7 @@ export function WorkoutModal({
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
-                <Flame className="h-3.5 w-3.5 text-amber-400" />
+                <Flame className="h-3.5 w-3.5 text-neutral-400" />
                 <span>Est. Calories Burned</span>
               </label>
               <input
@@ -399,7 +399,7 @@ export function WorkoutModal({
                 max={3000}
                 value={caloriesBurned}
                 onChange={(e) => setCaloriesBurned(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none transition"
+                className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
               />
               <span className="text-[10px] text-neutral-500 block pt-0.5">
                 Estimated ~6.0 METs for {Math.round(athleteWeightKg)}kg athlete
@@ -422,23 +422,23 @@ export function WorkoutModal({
               placeholder="e.g. Incline DB Bench: 75lbs × 8, 80lbs × 6 @ RPE 8.5&#10;Weighted Pull-ups: +25lbs × 6, 6, 5&#10;Cable Lateral Raises: 25lbs × 15, 15, 12"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-xs text-neutral-200 placeholder:text-neutral-600 focus:border-cyan-500 focus:outline-none transition font-mono leading-relaxed"
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-xs text-neutral-200 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out font-mono leading-relaxed"
             />
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-800/80">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-800">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white transition"
+              className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white transition-colors duration-150 ease-out"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-bold text-neutral-950 hover:bg-cyan-400 disabled:opacity-50 transition shadow-lg shadow-cyan-500/20"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 disabled:opacity-50 transition-colors duration-150 ease-out shadow-sm"
             >
               <Zap className="h-4 w-4 text-neutral-950 fill-neutral-950" />
               <span>{isSubmitting ? "Recording..." : "Log Completed Workout"}</span>

@@ -132,11 +132,11 @@ export function MealResetModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150 ease-out"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-3xl border border-neutral-800 bg-neutral-900/95 p-6 shadow-2xl relative text-left backdrop-blur-xl"
+        className="w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl relative text-left"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -145,7 +145,7 @@ export function MealResetModal({
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-neutral-800">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <div className="p-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300">
               <Clock className="h-6 w-6" />
             </div>
             <div>
@@ -160,7 +160,7 @@ export function MealResetModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+            className="rounded-xl p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
             aria-label="Close modal"
           >
             <X className="h-5 w-5" />
@@ -170,7 +170,7 @@ export function MealResetModal({
         {/* Content */}
         <div className="mt-5 space-y-5">
           {/* Active Selection Banner */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/60 p-4 flex items-center justify-between">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 flex items-center justify-between">
             <div className="space-y-0.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                 Current Selected Reset Time
@@ -187,7 +187,7 @@ export function MealResetModal({
               <button
                 type="button"
                 onClick={handleResetToMidnight}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-800 bg-neutral-900 text-xs font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-800 bg-neutral-900 text-xs font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
                 title="Restore default 12:00 AM midnight"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -211,10 +211,10 @@ export function MealResetModal({
                     key={preset.time}
                     type="button"
                     onClick={() => handleSelectPreset(preset.time)}
-                    className={`flex flex-col text-left p-3 rounded-2xl border transition relative ${
+                    className={`flex flex-col text-left p-3 rounded-2xl border transition-colors duration-150 ease-out relative ${
                       isSelected
                         ? "border-emerald-500 bg-emerald-500/10 text-white shadow-sm ring-1 ring-emerald-500/50"
-                        : "border-neutral-800/80 bg-neutral-950/40 text-neutral-300 hover:border-neutral-700 hover:bg-neutral-800/40"
+                        : "border-neutral-800 bg-neutral-950 text-neutral-300 hover:border-neutral-700 hover:bg-neutral-800/40"
                     }`}
                   >
                     <div className="flex items-center justify-between w-full">
@@ -243,7 +243,7 @@ export function MealResetModal({
           </div>
 
           {/* Custom Time Input */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-3.5 space-y-2">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-3.5 space-y-2">
             <label className="text-xs font-semibold text-neutral-300 flex items-center justify-between">
               <span>Or Choose Any Custom Time</span>
               <span className="text-[11px] text-neutral-500 font-normal">24h / AM-PM</span>
@@ -262,16 +262,16 @@ export function MealResetModal({
           </div>
 
           {/* How It Works Explainer Box */}
-          <div className="rounded-2xl border border-emerald-900/30 bg-emerald-950/15 p-3.5 text-xs text-neutral-300 space-y-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-400">
-              <Sparkles className="h-4 w-4" />
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-3.5 text-xs text-neutral-300 space-y-1.5">
+            <div className="flex items-center gap-1.5 font-semibold text-neutral-200">
+              <Sparkles className="h-4 w-4 text-neutral-400" />
               <span>How your new reset schedule works:</span>
             </div>
             <p className="text-[11px] leading-relaxed text-neutral-300">
               Your daily meal log will span from <strong>{formattedDisplay}</strong> on one day until{" "}
               <strong>{formattedDisplay}</strong> the next day.
               {selectedTime !== "00:00" && (
-                <span className="block mt-1 text-emerald-300/90 font-medium">
+                <span className="block mt-1 text-emerald-400/90 font-medium">
                   Any snacks or meals you eat late at night before {formattedDisplay} will stay counted in your previous day&apos;s totals instead of clearing early!
                 </span>
               )}
@@ -292,7 +292,7 @@ export function MealResetModal({
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2.5 text-xs font-bold text-neutral-300 hover:text-white hover:bg-neutral-800 transition"
+              className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-xs font-semibold text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
             >
               Cancel
             </button>
@@ -300,7 +300,7 @@ export function MealResetModal({
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-5 py-2.5 text-xs font-bold text-neutral-950 transition flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+              className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-5 py-2.5 text-xs font-semibold text-neutral-950 transition-colors duration-150 ease-out flex items-center gap-2 shadow-sm disabled:opacity-50"
             >
               {saving ? (
                 <>

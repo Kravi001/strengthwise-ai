@@ -3,16 +3,12 @@ import { cn } from "@/lib/utils";
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   decoration?: "top" | "bottom" | "left" | "right";
-  decorationColor?: "emerald" | "blue" | "amber" | "rose" | "purple" | "cyan";
+  decorationColor?: "emerald" | "neutral";
 }
 
 const decorationColors = {
   emerald: "border-emerald-500",
-  blue: "border-blue-500",
-  amber: "border-amber-500",
-  rose: "border-rose-500",
-  purple: "border-purple-500",
-  cyan: "border-cyan-500",
+  neutral: "border-neutral-700",
 };
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
@@ -21,7 +17,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          "relative w-full rounded-2xl border border-neutral-800 bg-neutral-900/70 p-6 text-neutral-100 shadow-sm backdrop-blur-md transition",
+          "relative w-full rounded-2xl border border-neutral-800 bg-neutral-900 p-6 text-neutral-100 shadow-sm transition-colors duration-150 ease-out",
           decoration === "top" && `border-t-4 ${decorationColors[decorationColor]}`,
           decoration === "bottom" && `border-b-4 ${decorationColors[decorationColor]}`,
           decoration === "left" && `border-l-4 ${decorationColors[decorationColor]}`,

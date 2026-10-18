@@ -159,15 +159,15 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-neutral-800/80 bg-neutral-950/85 backdrop-blur-xl transition-all duration-300 shadow-lg shadow-black/40">
+    <header className="sticky top-0 z-50 w-full border-b border-neutral-800 bg-neutral-950 shadow-sm">
       <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
         {/* Left: Brand / Logo + Sports Engine Badge */}
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           <Link
             href="/"
-            className="flex items-center gap-2.5 font-bold tracking-tight text-white hover:opacity-90 transition group"
+            className="flex items-center gap-2.5 font-bold tracking-tight text-white hover:opacity-90 transition-opacity duration-150 ease-out group"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800 text-emerald-400 shadow-sm">
               <Dumbbell className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
@@ -181,26 +181,25 @@ export function Navbar() {
           </Link>
         </div>
 
-        {/* Center: Horizontal Navigation Links with Sliding Pill */}
+        {/* Center: Horizontal Navigation Links with Sliding Pill (Desktop md:flex) */}
         <nav
           ref={navRef}
-          className="relative flex items-center gap-1 p-1 rounded-2xl bg-neutral-900/60 border border-neutral-800/80 overflow-x-auto no-scrollbar"
+          aria-label="Desktop navigation"
+          className="relative hidden md:flex items-center gap-1 p-1 rounded-xl bg-neutral-900 border border-neutral-800 overflow-x-auto no-scrollbar"
         >
           {/* Real-time sliding indicator pill */}
           <div
             ref={barRef}
-            className="absolute top-1 bottom-1 rounded-xl bg-neutral-800/90 border border-neutral-700/60 pointer-events-none z-0 will-change-transform"
+            className="absolute top-1 bottom-1 rounded-lg bg-neutral-800 border border-neutral-700 pointer-events-none z-0 will-change-transform"
             style={{
               left: 0,
               transform: "translateX(0px)",
-              transition: "transform 200ms cubic-bezier(0.2, 0, 0, 1), width 200ms cubic-bezier(0.2, 0, 0, 1), opacity 150ms ease",
+              transition: "transform 150ms ease-out, width 150ms ease-out, opacity 150ms ease-out",
             }}
           />
 
           {navLinks.map(({ href, label, icon: Icon, id }, index) => {
             const isActive = activeSection === id;
-            const isHome = href === "/";
-            const targetHref = user || isHome ? href : "/profile";
 
             return (
               <Link
@@ -208,23 +207,20 @@ export function Navbar() {
                 ref={(el) => {
                   linkRefs.current[index] = el as unknown as HTMLAnchorElement;
                 }}
-                href={targetHref}
-                title={user || isHome ? label : `${label} (Sign up required)`}
-                className={`group relative z-10 flex items-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+                href={href}
+                title={label}
+                className={`group relative z-10 flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-medium transition-colors duration-150 ease-out whitespace-nowrap ${
                   isActive
                     ? "text-white font-semibold"
                     : "text-neutral-400 hover:text-white"
                 }`}
               >
                 <Icon
-                  className={`h-4 w-4 shrink-0 transition-colors duration-200 ${
-                    isActive ? "text-white" : "text-neutral-400 group-hover:text-white"
+                  className={`h-4 w-4 shrink-0 transition-colors duration-150 ease-out ${
+                    isActive ? "text-emerald-400" : "text-neutral-400 group-hover:text-white"
                   }`}
                 />
                 <span>{label}</span>
-                {!user && !loading && !isHome ? (
-                  <Lock className="h-2.5 w-2.5 text-neutral-600 group-hover:text-emerald-400/80 transition ml-0.5" />
-                ) : null}
               </Link>
             );
           })}
@@ -240,25 +236,25 @@ export function Navbar() {
               <Link
                 href="/profile"
                 title="Open Athlete Profile & Settings"
-                className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 transition group cursor-pointer ${
+                className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 transition-colors duration-150 ease-out group cursor-pointer ${
                   pathname.startsWith("/profile")
-                    ? "border-emerald-500/50 bg-emerald-950/30 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500/30"
-                    : "border-neutral-800 bg-neutral-900/70 hover:border-emerald-500/40 hover:bg-neutral-900"
+                    ? "border-neutral-700 bg-neutral-800 shadow-sm"
+                    : "border-neutral-800 bg-neutral-900 hover:border-neutral-700"
                 }`}
               >
                 {athleteAvatar?.startsWith("data:") || athleteAvatar?.startsWith("http") ? (
                   <img src={athleteAvatar} alt="Avatar" className="h-6 w-6 rounded-lg object-cover" />
                 ) : athleteAvatar ? (
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-sm shadow-inner group-hover:scale-105 transition">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-sm shadow-inner">
                     {athleteAvatar}
                   </div>
                 ) : (
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-bold text-xs uppercase shadow-sm group-hover:scale-105 transition">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 font-bold text-xs uppercase shadow-sm">
                     {((athleteName || user?.email || "A")).charAt(0)}
                   </div>
                 )}
                 <div className="hidden sm:flex flex-col text-left leading-tight">
-                  <span className="max-w-[110px] truncate text-xs text-neutral-200 font-semibold group-hover:text-emerald-300 transition">
+                  <span className="max-w-[110px] truncate text-xs text-neutral-200 font-semibold group-hover:text-white transition">
                     {athleteName || user?.email?.split("@")[0] || "Athlete"}
                   </span>
                   <span className="text-[9px] text-emerald-400 font-mono flex items-center gap-0.5">
@@ -272,7 +268,7 @@ export function Navbar() {
               <button
                 onClick={handleSignOut}
                 title="Sign Out"
-                className="flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900/80 px-2.5 py-1.5 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-red-400 hover:border-red-500/30 transition shadow-sm"
+                className="flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-neutral-400 hover:bg-neutral-800 hover:text-red-400 hover:border-red-500/30 transition-colors duration-150 ease-out shadow-sm"
               >
                 <LogOut className="h-3.5 w-3.5 shrink-0" />
                 <span className="hidden md:inline whitespace-nowrap">Sign Out</span>
@@ -280,9 +276,9 @@ export function Navbar() {
             </div>
           ) : (
             <Link
-              href="/profile"
+              href={pathname !== "/" && !pathname.startsWith("/profile") ? `/profile?redirect=${encodeURIComponent(pathname)}` : "/profile"}
               title="Create Profile or Sign In"
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-3.5 py-2 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 hover:scale-[1.02] transition active:scale-[0.98]"
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out"
             >
               <UserIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="whitespace-nowrap">Sign In / Sign Up</span>
@@ -290,6 +286,36 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Mobile Fixed Bottom Navigation Bar (< 768px) */}
+      <nav
+        aria-label="Mobile navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-neutral-950 border-t border-neutral-800 px-2 py-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-2xl"
+      >
+        <div className="grid grid-cols-5 items-center">
+          {navLinks.map(({ href, label, icon: Icon, id }) => {
+            const isActive = activeSection === id;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors duration-150 ease-out ${
+                  isActive
+                    ? "text-emerald-400 font-bold"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                <Icon
+                  className={`h-5 w-5 mb-0.5 transition-colors duration-150 ease-out ${
+                    isActive ? "text-emerald-400" : "text-neutral-400"
+                  }`}
+                />
+                <span className="truncate max-w-[56px] text-center">{label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </header>
   );
 }

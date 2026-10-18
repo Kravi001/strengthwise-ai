@@ -1003,7 +1003,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             return (
               <div
                 key={idx}
-                className="rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3 my-1.5 text-emerald-200 text-xs font-medium shadow-sm"
+                className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 my-1.5 text-neutral-200 text-xs font-medium shadow-sm"
               >
                 {formatInlineMarkdown(trimmed)}
               </div>
@@ -1016,10 +1016,10 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
         {/* 1-Click Food Logging Action Card */}
         {foodLog && (
-          <div className="mt-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-neutral-900 to-neutral-950 p-4 shadow-lg space-y-3 animate-in fade-in slide-in-from-bottom-2">
-            <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2.5">
+          <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-4 shadow-sm space-y-3 animate-in fade-in duration-150 ease-out">
+            <div className="flex items-center justify-between gap-2 border-b border-neutral-800 pb-2.5">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-800 text-emerald-400 border border-neutral-700">
                   <Utensils className="h-3.5 w-3.5" />
                 </div>
                 <div>
@@ -1029,42 +1029,42 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   <h4 className="text-sm font-bold text-white tracking-tight">{foodLog.name}</h4>
                 </div>
               </div>
-              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-300 uppercase">
+              <span className="rounded-full bg-neutral-800 border border-neutral-700 px-2 py-0.5 text-[10px] font-mono font-semibold text-neutral-300 uppercase">
                 {foodLog.mealType || "Meal"}
               </span>
             </div>
 
             {/* Macros Grid */}
             <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 p-2">
+              <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-2">
                 <div className="text-[10px] font-mono text-neutral-400">Calories</div>
-                <div className="text-xs sm:text-sm font-bold text-amber-300 font-mono">
+                <div className="text-xs sm:text-sm font-bold text-white font-mono">
                   {foodLog.calories}
-                  <span className="text-[9px] font-normal text-neutral-400 ml-0.5">kcal</span>
+                  <span className="text-[9px] font-normal text-neutral-500 ml-0.5">kcal</span>
                 </div>
               </div>
-              <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 p-2">
+              <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-2">
                 <div className="text-[10px] font-mono text-neutral-400">Protein</div>
-                <div className="text-xs sm:text-sm font-bold text-emerald-400 font-mono">
+                <div className="text-xs sm:text-sm font-bold text-white font-mono">
                   {foodLog.protein}g
                 </div>
               </div>
-              <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 p-2">
+              <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-2">
                 <div className="text-[10px] font-mono text-neutral-400">Carbs</div>
-                <div className="text-xs sm:text-sm font-bold text-cyan-400 font-mono">
+                <div className="text-xs sm:text-sm font-bold text-white font-mono">
                   {foodLog.carbs}g
                 </div>
               </div>
-              <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 p-2">
+              <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-2">
                 <div className="text-[10px] font-mono text-neutral-400">Fats</div>
-                <div className="text-xs sm:text-sm font-bold text-rose-400 font-mono">
+                <div className="text-xs sm:text-sm font-bold text-white font-mono">
                   {foodLog.fats ?? foodLog.fat ?? 0}g
                 </div>
               </div>
             </div>
 
             {foodLog.notes && (
-              <p className="text-[11px] text-neutral-300 italic bg-neutral-900/50 rounded-lg px-2.5 py-1.5 border border-neutral-800/60">
+              <p className="text-[11px] text-neutral-400 italic bg-neutral-950 rounded-lg px-2.5 py-1.5 border border-neutral-800">
                 💡 {foodLog.notes}
               </p>
             )}
@@ -1072,8 +1072,8 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             {/* Action Button */}
             <div className="pt-1 flex items-center justify-between gap-3 flex-wrap">
               {isLogged ? (
-                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2 w-full sm:w-auto">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 w-full sm:w-auto">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
                   <span>Logged to Daily Meals Tracker!</span>
                   <a
                     href="/meals"
@@ -1087,7 +1087,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   type="button"
                   disabled={isLogging || !messageId}
                   onClick={() => messageId && handleLogFood(messageId, foodLog)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 px-4 py-2 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/25 transition active:scale-95 disabled:opacity-50"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out disabled:opacity-50"
                 >
                   {isLogging ? (
                     <>
@@ -1112,17 +1112,17 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
         {/* Interactive Target Update Card */}
         {targetUpdate && (
-          <div className="mt-3 rounded-2xl border border-cyan-500/35 bg-gradient-to-br from-cyan-950/40 via-neutral-900/90 to-neutral-950 p-4 space-y-3 shadow-lg shadow-cyan-500/10 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between gap-2 border-b border-cyan-500/20 pb-2.5">
+          <div className="mt-3 rounded-2xl border border-neutral-800 bg-neutral-900 p-4 space-y-3 shadow-sm animate-in fade-in duration-150 ease-out">
+            <div className="flex items-center justify-between gap-2 border-b border-neutral-800 pb-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-sm shadow-cyan-500/20">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-neutral-800 text-neutral-200 border border-neutral-700 shadow-sm">
                   <Flame className="h-4 w-4" />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white tracking-wide uppercase font-mono">
                     Daily Caloric Target Updated
                   </h4>
-                  <span className="text-[10px] text-cyan-400 font-mono">
+                  <span className="text-[10px] text-neutral-400 font-mono">
                     Synced with Meals &amp; Macro Nutrition
                   </span>
                 </div>
@@ -1131,40 +1131,40 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 <span className="text-xl font-black text-white font-mono">
                   {targetUpdate.targetCalories.toLocaleString()}
                 </span>
-                <span className="text-[10px] text-cyan-400 font-mono ml-1 font-semibold">kcal/day</span>
+                <span className="text-[10px] text-neutral-400 font-mono ml-1 font-semibold">kcal/day</span>
               </div>
             </div>
 
             {/* Macros Distribution */}
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-mono">
-              <div className="rounded-xl bg-neutral-900/90 border border-emerald-500/20 p-2">
-                <span className="text-[9px] uppercase font-bold text-emerald-400 block">Protein</span>
+              <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-2">
+                <span className="text-[9px] uppercase font-bold text-neutral-400 block">Protein</span>
                 <span className="font-bold text-white text-xs">{targetUpdate.targetProtein || 175}g</span>
               </div>
-              <div className="rounded-xl bg-neutral-900/90 border border-cyan-500/20 p-2">
-                <span className="text-[9px] uppercase font-bold text-cyan-400 block">Carbs</span>
+              <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-2">
+                <span className="text-[9px] uppercase font-bold text-neutral-400 block">Carbs</span>
                 <span className="font-bold text-white text-xs">{targetUpdate.targetCarbs || 250}g</span>
               </div>
-              <div className="rounded-xl bg-neutral-900/90 border border-amber-500/20 p-2">
-                <span className="text-[9px] uppercase font-bold text-amber-400 block">Fats</span>
+              <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-2">
+                <span className="text-[9px] uppercase font-bold text-neutral-400 block">Fats</span>
                 <span className="font-bold text-white text-xs">{targetUpdate.targetFat || 65}g</span>
               </div>
             </div>
 
             {targetUpdate.notes && (
-              <p className="text-[11px] text-neutral-300 italic bg-neutral-900/60 rounded-lg px-2.5 py-1.5 border border-neutral-800/60">
+              <p className="text-[11px] text-neutral-400 italic bg-neutral-950 rounded-lg px-2.5 py-1.5 border border-neutral-800">
                 💡 {targetUpdate.notes}
               </p>
             )}
 
             {/* Status Confirmation and Direct Link */}
             <div className="pt-1 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 rounded-xl px-3 py-2 w-full sm:w-auto">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-cyan-400" />
+              <div className="flex items-center gap-2 text-xs font-semibold text-neutral-200 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 w-full sm:w-auto">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
                 <span>Calorie Target Applied to Meals Section &amp; Profile!</span>
                 <a
                   href="/meals"
-                  className="ml-auto sm:ml-2 text-[11px] font-mono underline hover:text-cyan-300 font-bold"
+                  className="ml-auto sm:ml-2 text-[11px] font-mono underline hover:text-emerald-300 font-semibold"
                 >
                   View Meals Section →
                 </a>
@@ -1175,7 +1175,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   type="button"
                   disabled={isTargetApplying}
                   onClick={() => handleApplyTargetUpdate(messageId, targetUpdate)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 px-3 py-1.5 text-xs font-bold text-neutral-950 transition active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-neutral-950 transition-colors duration-150 ease-out shadow-sm"
                 >
                   {isTargetApplying ? (
                     <>
@@ -1223,30 +1223,30 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`rounded-3xl border transition-all duration-200 bg-neutral-900/90 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col relative ${
-        isDraggingOver ? "border-emerald-400 ring-2 ring-emerald-500/40" : "border-neutral-800/80"
+      className={`rounded-2xl border transition-colors duration-150 ease-out bg-neutral-900 shadow-sm overflow-hidden flex flex-col relative ${
+        isDraggingOver ? "border-emerald-500 ring-1 ring-emerald-500" : "border-neutral-800"
       }`}
     >
       {/* Drag & Drop Visual Overlay */}
       {isDraggingOver && (
-        <div className="absolute inset-0 z-50 bg-neutral-950/90 backdrop-blur-sm border-2 border-dashed border-emerald-400 rounded-3xl flex flex-col items-center justify-center gap-3 p-6 pointer-events-none animate-in fade-in duration-150">
-          <div className="h-16 w-16 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40 shadow-xl shadow-emerald-500/20 animate-bounce">
-            <UploadCloud className="h-8 w-8" />
+        <div className="absolute inset-0 z-50 bg-neutral-950 border-2 border-dashed border-emerald-500 rounded-2xl flex flex-col items-center justify-center gap-3 p-6 pointer-events-none animate-in fade-in duration-150 ease-out">
+          <div className="h-14 w-14 rounded-xl bg-neutral-900 text-emerald-400 flex items-center justify-center border border-neutral-800 shadow-sm">
+            <UploadCloud className="h-7 w-7" />
           </div>
           <h4 className="text-base sm:text-lg font-bold text-white text-center">
             Drop Photo for AI Form Check or Nutrition Analysis
           </h4>
-          <p className="text-xs text-neutral-300 text-center max-w-sm">
+          <p className="text-xs text-neutral-400 text-center max-w-sm">
             Release your image to attach it to your coaching consultation. Supports PNG, JPG, WebP.
           </p>
         </div>
       )}
 
       {/* 1. Sleek Chatbot Header */}
-      <div className="border-b border-neutral-800 bg-neutral-950/80 px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="border-b border-neutral-800 bg-neutral-950 px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-600 text-neutral-950 font-black shadow-lg shadow-emerald-500/25">
-            <BrainCircuit className="h-6 w-6" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-neutral-950 font-bold shadow-sm">
+            <BrainCircuit className="h-5 w-5" />
           </div>
 
           <div>
@@ -1269,20 +1269,20 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
           <button
             type="button"
             onClick={() => setShowKeyModal(true)}
-            className="rounded-xl px-3 py-1.5 text-xs font-semibold border transition flex items-center gap-1.5 bg-neutral-800/60 border-neutral-700/60 text-neutral-300 hover:text-white hover:border-emerald-500/40"
+            className="rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-150 ease-out flex items-center gap-1.5 bg-neutral-900 border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700"
             title="Connect Custom AI Key"
           >
-            <Key className="h-3.5 w-3.5 text-amber-400" />
+            <Key className="h-3.5 w-3.5 text-neutral-400" />
             <span className="hidden sm:inline">Connect AI Key</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowQuickPrompts(!showQuickPrompts)}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold border transition flex items-center gap-1.5 ${
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-150 ease-out flex items-center gap-1.5 ${
               showQuickPrompts
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                : "bg-neutral-800/60 border-neutral-700/60 text-neutral-400 hover:text-white"
+                ? "bg-neutral-800 border-neutral-700 text-white"
+                : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
             }`}
             title="Toggle consultation quick-picks"
           >
@@ -1293,7 +1293,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
           <button
             type="button"
             onClick={handleResetChat}
-            className="rounded-xl border border-neutral-800 bg-neutral-800/40 p-2 text-neutral-400 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10 transition"
+            className="rounded-xl border border-neutral-800 bg-neutral-900 p-2 text-neutral-400 hover:text-rose-400 hover:border-neutral-700 transition-colors duration-150 ease-out"
             title="Reset conversation"
           >
             <RotateCcw className="h-3.5 w-3.5" />
@@ -1303,10 +1303,10 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
       {/* API Key Modal / Drawer */}
       {showKeyModal && (
-        <div className="border-b border-neutral-800 bg-neutral-950 p-4 sm:p-5 space-y-3 animate-in fade-in duration-200">
+        <div className="border-b border-neutral-800 bg-neutral-950 p-4 sm:p-5 space-y-3 animate-in fade-in duration-150 ease-out">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-              <Key className="h-4 w-4 text-amber-400" />
+              <Key className="h-4 w-4 text-neutral-300" />
               <span>Connect Custom AI Key</span>
             </div>
             <button
@@ -1315,12 +1315,12 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 setShowKeyModal(false);
                 setKeySaveMsg(null);
               }}
-              className="text-neutral-500 hover:text-white p-1 rounded-lg transition"
+              className="text-neutral-500 hover:text-white p-1 rounded-lg transition-colors duration-150 ease-out"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <p className="text-xs text-neutral-300 leading-relaxed">
+          <p className="text-xs text-neutral-400 leading-relaxed">
             Enter your custom API Key to power your coach with advanced Generative AI. Keys are stored locally in your environment.
           </p>
 
@@ -1330,12 +1330,12 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
               placeholder="Paste sk-ant-... or AIzaSy... key here"
               value={keyInput}
               onChange={(e) => setKeyInput(e.target.value)}
-              className="h-10 rounded-xl border border-neutral-800 bg-neutral-900 px-3 text-xs font-mono text-white placeholder:text-neutral-500 focus:border-amber-400 focus:outline-none flex-1"
+              className="h-10 rounded-xl border border-neutral-800 bg-neutral-900 px-3 text-xs font-mono text-white placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none flex-1 transition-colors duration-150 ease-out"
             />
             <button
               type="submit"
               disabled={isSavingKey || !keyInput.trim()}
-              className="h-10 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 text-xs font-bold text-neutral-950 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 flex items-center justify-center gap-1.5 shrink-0 transition"
+              className="h-10 rounded-xl bg-emerald-500 px-4 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 disabled:opacity-40 flex items-center justify-center gap-1.5 shrink-0 transition-colors duration-150 ease-out shadow-sm"
             >
               {isSavingKey ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1350,14 +1350,14 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             <div
               className={`rounded-xl p-2.5 text-xs flex items-center gap-2 ${
                 keySaveMsg.type === "success"
-                  ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30"
-                  : "bg-red-500/10 text-red-300 border border-red-500/30"
+                  ? "bg-neutral-900 text-emerald-400 border border-neutral-800"
+                  : "bg-neutral-900 text-rose-400 border border-neutral-800"
               }`}
             >
               {keySaveMsg.type === "success" ? (
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
               ) : (
-                <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
               )}
               <span>{keySaveMsg.text}</span>
             </div>
@@ -1367,7 +1367,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
       {/* 2. Biometric Active Context Bar */}
       {athleteContext && (athleteContext.weightLbs || athleteContext.targetCalories) && (
-        <div className="bg-neutral-950/40 border-b border-neutral-800/60 px-5 py-2 text-[11px] text-neutral-400 flex items-center justify-between flex-wrap gap-2">
+        <div className="bg-neutral-950 border-b border-neutral-800 px-5 py-2 text-[11px] text-neutral-400 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-neutral-500 font-semibold uppercase tracking-wider text-[10px]">
               Active Athlete Profile:
@@ -1376,22 +1376,22 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
               <span className="text-neutral-300 font-medium">{athleteContext.fullName}</span>
             )}
             {athleteContext.weightLbs && (
-              <span className="rounded bg-neutral-800/70 px-2 py-0.5 font-mono text-emerald-300 border border-neutral-700/60">
+              <span className="rounded bg-neutral-900 px-2 py-0.5 font-mono text-neutral-300 border border-neutral-800">
                 {athleteContext.weightLbs} lbs
               </span>
             )}
             {athleteContext.splitType && (
-              <span className="rounded bg-neutral-800/70 px-2 py-0.5 text-neutral-300 border border-neutral-700/60">
+              <span className="rounded bg-neutral-900 px-2 py-0.5 text-neutral-300 border border-neutral-800">
                 {athleteContext.splitType}
               </span>
             )}
             {athleteContext.targetCalories && (
-              <span className="rounded bg-neutral-800/70 px-2 py-0.5 font-mono text-cyan-300 border border-neutral-700/60">
+              <span className="rounded bg-neutral-900 px-2 py-0.5 font-mono text-neutral-300 border border-neutral-800">
                 {athleteContext.targetCalories} kcal
               </span>
             )}
           </div>
-          <span className="text-[10px] text-emerald-400/80 font-mono">
+          <span className="text-[10px] text-emerald-400 font-mono">
             {hasProfile ? "Generative Biomechanical Reasoning" : "Demo Mode • Complete Profile to Customize"}
           </span>
         </div>
@@ -1399,7 +1399,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
       {/* 3. Quick-Pick Prompt Carousel / Drawer */}
       {showQuickPrompts && (
-        <div className="border-b border-neutral-800/80 bg-neutral-950/60 p-3 sm:p-4">
+        <div className="border-b border-neutral-800 bg-neutral-950 p-3 sm:p-4">
           <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center justify-between">
             <span>Tap to Consult Coach on Core Scenarios:</span>
             <span className="text-[10px] text-neutral-500">1-click generative AI query</span>
@@ -1413,21 +1413,21 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   type="button"
                   onClick={() => handleSendMessage(prompt.question)}
                   disabled={isLoading || (rateLimitCooldown !== null && rateLimitCooldown > 0)}
-                  className="group rounded-xl border border-neutral-800 bg-neutral-900/60 hover:bg-emerald-500/10 hover:border-emerald-500/40 p-2.5 text-left transition flex items-center gap-2.5 disabled:opacity-50"
+                  className="group rounded-xl border border-neutral-800 bg-neutral-900 hover:border-neutral-700 p-2.5 text-left transition-colors duration-150 ease-out flex items-center gap-2.5 disabled:opacity-50"
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-neutral-400 group-hover:bg-emerald-500 group-hover:text-neutral-950 transition">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-neutral-400 group-hover:bg-neutral-700 group-hover:text-white transition-colors duration-150 ease-out">
                     <Icon className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1 text-[10px] font-mono text-neutral-500 group-hover:text-emerald-400">
+                    <div className="flex items-center justify-between gap-1 text-[10px] font-mono text-neutral-500 group-hover:text-neutral-300">
                       <span>{prompt.category}</span>
                       <span className="truncate">{prompt.tag}</span>
                     </div>
-                    <div className="truncate text-xs font-semibold text-neutral-300 group-hover:text-white transition">
+                    <div className="truncate text-xs font-semibold text-neutral-300 group-hover:text-white transition-colors duration-150 ease-out">
                       {prompt.question}
                     </div>
                   </div>
-                  <ChevronRight className="h-3.5 w-3.5 text-neutral-600 group-hover:text-emerald-400 shrink-0 transition" />
+                  <ChevronRight className="h-3.5 w-3.5 text-neutral-600 group-hover:text-neutral-400 shrink-0 transition-colors duration-150 ease-out" />
                 </button>
               );
             })}
@@ -1448,10 +1448,10 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             >
               {/* Message Avatar */}
               <div
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-md ${
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-sm ${
                   isUser
-                    ? "bg-gradient-to-tr from-emerald-500 to-teal-400 text-neutral-950 font-bold"
-                    : "bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-black shadow-emerald-500/20"
+                    ? "bg-neutral-800 text-neutral-200"
+                    : "bg-emerald-500 text-neutral-950 font-bold"
                 }`}
               >
                 {isUser ? <User className="h-4 w-4" /> : <BrainCircuit className="h-4 w-4" />}
@@ -1468,7 +1468,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                     {isUser ? athleteContext?.fullName || "You" : "StrengthWise AI Coach"}
                   </span>
                   {!isUser && (
-                    <span className="rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-mono">
+                    <span className="rounded bg-neutral-800 text-neutral-300 border border-neutral-700 px-1.5 py-0.2 text-[9px] font-mono">
                       {msg.model || "StrengthWise AI"}
                     </span>
                   )}
@@ -1476,10 +1476,10 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                 </div>
 
                 <div
-                  className={`relative group rounded-2xl p-4 sm:p-5 shadow-lg border transition ${
+                  className={`relative group rounded-2xl p-4 sm:p-5 shadow-sm border transition-colors duration-150 ease-out ${
                     isUser
-                      ? "bg-gradient-to-br from-emerald-600/20 via-emerald-700/15 to-neutral-900 border-emerald-500/30 text-white"
-                      : "bg-neutral-950/90 border-neutral-800 text-neutral-200"
+                      ? "bg-neutral-800 border-neutral-700 text-white"
+                      : "bg-neutral-950 border-neutral-800 text-neutral-200"
                   }`}
                 >
                   {isUser ? (
@@ -1489,30 +1489,30 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                           <button
                             type="button"
                             onClick={() => setLightboxImage(msg.image || null)}
-                            className="relative group/img block overflow-hidden rounded-xl border border-emerald-500/40 bg-neutral-950 shadow-md hover:border-emerald-400 transition max-w-[260px] sm:max-w-[320px] text-left cursor-pointer"
+                            className="relative group/img block overflow-hidden rounded-xl border border-neutral-700 bg-neutral-950 shadow-sm hover:border-neutral-500 transition-colors duration-150 ease-out max-w-[260px] sm:max-w-[320px] text-left cursor-pointer"
                             title="Click to zoom photo"
                           >
                             <img
                               src={msg.image}
                               alt="Attached photo"
-                              className="max-h-60 w-auto object-cover rounded-xl transition duration-200 group-hover/img:scale-[1.02]"
+                              className="max-h-60 w-auto object-cover rounded-xl"
                               onError={(e) => {
                                 const target = e.currentTarget;
                                 target.style.display = "none";
                                 const parent = target.parentElement;
                                 if (parent && !parent.querySelector(".img-fallback")) {
                                   const fallback = document.createElement("div");
-                                  fallback.className = "img-fallback p-3 flex items-center gap-2 text-xs text-emerald-300 font-mono";
+                                  fallback.className = "img-fallback p-3 flex items-center gap-2 text-xs text-neutral-300 font-mono";
                                   fallback.innerText = "📸 Photo Attached";
                                   parent.appendChild(fallback);
                                 }
                               }}
                             />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center gap-1.5 text-[11px] font-semibold text-white backdrop-blur-[1px]">
-                              <Maximize2 className="h-4 w-4 text-emerald-400" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity duration-150 ease-out flex items-center justify-center gap-1.5 text-[11px] font-semibold text-white">
+                              <Maximize2 className="h-4 w-4 text-white" />
                               <span>Click to Zoom</span>
                             </div>
-                            <span className="absolute top-1.5 left-1.5 rounded-full bg-neutral-950/85 border border-neutral-700/60 px-2 py-0.5 text-[10px] font-mono text-emerald-300 backdrop-blur-sm">
+                            <span className="absolute top-1.5 left-1.5 rounded-full bg-neutral-950/90 border border-neutral-700 px-2 py-0.5 text-[10px] font-mono text-neutral-300">
                               📸 Photo Attached
                             </span>
                           </button>
@@ -1523,12 +1523,9 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   ) : msg.content.trim().length > 0 ? (
                     renderFormattedContent(msg.content, msg.id)
                   ) : (
-                    <div className="flex items-center gap-2 py-2 text-emerald-400">
-                      <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                      </span>
-                      <span className="text-xs text-neutral-400 font-mono animate-pulse">
+                    <div className="flex items-center gap-2 py-2 text-neutral-400">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span className="text-xs text-neutral-400 font-mono">
                         Analyzing biomechanics &amp; streaming prescription...
                       </span>
                     </div>
@@ -1536,14 +1533,14 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
                   {/* Copy Button for Assistant Message */}
                   {!isUser && (
-                    <div className="mt-3 pt-2.5 border-t border-neutral-800/80 flex items-center justify-between text-[11px] text-neutral-400">
+                    <div className="mt-3 pt-2.5 border-t border-neutral-800 flex items-center justify-between text-[11px] text-neutral-400">
                       <span className="text-[10px] text-neutral-500 font-mono">
                         Biomechanical &amp; Sports Science Specialist
                       </span>
                       <button
                         type="button"
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-2 py-1 text-[11px] text-neutral-300 hover:text-white transition"
+                        className="inline-flex items-center gap-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-2 py-1 text-[11px] text-neutral-300 hover:text-white transition-colors duration-150 ease-out"
                         title="Copy prescription"
                       >
                         {copiedId === msg.id ? (
@@ -1569,21 +1566,18 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
         {/* Live Thinking / Typing Indicator */}
         {isLoading && (
           <div className="flex gap-3 max-w-[85%] mr-auto items-start">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-neutral-950 font-black shadow-md">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-neutral-950 font-bold shadow-sm">
               <BrainCircuit className="h-4 w-4" />
             </div>
-            <div className="rounded-2xl bg-neutral-950/90 border border-emerald-500/30 p-4 space-y-2 text-xs">
-              <div className="flex items-center gap-2 text-emerald-400 font-semibold font-mono text-[11px]">
-                <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
+            <div className="rounded-2xl bg-neutral-950 border border-neutral-800 p-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-neutral-300 font-semibold font-mono text-[11px]">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>AI Coach reasoning with biomechanical levers &amp; sports nutrition...</span>
               </div>
               <div className="flex items-center gap-1.5 pt-1">
-                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-bounce"></div>
+                <div className="h-2 w-2 rounded-full bg-neutral-500 animate-pulse"></div>
+                <div className="h-2 w-2 rounded-full bg-neutral-400 animate-pulse"></div>
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
               </div>
             </div>
           </div>
@@ -1594,9 +1588,9 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
       {/* Rate Limit Active Notice */}
       {rateLimitCooldown !== null && rateLimitCooldown > 0 && (
-        <div className="mx-3 sm:mx-4 mb-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-center justify-between gap-3 animate-in fade-in">
+        <div className="mx-3 sm:mx-4 mb-2 rounded-xl border border-neutral-800 bg-neutral-900 p-3 text-xs text-neutral-300 flex items-center justify-between gap-3 animate-in fade-in duration-150 ease-out">
           <div className="flex items-center gap-2.5">
-            <Clock className="h-4 w-4 text-amber-400 shrink-0 animate-pulse" />
+            <Clock className="h-4 w-4 text-neutral-400 shrink-0" />
             <span>
               {rateLimitMsg ||
                 `Rate limit active: Please wait ${rateLimitCooldown}s before sending another question.`}
@@ -1630,7 +1624,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
         {/* Selected Image Staging Banner */}
         {selectedImage && (
-          <div className="mb-2.5 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-2.5 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="mb-2.5 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-2.5 text-xs animate-in fade-in slide-in-from-bottom-2 duration-150 ease-out">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-emerald-500/40 bg-neutral-900 shadow">
                 <img
@@ -1664,17 +1658,17 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
                   <button
                     type="button"
                     onClick={() => handleSendMessage("Read this Nutrition Facts label, extract calories, protein, carbs, fat, and fiber, and provide a 1-click log card.")}
-                    className="inline-flex items-center gap-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 px-2 py-1 text-[11px] font-semibold text-neutral-300 hover:text-white transition"
+                    className="inline-flex items-center gap-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 px-2 py-1 text-[11px] font-semibold text-neutral-300 hover:text-white transition-colors duration-150 ease-out"
                   >
-                    <Apple className="h-3 w-3 text-cyan-400" />
+                    <Apple className="h-3 w-3 text-neutral-400" />
                     <span>Scan Label</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSendMessage("Analyze my lift mechanics, joint angles, and bar path in this photo.")}
-                    className="inline-flex items-center gap-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 px-2 py-1 text-[11px] font-semibold text-neutral-300 hover:text-white transition"
+                    className="inline-flex items-center gap-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/80 px-2 py-1 text-[11px] font-semibold text-neutral-300 hover:text-white transition-colors duration-150 ease-out"
                   >
-                    <Dumbbell className="h-3 w-3 text-amber-400" />
+                    <Dumbbell className="h-3 w-3 text-neutral-400" />
                     <span>Form Check</span>
                   </button>
                 </div>
@@ -1758,7 +1752,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
               (!inputValue.trim() && !selectedImage) ||
               (rateLimitCooldown !== null && rateLimitCooldown > 0)
             }
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-neutral-950 font-bold shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed transition"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-neutral-950 font-bold shadow-sm hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150 ease-out"
             title="Send message (Enter)"
           >
             <Send className="h-4 w-4" />
@@ -1784,7 +1778,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
       {/* Lightbox Modal for Full-Resolution Photo Inspection */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-150 ease-out"
           onClick={() => setLightboxImage(null)}
         >
           <div
@@ -1794,7 +1788,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             <button
               type="button"
               onClick={() => setLightboxImage(null)}
-              className="absolute -top-12 right-0 flex items-center gap-1.5 rounded-full bg-neutral-800/80 border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:text-white hover:bg-neutral-700 transition"
+              className="absolute -top-12 right-0 flex items-center gap-1.5 rounded-full bg-neutral-900 border border-neutral-800 px-3 py-1.5 text-xs text-neutral-300 hover:text-white transition-colors duration-150 ease-out"
             >
               <X className="h-4 w-4" />
               <span>Close (Esc)</span>
@@ -1802,7 +1796,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             <img
               src={lightboxImage}
               alt="Enlarged performance photo"
-              className="max-h-[82vh] max-w-full rounded-2xl border border-neutral-800 shadow-2xl object-contain"
+              className="max-h-[82vh] max-w-full rounded-2xl border border-neutral-800 shadow-xl object-contain"
             />
           </div>
         </div>

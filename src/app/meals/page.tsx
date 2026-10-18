@@ -27,6 +27,7 @@ import { calculateNutritionTargets } from "@/lib/calc";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
 import { EditMealModal, type LoggedMealItem } from "@/components/edit-meal-modal";
 import { MealResetModal } from "@/components/meal-reset-modal";
+import { GuestAuthModal } from "@/components/guest-auth-modal";
 import {
   getLocalDateString,
   formatDisplayDate,
@@ -41,6 +42,23 @@ export default function MealsPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Guest Auth Intercept Modal State
+  const [isGuestAuthModalOpen, setIsGuestAuthModalOpen] = useState(false);
+  const [guestModalTitle, setGuestModalTitle] = useState("Create an athlete profile to log meals");
+  const [guestModalDescription, setGuestModalDescription] = useState(
+    "StrengthWise AI calculates your personalized metabolic targets and synchronizes your daily nutrition logs to PostgreSQL."
+  );
+
+  const handleProtectedAction = (title?: string, description?: string) => {
+    if (!authUser) {
+      if (title) setGuestModalTitle(title);
+      if (description) setGuestModalDescription(description);
+      setIsGuestAuthModalOpen(true);
+      return false;
+    }
+    return true;
+  };
 
   // Profile biometrics
   const [fullName, setFullName] = useState("");
@@ -250,9 +268,90 @@ export default function MealsPage() {
         setAuthUser(currentUser);
 
         if (!currentUser) {
-          if (typeof window !== "undefined") {
-            window.location.replace("/profile");
-          }
+          setHasProfile(false);
+          // Populate rich demo meals for guest exploration
+          const demoBreakfast = [
+            {
+              id: "demo-m1",
+              mealType: "BREAKFAST",
+              name: "Whey Protein & Rolled Oats with Blueberries",
+              calories: 620,
+              protein: 48,
+              carbs: 72,
+              fat: 14,
+              fiber: 8,
+              serving: "1 bowl",
+              loggedAt: new Date().toISOString(),
+            },
+          ];
+          const demoLunch = [
+            {
+              id: "demo-m2",
+              mealType: "LUNCH",
+              name: "Grilled Chicken Breast, Jasmine Rice & Avocado",
+              calories: 780,
+              protein: 62,
+              carbs: 85,
+              fat: 18,
+              fiber: 6,
+              serving: "1 plate",
+              loggedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+            },
+          ];
+          const demoDinner = [
+            {
+              id: "demo-m3",
+              mealType: "DINNER",
+              name: "Grass-Fed Flank Steak & Roasted Sweet Potatoes",
+              calories: 710,
+              protein: 58,
+              carbs: 64,
+              fat: 22,
+              fiber: 7,
+              serving: "8 oz steak + 250g potatoes",
+              loggedAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
+            },
+          ];
+          const demoSnack = [
+            {
+              id: "demo-m4",
+              mealType: "SNACK",
+              name: "Greek Yogurt with Raw Honey & Banana",
+              calories: 340,
+              protein: 28,
+              carbs: 46,
+              fat: 4,
+              fiber: 3,
+              serving: "1 cup (220g)",
+              loggedAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
+            },
+          ];
+          const allDemo = [...demoBreakfast, ...demoLunch, ...demoDinner, ...demoSnack];
+          const totals = {
+            calories: allDemo.reduce((s, i) => s + i.calories, 0),
+            protein: allDemo.reduce((s, i) => s + i.protein, 0),
+            carbs: allDemo.reduce((s, i) => s + i.carbs, 0),
+            fat: allDemo.reduce((s, i) => s + i.fat, 0),
+            fiber: allDemo.reduce((s, i) => s + i.fiber, 0),
+          };
+          setLoggedMealsData({
+            meals: allDemo,
+            grouped: {
+              BREAKFAST: demoBreakfast,
+              LUNCH: demoLunch,
+              DINNER: demoDinner,
+              SNACK: demoSnack,
+            },
+            totals,
+            remaining: {
+              calories: Math.max(0, 2750 - totals.calories),
+              protein: Math.max(0, 196 - totals.protein),
+              carbs: Math.max(0, 310 - totals.carbs),
+              fat: Math.max(0, 75 - totals.fat),
+              fiber: Math.max(0, 38 - totals.fiber),
+            },
+          });
+          setLoading(false);
           return;
         }
 
@@ -370,7 +469,7 @@ export default function MealsPage() {
   }, [supabase]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-10 animate-in fade-in duration-300">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-10 animate-in fade-in duration-150 ease-out">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-6">
         <div className="space-y-1">
@@ -383,11 +482,12 @@ export default function MealsPage() {
           <button
             type="button"
             onClick={() => {
+              if (!handleProtectedAction("Create an athlete profile to log meals", "Sign in or create an athlete profile to scan barcodes, log food, and sync your macros.")) return;
               setScannerInitialMeal("LUNCH");
               setScannerInitialTab("scan");
               setIsScannerOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-4 py-2 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out"
           >
             <Scan className="h-4 w-4" />
             <span>Scan Food / Barcode</span>
@@ -395,13 +495,14 @@ export default function MealsPage() {
           <button
             type="button"
             onClick={() => {
+              if (!handleProtectedAction("Create an athlete profile to search foods", "Sign in or create an athlete profile to search our 3M+ food database and track macros.")) return;
               setScannerInitialMeal("LUNCH");
               setScannerInitialTab("search");
               setIsScannerOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition-colors duration-150 ease-out"
           >
-            <Search className="h-3.5 w-3.5 text-cyan-400" />
+            <Search className="h-3.5 w-3.5 text-neutral-400" />
             <span>Search Foods</span>
           </button>
         </div>
@@ -409,9 +510,9 @@ export default function MealsPage() {
 
       {/* Gated Overlay if Profile Not Configured */}
       {!hasProfile && !loading && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 sm:p-6 backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300">
               <Lock className="h-5 w-5" />
             </div>
             <div>
@@ -422,8 +523,8 @@ export default function MealsPage() {
             </div>
           </div>
           <Link
-            href="/profile"
-            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-amber-400 transition shrink-0"
+            href="/profile?redirect=/meals"
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-neutral-950 transition-colors duration-150 ease-out shrink-0 shadow-sm"
           >
             <span>Configure Athlete Profile</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -432,22 +533,16 @@ export default function MealsPage() {
       )}
 
       {/* Prescribed Daily Fuel Target Card */}
-      <Card className="relative overflow-hidden bg-gradient-to-b from-neutral-900/90 via-neutral-900/70 to-neutral-950/90 border border-neutral-800/80 p-6 sm:p-8 shadow-2xl flex flex-col items-center justify-center space-y-6">
-        {/* Subtle Ambient Background Mesh */}
-        <div 
-          className="absolute -top-32 left-1/2 -translate-x-1/2 w-[520px] h-[360px] rounded-full bg-gradient-to-b from-cyan-500/15 via-pink-500/10 to-amber-500/5 blur-3xl pointer-events-none -z-10" 
-          aria-hidden="true" 
-        />
-
+      <Card className="relative overflow-hidden bg-neutral-900 border border-neutral-800 p-4 sm:p-6 shadow-sm flex flex-col items-center justify-center space-y-6">
         <div className="text-center relative">
-          <Text className="text-neutral-400 text-xs uppercase tracking-wider font-semibold">
+          <Text className="text-neutral-400 text-xs uppercase tracking-wider font-semibold font-mono">
             Prescribed Daily Fuel
           </Text>
-          <div className="text-3xl sm:text-4xl font-extrabold text-white font-mono mt-1">
+          <div className="text-3xl sm:text-4xl font-extrabold text-white font-mono tabular-nums mt-1">
             {calculated.targetCalories} <span className="text-xs text-neutral-500 font-sans">KCAL</span>
           </div>
           {calculated.isCustom && (
-            <div className="mt-1 text-xs font-mono text-cyan-400 font-medium">
+            <div className="mt-1 text-xs font-mono text-emerald-400 font-medium">
               Coach Target
             </div>
           )}
@@ -462,26 +557,26 @@ export default function MealsPage() {
 
         {/* Macros grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 w-full max-w-xl text-center">
-          <div className="rounded-2xl bg-gradient-to-b from-cyan-950/40 to-neutral-950/90 p-3.5 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
-            <div className="text-[10px] uppercase font-bold text-cyan-400 tracking-wider">Protein</div>
-            <div className="text-lg font-black text-white font-mono mt-0.5">{calculated.targetProtein}g</div>
-            <div className="text-[10px] text-neutral-400 font-mono">2.0g / kg</div>
+          <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800 shadow-sm">
+            <div className="text-[10px] uppercase font-mono font-bold text-neutral-400 tracking-wider">Protein</div>
+            <div className="text-lg font-black text-white font-mono tabular-nums mt-0.5">{calculated.targetProtein}g</div>
+            <div className="text-[10px] text-neutral-500 font-mono">2.0g / kg</div>
           </div>
-          <div className="rounded-2xl bg-gradient-to-b from-pink-950/40 to-neutral-950/90 p-3.5 border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.1)]">
-            <div className="text-[10px] uppercase font-bold text-pink-400 tracking-wider">Carbs</div>
-            <div className="text-lg font-black text-white font-mono mt-0.5">{calculated.targetCarbs}g</div>
-            <div className="text-[10px] text-neutral-400 font-mono">Glycogen fuel</div>
+          <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800 shadow-sm">
+            <div className="text-[10px] uppercase font-mono font-bold text-neutral-400 tracking-wider">Carbs</div>
+            <div className="text-lg font-black text-white font-mono tabular-nums mt-0.5">{calculated.targetCarbs}g</div>
+            <div className="text-[10px] text-neutral-500 font-mono">Glycogen fuel</div>
           </div>
-          <div className="rounded-2xl bg-gradient-to-b from-amber-950/40 to-neutral-950/90 p-3.5 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]">
-            <div className="text-[10px] uppercase font-bold text-amber-400 tracking-wider">Fats</div>
-            <div className="text-lg font-black text-white font-mono mt-0.5">{calculated.targetFat}g</div>
-            <div className="text-[10px] text-neutral-400 font-mono">Hormone health</div>
+          <div className="rounded-xl bg-neutral-950 p-3.5 border border-neutral-800 shadow-sm">
+            <div className="text-[10px] uppercase font-mono font-bold text-neutral-400 tracking-wider">Fats</div>
+            <div className="text-lg font-black text-white font-mono tabular-nums mt-0.5">{calculated.targetFat}g</div>
+            <div className="text-[10px] text-neutral-500 font-mono">Hormone health</div>
           </div>
         </div>
       </Card>
 
       {/* LIVE DAILY FOOD & MACRO TRACKER STUDIO */}
-      <Card className="bg-neutral-900/90 border-neutral-800 p-6 sm:p-8 space-y-6 shadow-2xl">
+      <Card className="bg-neutral-900 border border-neutral-800 p-4 sm:p-6 space-y-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
           <div>
             <div className="flex items-center gap-2">
@@ -496,11 +591,12 @@ export default function MealsPage() {
             <button
               type="button"
               onClick={() => {
+                if (!handleProtectedAction("Create an athlete profile to log meals", "Sign in or create an athlete profile to scan barcodes, log food, and sync your macros.")) return;
                 setScannerInitialMeal("LUNCH");
                 setScannerInitialTab("scan");
                 setIsScannerOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-4 py-2 text-xs font-bold text-neutral-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-emerald-300 transition active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out"
             >
               <Scan className="h-4 w-4" />
               <span>Scan Food / Barcode</span>
@@ -509,27 +605,28 @@ export default function MealsPage() {
             <button
               type="button"
               onClick={() => {
+                if (!handleProtectedAction("Create an athlete profile to search foods", "Sign in or create an athlete profile to search our 3M+ food database and track macros.")) return;
                 setScannerInitialMeal("LUNCH");
                 setScannerInitialTab("search");
                 setIsScannerOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-xs font-semibold text-neutral-200 hover:bg-neutral-700 hover:text-white transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition-colors duration-150 ease-out"
             >
-              <Search className="h-3.5 w-3.5 text-cyan-400" />
+              <Search className="h-3.5 w-3.5 text-neutral-400" />
               <span>Search Database</span>
             </button>
           </div>
         </div>
 
         {/* Date Selector & Daily 12:00 AM Reset Indicator */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-950/60 border border-neutral-800/80 rounded-2xl px-4 py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="inline-flex items-center rounded-xl border border-neutral-800 bg-neutral-900/90 p-1">
+            <div className="inline-flex items-center rounded-xl border border-neutral-800 bg-neutral-900 p-1">
               <button
                 type="button"
                 onClick={handlePrevDay}
                 title="Previous Day"
-                className="rounded-lg p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+                className="rounded-lg p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -542,7 +639,7 @@ export default function MealsPage() {
                 type="button"
                 onClick={handleNextDay}
                 title="Next Day"
-                className="rounded-lg p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+                className="rounded-lg p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -552,7 +649,7 @@ export default function MealsPage() {
               <button
                 type="button"
                 onClick={handleJumpToToday}
-                className="rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 transition"
+                className="rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
               >
                 Today
               </button>
@@ -563,21 +660,21 @@ export default function MealsPage() {
           <button
             type="button"
             onClick={() => setIsResetModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-800 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-medium transition group shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-medium transition-colors duration-150 ease-out group shadow-sm"
             title="Configure daily reset time"
           >
-            <Clock className="h-3.5 w-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <Clock className="h-3.5 w-3.5 text-emerald-400" />
             <span>
               Resets daily at <strong className="text-emerald-400 font-mono">{formatResetTimeDisplay(mealResetTime)}</strong>
             </span>
-            <span className="text-[10px] text-neutral-400 ml-1 border border-neutral-700/80 rounded px-1.5 py-0.5 group-hover:border-emerald-500/50 group-hover:text-emerald-300 transition">
+            <span className="text-[10px] text-neutral-400 ml-1 border border-neutral-700 rounded px-1.5 py-0.5 group-hover:border-neutral-600 transition-colors duration-150 ease-out">
               Change
             </span>
           </button>
         </div>
 
         {/* Daily Progress Bars vs Mifflin-St Jeor Targets */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 rounded-2xl bg-neutral-950/80 border border-neutral-800">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 rounded-xl bg-neutral-950 border border-neutral-800 shadow-sm">
           {/* Calories Progress */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
@@ -602,8 +699,8 @@ export default function MealsPage() {
           {/* Protein Progress */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="text-neutral-300 font-semibold">Protein</span>
-              <span className="font-mono text-cyan-400 font-bold">
+              <span className="text-neutral-300 font-medium">Protein</span>
+              <span className="font-mono text-neutral-200 font-bold">
                 {loggedMealsData.totals.protein}g / {calculated.targetProtein}g
               </span>
             </div>
@@ -620,8 +717,8 @@ export default function MealsPage() {
           {/* Carbs Progress */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="text-neutral-300 font-semibold">Carbs</span>
-              <span className="font-mono text-pink-400 font-bold">
+              <span className="text-neutral-300 font-medium">Carbs</span>
+              <span className="font-mono text-neutral-200 font-bold">
                 {loggedMealsData.totals.carbs}g / {calculated.targetCarbs}g
               </span>
             </div>
@@ -638,8 +735,8 @@ export default function MealsPage() {
           {/* Fats Progress */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="text-neutral-300 font-semibold">Fats</span>
-              <span className="font-mono text-amber-400 font-bold">
+              <span className="text-neutral-300 font-medium">Fats</span>
+              <span className="font-mono text-neutral-200 font-bold">
                 {loggedMealsData.totals.fat}g / {calculated.targetFat}g
               </span>
             </div>
@@ -658,10 +755,10 @@ export default function MealsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {(
             [
-              { type: "BREAKFAST" as const, label: "Breakfast", icon: "🍳", color: "text-amber-400" },
-              { type: "LUNCH" as const, label: "Lunch", icon: "🥗", color: "text-emerald-400" },
-              { type: "DINNER" as const, label: "Dinner", icon: "🥩", color: "text-cyan-400" },
-              { type: "SNACK" as const, label: "Snacks", icon: "🍎", color: "text-purple-400" },
+              { type: "BREAKFAST" as const, label: "Breakfast", icon: "🍳" },
+              { type: "LUNCH" as const, label: "Lunch", icon: "🥗" },
+              { type: "DINNER" as const, label: "Dinner", icon: "🥩" },
+              { type: "SNACK" as const, label: "Snacks", icon: "🍎" },
             ]
           ).map((cat) => {
             const items = loggedMealsData.grouped[cat.type] || [];
@@ -671,7 +768,7 @@ export default function MealsPage() {
             return (
               <div
                 key={cat.type}
-                className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-3 flex flex-col justify-between"
+                className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-3 flex flex-col justify-between shadow-sm"
               >
                 <div className="space-y-2.5">
                   {/* Header */}
@@ -696,7 +793,7 @@ export default function MealsPage() {
                       items.map((item) => (
                         <div
                           key={item.id}
-                          className="group flex items-center justify-between p-2 rounded-xl bg-neutral-900/80 border border-neutral-800/80 hover:border-neutral-700 transition"
+                          className="group flex items-center justify-between p-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-colors duration-150 ease-out"
                         >
                           <div className="overflow-hidden pr-2 flex-1">
                             <div className="text-[11px] font-semibold text-neutral-200 truncate flex items-center gap-1.5">
@@ -708,30 +805,36 @@ export default function MealsPage() {
                               )}
                             </div>
                             <div className="text-[9px] text-neutral-400 font-mono mt-0.5">
-                              <span className="text-emerald-400 font-bold">{item.calories} kcal</span>
+                              <span className="text-emerald-400 font-semibold">{item.calories} kcal</span>
                               <span className="text-neutral-600"> • </span>
-                              <span className="text-cyan-400">P: {item.protein}g</span>
+                              <span className="text-neutral-300">P: {item.protein}g</span>
                               <span className="text-neutral-600"> • </span>
-                              <span className="text-pink-400">C: {item.carbs}g</span>
+                              <span className="text-neutral-300">C: {item.carbs}g</span>
                               <span className="text-neutral-600"> • </span>
-                              <span className="text-amber-400">F: {item.fat}g</span>
+                              <span className="text-neutral-300">F: {item.fat}g</span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-0.5 shrink-0">
                             <button
                               type="button"
-                              onClick={() => handleOpenEditMeal(item)}
+                              onClick={() => {
+                                if (!handleProtectedAction("Create an athlete profile to edit meals", "Sign in or create an athlete profile to modify your logged meals.")) return;
+                                handleOpenEditMeal(item);
+                              }}
                               title="Edit food entry"
-                              className="text-neutral-500 hover:text-cyan-400 p-1 rounded-lg opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 transition"
+                              className="text-neutral-500 hover:text-white p-1 rounded-lg opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 transition-colors duration-150 ease-out"
                             >
                               <Pencil className="h-3 w-3" />
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeleteMeal(item.id)}
+                              onClick={() => {
+                                if (!handleProtectedAction("Create an athlete profile to delete meals", "Sign in or create an athlete profile to modify your logged meals.")) return;
+                                handleDeleteMeal(item.id);
+                              }}
                               title="Delete food entry"
-                              className="text-neutral-500 hover:text-red-400 p-1 rounded-lg opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 transition"
+                              className="text-neutral-500 hover:text-red-400 p-1 rounded-lg opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-neutral-800 transition-colors duration-150 ease-out"
                             >
                               <Trash2 className="h-3 w-3" />
                             </button>
@@ -746,6 +849,7 @@ export default function MealsPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (!handleProtectedAction(`Create an athlete profile to log to ${cat.label}`, "Sign in or create an athlete profile to log custom meals, scan food, and calculate macros.")) return;
                     setScannerInitialMeal(cat.type);
                     setIsScannerOpen(true);
                   }}
@@ -788,6 +892,15 @@ export default function MealsPage() {
         onClose={() => setIsResetModalOpen(false)}
         currentResetTime={mealResetTime}
         onSave={handleSaveResetTime}
+      />
+
+      {/* Guest Athlete Profile Intercept Modal */}
+      <GuestAuthModal
+        isOpen={isGuestAuthModalOpen}
+        onClose={() => setIsGuestAuthModalOpen(false)}
+        title={guestModalTitle}
+        description={guestModalDescription}
+        redirectPath="/meals"
       />
     </div>
   );

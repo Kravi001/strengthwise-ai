@@ -473,21 +473,21 @@ export function FoodScannerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-2xl rounded-3xl border border-neutral-800 bg-neutral-950 p-5 sm:p-7 space-y-6 shadow-2xl my-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 animate-in fade-in duration-150 ease-out overflow-y-auto">
+      <div className="relative w-full max-w-2xl rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:p-7 space-y-6 shadow-xl my-6">
         {/* Hidden Canvas for Camera Captures */}
         <canvas ref={canvasRef} className="hidden" />
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-800 text-neutral-200 border border-neutral-700">
               <Scan className="h-5 w-5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>Food &amp; Macro Scanner</span>
-                <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded flex items-center gap-1">
+                <span className="text-[10px] font-mono font-bold bg-neutral-800 text-emerald-400 border border-neutral-700 px-2 py-0.5 rounded flex items-center gap-1">
                   <ShieldCheck className="h-3 w-3" />
                   <span>100% Accurate</span>
                 </span>
@@ -503,22 +503,22 @@ export function FoodScannerModal({
               stopCamera();
               onClose();
             }}
-            className="rounded-xl p-2 text-neutral-400 hover:text-white hover:bg-neutral-900 transition"
+            className="rounded-xl p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Tab Selection */}
-        <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-neutral-900 border border-neutral-800">
+        <div className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-neutral-950 border border-neutral-800">
           <button
             type="button"
             onClick={() => {
               setActiveTab("scan");
             }}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition ${
+            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-colors duration-150 ease-out ${
               activeTab === "scan"
-                ? "bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20"
+                ? "bg-emerald-500 text-neutral-950 shadow-sm"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
@@ -532,9 +532,9 @@ export function FoodScannerModal({
               stopCamera();
               setActiveTab("search");
             }}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition ${
+            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-colors duration-150 ease-out ${
               activeTab === "search"
-                ? "bg-cyan-500 text-neutral-950 shadow-md shadow-cyan-500/20"
+                ? "bg-emerald-500 text-neutral-950 shadow-sm"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
@@ -548,9 +548,9 @@ export function FoodScannerModal({
               stopCamera();
               setActiveTab("quick");
             }}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition ${
+            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-colors duration-150 ease-out ${
               activeTab === "quick"
-                ? "bg-purple-500 text-neutral-950 shadow-md shadow-purple-500/20"
+                ? "bg-emerald-500 text-neutral-950 shadow-sm"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
@@ -561,7 +561,7 @@ export function FoodScannerModal({
 
         {/* Success Alert */}
         {logSuccess && (
-          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-emerald-500/40 bg-emerald-950/40 text-xs text-emerald-300">
+          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-emerald-500/40 bg-neutral-950 text-xs text-emerald-400">
             <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>{logSuccess}</span>
           </div>
@@ -569,8 +569,8 @@ export function FoodScannerModal({
 
         {/* Error Alert */}
         {(scanError || cameraError) && (
-          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-red-500/40 bg-red-950/40 text-xs text-red-300">
-            <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-rose-500/40 bg-neutral-950 text-xs text-rose-400">
+            <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
             <span>{scanError || cameraError}</span>
           </div>
         )}
@@ -582,7 +582,7 @@ export function FoodScannerModal({
           <div className="space-y-5">
             {/* Live Camera Viewfinder or Upload Box */}
             {isCameraActive ? (
-              <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/60 bg-neutral-950 shadow-xl">
+              <div className="relative rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-sm">
                 <video
                   ref={videoRef}
                   playsInline
@@ -591,11 +591,11 @@ export function FoodScannerModal({
                   className="w-full h-64 object-cover"
                 />
 
-                {/* Animated Neon Reticle */}
+                {/* Reticle */}
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                  <div className="relative w-4/5 h-4/5 border-2 border-dashed border-emerald-400/80 rounded-2xl">
-                    <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-pulse" />
-                    <div className="absolute top-2 left-2 text-[10px] font-mono uppercase bg-neutral-950/80 text-emerald-400 px-2 py-0.5 rounded">
+                  <div className="relative w-4/5 h-4/5 border border-dashed border-emerald-500/80 rounded-2xl">
+                    <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-500 animate-pulse" />
+                    <div className="absolute top-2 left-2 text-[10px] font-mono uppercase bg-neutral-950 text-emerald-400 px-2 py-0.5 rounded border border-neutral-800">
                       Point at Barcode or Nutrition Facts
                     </div>
                   </div>
@@ -606,7 +606,7 @@ export function FoodScannerModal({
                   <button
                     type="button"
                     onClick={captureFrameAndAnalyze}
-                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-5 py-2.5 text-xs font-bold text-neutral-950 shadow-xl shadow-emerald-500/40 hover:scale-105 transition active:scale-95"
+                    className="flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-5 py-2.5 text-xs font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out"
                   >
                     <Camera className="h-4 w-4" />
                     <span>Capture &amp; Analyze</span>
@@ -615,9 +615,9 @@ export function FoodScannerModal({
                   <button
                     type="button"
                     onClick={stopCamera}
-                    className="flex items-center gap-1.5 rounded-2xl bg-neutral-900/90 border border-neutral-700 px-4 py-2.5 text-xs font-semibold text-neutral-300 hover:text-white transition"
+                    className="flex items-center gap-1.5 rounded-xl bg-neutral-900 border border-neutral-800 px-4 py-2.5 text-xs font-semibold text-neutral-300 hover:text-white transition-colors duration-150 ease-out"
                   >
-                    <StopCircle className="h-4 w-4 text-red-400" />
+                    <StopCircle className="h-4 w-4 text-rose-400" />
                     <span>Stop Camera</span>
                   </button>
                 </div>
@@ -628,13 +628,13 @@ export function FoodScannerModal({
                 <button
                   type="button"
                   onClick={startCamera}
-                  className="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-dashed border-emerald-500/40 bg-emerald-950/10 hover:bg-emerald-950/20 hover:border-emerald-500 transition group text-center space-y-2.5"
+                  className="flex flex-col items-center justify-center p-5 rounded-2xl border border-dashed border-neutral-800 bg-neutral-950 hover:border-neutral-700 transition-colors duration-150 ease-out group text-center space-y-2.5"
                 >
-                  <div className="h-12 w-12 rounded-2xl bg-neutral-900 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition shadow-inner">
+                  <div className="h-12 w-12 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-300 group-hover:text-emerald-400 transition-colors duration-150 ease-out shadow-sm">
                     <Video className="h-6 w-6" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition">
+                    <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors duration-150 ease-out">
                       Open Live Camera Scanner
                     </div>
                     <div className="text-[10px] text-neutral-400 mt-0.5">
@@ -644,7 +644,7 @@ export function FoodScannerModal({
                 </button>
 
                 {/* Option B: Upload Photo / Image */}
-                <div className="relative border-2 border-dashed border-neutral-800 rounded-2xl p-5 text-center hover:border-neutral-700 transition group flex flex-col items-center justify-center">
+                <div className="relative border border-dashed border-neutral-800 bg-neutral-950 rounded-2xl p-5 text-center hover:border-neutral-700 transition-colors duration-150 ease-out group flex flex-col items-center justify-center">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -657,11 +657,11 @@ export function FoodScannerModal({
                     htmlFor="food-photo-upload"
                     className="cursor-pointer flex flex-col items-center justify-center space-y-2.5"
                   >
-                    <div className="h-12 w-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition">
+                    <div className="h-12 w-12 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-300 group-hover:text-emerald-400 transition-colors duration-150 ease-out shadow-sm">
                       <Upload className="h-6 w-6" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-white group-hover:text-cyan-400 transition">
+                      <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors duration-150 ease-out">
                         Upload Photo / Gallery
                       </div>
                       <div className="text-[10px] text-neutral-500 mt-0.5">
@@ -779,7 +779,7 @@ export function FoodScannerModal({
                     value={searchQuery}
                     onChange={(e) => handleSearchInputChange(e.target.value)}
                     placeholder="Search USDA FoodData Central & Open Food Facts (e.g. Chicken Thigh, Salmon, Oatmeal, Rice)..."
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-900 pl-10 pr-9 py-2.5 text-xs text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:outline-none"
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-900 pl-10 pr-9 py-2.5 text-xs text-white placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                   />
                   {searchQuery && (
                     <button
@@ -788,7 +788,7 @@ export function FoodScannerModal({
                         setSearchQuery("");
                         setSearchResults([]);
                       }}
-                      className="absolute right-3 top-3 text-neutral-500 hover:text-white"
+                      className="absolute right-3 top-3 text-neutral-500 hover:text-white transition-colors duration-150 ease-out"
                       title="Clear search"
                     >
                       <X className="h-4 w-4" />
@@ -799,7 +799,7 @@ export function FoodScannerModal({
                 <button
                   type="submit"
                   disabled={isSearchingQuery || !searchQuery.trim()}
-                  className="rounded-xl bg-cyan-500 hover:bg-cyan-400 px-4 py-2.5 text-xs font-bold text-neutral-950 transition disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-md shadow-cyan-500/20"
+                  className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2.5 text-xs font-semibold text-neutral-950 transition-colors duration-150 ease-out disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
                 >
                   {isSearchingQuery ? (
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -832,10 +832,10 @@ export function FoodScannerModal({
                       setSearchQuery(term);
                       performSearch(term);
                     }}
-                    className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${
+                    className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition-colors duration-150 ease-out ${
                       searchQuery.toLowerCase() === term.toLowerCase()
-                        ? "border-cyan-500 bg-cyan-500/20 text-cyan-300 font-bold"
-                        : "border-neutral-800 bg-neutral-900/60 text-neutral-400 hover:text-white hover:border-neutral-700"
+                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-400 font-semibold"
+                        : "border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700"
                     }`}
                   >
                     {term}
@@ -847,14 +847,14 @@ export function FoodScannerModal({
             {/* Loading Indicator */}
             {isSearchingQuery && (
               <div className="text-center py-4 text-xs text-neutral-400 flex items-center justify-center gap-2">
-                <RefreshCw className="h-4 w-4 animate-spin text-cyan-400" />
+                <RefreshCw className="h-4 w-4 animate-spin text-neutral-400" />
                 <span>Querying USDA FoodData Central &amp; Open Food Facts...</span>
               </div>
             )}
 
             {/* Results or Empty State */}
             {!isSearchingQuery && searchResults.length === 0 ? (
-              <div className="text-center py-8 text-xs text-neutral-400 rounded-2xl border border-neutral-800/80 bg-neutral-900/30 p-6 space-y-2">
+              <div className="text-center py-8 text-xs text-neutral-400 rounded-2xl border border-neutral-800 bg-neutral-950 p-6 space-y-2">
                 <div className="text-xs font-semibold text-neutral-300">
                   {searchQuery ? `No records found for "${searchQuery}"` : "Search for any food, ingredient, or cut"}
                 </div>
@@ -869,10 +869,10 @@ export function FoodScannerModal({
                     key={item.id}
                     type="button"
                     onClick={() => loadFoodIntoCalibration(item)}
-                    className={`w-full text-left p-3 rounded-xl border transition flex items-center justify-between gap-3 ${
+                    className={`w-full text-left p-3 rounded-xl border transition-colors duration-150 ease-out flex items-center justify-between gap-3 ${
                       selectedFood?.id === item.id
-                        ? "border-cyan-500 bg-cyan-500/15"
-                        : "border-neutral-800 bg-neutral-900/60 hover:border-neutral-700"
+                        ? "border-emerald-500/50 bg-emerald-500/10"
+                        : "border-neutral-800 bg-neutral-950 hover:border-neutral-700 hover:bg-neutral-900"
                     }`}
                   >
                     <div>
@@ -907,7 +907,7 @@ export function FoodScannerModal({
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
                 placeholder="e.g. Homemade Chipotle Bowl"
-                className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-purple-500 focus:outline-none"
+                className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
               />
             </div>
 
@@ -925,7 +925,7 @@ export function FoodScannerModal({
                     step={0.1}
                     value={customQuantity}
                     onChange={(e) => setCustomQuantity(Math.max(0.1, Number(e.target.value)))}
-                    className="w-20 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono text-center focus:border-purple-500 focus:outline-none font-bold"
+                    className="w-20 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono text-center focus:border-emerald-500 focus:outline-none font-semibold transition-colors duration-150 ease-out"
                   />
                   <div className="flex items-center gap-1">
                     {[0.5, 1, 1.5, 2].map((q) => (
@@ -933,9 +933,9 @@ export function FoodScannerModal({
                         key={q}
                         type="button"
                         onClick={() => setCustomQuantity(q)}
-                        className={`px-2 py-1.5 rounded-lg text-[10px] font-mono transition border ${
+                        className={`px-2 py-1.5 rounded-lg text-[10px] font-mono transition-colors duration-150 ease-out border ${
                           customQuantity === q
-                            ? "bg-purple-500/20 text-purple-300 border-purple-500/40 font-bold"
+                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40 font-semibold"
                             : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
                         }`}
                       >
@@ -953,7 +953,7 @@ export function FoodScannerModal({
                   value={customServingUnit}
                   onChange={(e) => setCustomServingUnit(e.target.value)}
                   placeholder="e.g. serving, scoop, slice, egg, 100g"
-                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white placeholder:text-neutral-600 focus:border-purple-500 focus:outline-none"
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                 />
               </div>
             </div>
@@ -967,54 +967,54 @@ export function FoodScannerModal({
                   value={customCalories}
                   onChange={(e) => setCustomCalories(e.target.value)}
                   placeholder="e.g. 650"
-                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono focus:border-purple-500 focus:outline-none"
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-emerald-400">Protein (g)</label>
+                <label className="text-xs font-semibold text-neutral-300">Protein (g)</label>
                 <input
                   type="number"
                   value={customProtein}
                   onChange={(e) => setCustomProtein(e.target.value)}
                   placeholder="e.g. 48"
-                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-cyan-400">Carbs (g)</label>
+                <label className="text-xs font-semibold text-neutral-300">Carbs (g)</label>
                 <input
                   type="number"
                   value={customCarbs}
                   onChange={(e) => setCustomCarbs(e.target.value)}
                   placeholder="e.g. 70"
-                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-amber-400">Fat (g)</label>
+                <label className="text-xs font-semibold text-neutral-300">Fat (g)</label>
                 <input
                   type="number"
                   value={customFat}
                   onChange={(e) => setCustomFat(e.target.value)}
                   placeholder="e.g. 18"
-                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono focus:border-amber-500 focus:outline-none"
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                 />
               </div>
             </div>
 
             {customCalories !== "" && Number(customCalories) > 0 && customQuantity !== 1 && (
-              <div className="rounded-xl bg-purple-950/30 border border-purple-500/30 p-2.5 flex items-center justify-between text-xs font-mono">
-                <span className="text-purple-300 font-sans text-[11px]">
+              <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-2.5 flex items-center justify-between text-xs font-mono">
+                <span className="text-neutral-400 font-sans text-[11px]">
                   Total for {customQuantity} {customServingUnit || "serving"}(s):
                 </span>
-                <span className="text-white font-bold">
+                <span className="text-white font-semibold">
                   {Math.round(Number(customCalories) * customQuantity)} kcal •{" "}
-                  <span className="text-emerald-400">{Math.round((Number(customProtein) || 0) * customQuantity * 10) / 10}g P</span> •{" "}
-                  <span className="text-cyan-400">{Math.round((Number(customCarbs) || 0) * customQuantity * 10) / 10}g C</span> •{" "}
-                  <span className="text-amber-400">{Math.round((Number(customFat) || 0) * customQuantity * 10) / 10}g F</span>
+                  {Math.round((Number(customProtein) || 0) * customQuantity * 10) / 10}g P •{" "}
+                  {Math.round((Number(customCarbs) || 0) * customQuantity * 10) / 10}g C •{" "}
+                  {Math.round((Number(customFat) || 0) * customQuantity * 10) / 10}g F
                 </span>
               </div>
             )}
@@ -1025,15 +1025,15 @@ export function FoodScannerModal({
         {/* 100% ACCURATE CALIBRATION & PORTION ADJUSTER PANEL                */}
         {/* ================================================================= */}
         {selectedFood && activeTab !== "quick" && (
-          <div className="rounded-2xl border border-emerald-500/40 bg-neutral-900/90 p-5 space-y-4 shadow-xl">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-5 space-y-4 shadow-sm">
             {/* Header info */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                  <span className="text-[10px] font-mono text-neutral-300 bg-neutral-800 px-2 py-0.5 rounded border border-neutral-700">
                     {selectedFood.source}
                   </span>
-                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30 flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-emerald-400 bg-neutral-800 px-2 py-0.5 rounded border border-neutral-700 flex items-center gap-1">
                     <ShieldCheck className="h-3 w-3" />
                     <span>100% Precision Mode</span>
                   </span>
@@ -1115,8 +1115,8 @@ export function FoodScannerModal({
             {/* Recalculated Macros Grid with Editable Base Values */}
             <div className="grid grid-cols-4 gap-2 text-center pt-2 border-t border-neutral-800">
               {/* Protein */}
-              <div className="rounded-xl bg-neutral-950 p-2.5 border border-emerald-500/20 space-y-1">
-                <div className="text-[9px] uppercase font-mono font-bold text-emerald-400">Protein</div>
+              <div className="rounded-xl bg-neutral-950 p-2.5 border border-neutral-800 space-y-1">
+                <div className="text-[9px] uppercase font-mono font-semibold text-neutral-400">Protein</div>
                 <div className="text-base font-bold text-white font-mono">{currentProtein}g</div>
                 <div className="text-[9px] text-neutral-500 font-mono">
                   Base:{" "}
@@ -1132,8 +1132,8 @@ export function FoodScannerModal({
               </div>
 
               {/* Carbs */}
-              <div className="rounded-xl bg-neutral-950 p-2.5 border border-cyan-500/20 space-y-1">
-                <div className="text-[9px] uppercase font-mono font-bold text-cyan-400">Carbs</div>
+              <div className="rounded-xl bg-neutral-950 p-2.5 border border-neutral-800 space-y-1">
+                <div className="text-[9px] uppercase font-mono font-semibold text-neutral-400">Carbs</div>
                 <div className="text-base font-bold text-white font-mono">{currentCarbs}g</div>
                 <div className="text-[9px] text-neutral-500 font-mono">
                   Base:{" "}
@@ -1149,8 +1149,8 @@ export function FoodScannerModal({
               </div>
 
               {/* Fats */}
-              <div className="rounded-xl bg-neutral-950 p-2.5 border border-amber-500/20 space-y-1">
-                <div className="text-[9px] uppercase font-mono font-bold text-amber-400">Fats</div>
+              <div className="rounded-xl bg-neutral-950 p-2.5 border border-neutral-800 space-y-1">
+                <div className="text-[9px] uppercase font-mono font-semibold text-neutral-400">Fats</div>
                 <div className="text-base font-bold text-white font-mono">{currentFat}g</div>
                 <div className="text-[9px] text-neutral-500 font-mono">
                   Base:{" "}
@@ -1166,8 +1166,8 @@ export function FoodScannerModal({
               </div>
 
               {/* Fiber */}
-              <div className="rounded-xl bg-neutral-950 p-2.5 border border-purple-500/20 space-y-1">
-                <div className="text-[9px] uppercase font-mono font-bold text-purple-400">Fiber</div>
+              <div className="rounded-xl bg-neutral-950 p-2.5 border border-neutral-800 space-y-1">
+                <div className="text-[9px] uppercase font-mono font-semibold text-neutral-400">Fiber</div>
                 <div className="text-base font-bold text-white font-mono">{currentFiber}g</div>
                 <div className="text-[9px] text-neutral-500 font-mono">
                   Base:{" "}
@@ -1240,7 +1240,7 @@ export function FoodScannerModal({
             type="button"
             disabled={isLogging || (!selectedFood && activeTab !== "quick") || (activeTab === "quick" && !customName)}
             onClick={handleLogMeal}
-            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 py-3.5 text-xs font-bold text-neutral-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-emerald-300 transition active:scale-[0.99] disabled:opacity-40"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 py-3.5 text-xs font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out disabled:opacity-40"
           >
             {isLogging ? (
               <>

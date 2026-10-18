@@ -40,14 +40,19 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Paths allowed for users before signing up:
+  // Paths allowed for guests and unauthenticated preview:
   const isAuthOrPublic =
     pathname === "/" ||
+    pathname === "/workouts" ||
+    pathname === "/meals" ||
+    pathname === "/progress" ||
+    pathname === "/coach" ||
     pathname === "/profile" ||
     pathname.startsWith("/auth/callback") ||
-    pathname.startsWith("/api/auth");
+    pathname.startsWith("/api/auth") ||
+    (pathname === "/api/profile" && request.method === "GET");
 
-  // Users cannot use any other features before signing up / signing in
+  // Protect internal mutation APIs and restricted paths
   if (!user && !isAuthOrPublic) {
     // API routes return 401 Unauthorized
     if (pathname.startsWith("/api/")) {
@@ -57,8 +62,9 @@ export async function updateSession(request: NextRequest) {
       );
     }
 
-    // All page routes redirect to /profile
+    // Protected page routes redirect to /profile with target query param
     const redirectUrl = new URL("/profile", request.url);
+    redirectUrl.searchParams.set("redirect", pathname);
     const redirectResponse = NextResponse.redirect(redirectUrl, { status: 307 });
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value, cookie);

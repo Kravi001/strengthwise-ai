@@ -9,13 +9,13 @@ export interface ProgressBarProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const colorMap = {
-  emerald: "bg-emerald-500 shadow-sm shadow-emerald-500/20",
-  blue: "bg-blue-500 shadow-sm shadow-blue-500/20",
-  amber: "bg-amber-500 shadow-sm shadow-amber-500/20",
-  rose: "bg-rose-500 shadow-sm shadow-rose-500/20",
-  purple: "bg-purple-500 shadow-sm shadow-purple-500/20",
-  cyan: "bg-cyan-500 shadow-sm shadow-cyan-500/20",
-  pink: "bg-pink-500 shadow-sm shadow-pink-500/20",
+  emerald: "bg-emerald-500",
+  blue: "bg-neutral-400",
+  amber: "bg-neutral-300",
+  rose: "bg-neutral-400",
+  purple: "bg-neutral-400",
+  cyan: "bg-neutral-300",
+  pink: "bg-neutral-400",
 };
 
 export function ProgressBar({
@@ -37,7 +37,7 @@ export function ProgressBar({
       )}
       <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-800">
         <div
-          className={cn("h-full rounded-full transition-all duration-500", colorMap[color])}
+          className={cn("h-full rounded-full transition-all duration-150 ease-out", colorMap[color])}
           style={{ width: `${percentage}%` }}
         />
       </div>

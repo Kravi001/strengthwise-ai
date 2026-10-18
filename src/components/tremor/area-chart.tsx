@@ -23,7 +23,7 @@ export interface AreaChartProps extends React.HTMLAttributes<HTMLDivElement> {
   showGridLines?: boolean;
 }
 
-const defaultColors = ["#10b981", "#06b6d4", "#a855f7"];
+const defaultColors = ["#10b981", "#71717a", "#52525b"];
 
 export function AreaChart({
   data,
@@ -49,7 +49,7 @@ export function AreaChart({
               const color = colors[i % colors.length];
               return (
                 <linearGradient key={cat} id={`gradient-${cat}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                  <stop offset="5%" stopColor={color} stopOpacity={0.25} />
                   <stop offset="95%" stopColor={color} stopOpacity={0.0} />
                 </linearGradient>
               );
@@ -82,7 +82,7 @@ export function AreaChart({
             content={({ active, payload, label }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 text-xs shadow-2xl backdrop-blur-md">
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 text-xs shadow-lg">
                     <p className="font-semibold text-neutral-200 mb-1.5">{label}</p>
                     {payload.map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-4 py-0.5">

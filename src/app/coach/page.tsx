@@ -17,6 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets } from "@/lib/calc";
 import { CoachChat, type CoachAthleteContext } from "@/components/coach-chat";
+import { GuestAuthModal } from "@/components/guest-auth-modal";
 import type { User } from "@supabase/supabase-js";
 
 export default function CoachPage() {
@@ -25,6 +26,13 @@ export default function CoachPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Guest Auth Intercept Modal State
+  const [isGuestAuthModalOpen, setIsGuestAuthModalOpen] = useState(false);
+  const [guestModalTitle, setGuestModalTitle] = useState("Create an athlete profile to save coach consultations");
+  const [guestModalDescription, setGuestModalDescription] = useState(
+    "StrengthWise AI calibrates sports science coaching, form check vision models, and nutrition analysis to your biometrics."
+  );
 
   // Profile context fields
   const [fullName, setFullName] = useState<string>("");
@@ -103,9 +111,8 @@ export default function CoachPage() {
         setAuthUser(currentUser);
 
         if (!currentUser) {
-          if (typeof window !== "undefined") {
-            window.location.replace("/profile");
-          }
+          setHasProfile(false);
+          setLoading(false);
           return;
         }
 
@@ -216,9 +223,9 @@ export default function CoachPage() {
   }, [supabase]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-300">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-150 ease-out">
       {/* Page Header */}
-      <div className="border-b border-neutral-800/80 pb-6">
+      <div className="border-b border-neutral-800 pb-6">
         <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
           24/7 AI Strength &amp; Nutrition Specialist
         </h1>
@@ -226,21 +233,21 @@ export default function CoachPage() {
 
       {/* Gated Overlay if Profile Not Configured */}
       {!hasProfile && !loading && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 sm:p-6 backdrop-blur-md shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 text-neutral-300">
               <Lock className="h-5 w-5" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Default Biometrics Context Loaded</h3>
-              <p className="text-xs text-neutral-300 mt-0.5">
+              <p className="text-xs text-neutral-400 mt-0.5">
                 Complete your athlete profile so the AI Coach has your biomechanical context, experience level, and injury history.
               </p>
             </div>
           </div>
           <Link
-            href="/profile"
-            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-neutral-950 hover:bg-amber-400 transition shrink-0"
+            href="/profile?redirect=/coach"
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 transition-colors duration-150 ease-out shrink-0"
           >
             <span>Complete Athlete Profile</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -250,6 +257,15 @@ export default function CoachPage() {
 
       {/* Interactive AI Coach Chatbot */}
       <CoachChat athleteContext={coachAthleteContext} hasProfile={hasProfile} />
+
+      {/* Guest Athlete Profile Intercept Modal */}
+      <GuestAuthModal
+        isOpen={isGuestAuthModalOpen}
+        onClose={() => setIsGuestAuthModalOpen(false)}
+        title={guestModalTitle}
+        description={guestModalDescription}
+        redirectPath="/coach"
+      />
     </div>
   );
 }

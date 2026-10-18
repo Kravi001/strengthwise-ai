@@ -182,8 +182,8 @@ export function EditMealModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-xl rounded-3xl border border-neutral-800 bg-neutral-950 p-5 sm:p-7 space-y-6 shadow-2xl my-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 animate-in fade-in duration-150 ease-out overflow-y-auto">
+      <div className="relative w-full max-w-xl rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:p-7 space-y-6 shadow-xl my-6">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
           <div>
@@ -195,14 +195,14 @@ export function EditMealModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-neutral-400 hover:text-white hover:bg-neutral-900 transition"
+            className="rounded-xl p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-400">
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-400">
             {errorMessage}
           </div>
         )}
@@ -217,7 +217,7 @@ export function EditMealModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Grilled Chicken Breast"
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-white font-medium focus:border-cyan-500 focus:outline-none"
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-xs text-white font-medium focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
             />
           </div>
 
@@ -237,10 +237,10 @@ export function EditMealModal({
                   key={cat.type}
                   type="button"
                   onClick={() => setMealType(cat.type)}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition border ${
+                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-colors duration-150 ease-out border ${
                     mealType === cat.type
-                      ? "border-cyan-500 bg-cyan-500/20 text-cyan-300"
-                      : "border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white"
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                      : "border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-white"
                   }`}
                 >
                   <span className="text-xs">{cat.icon}</span>
@@ -251,10 +251,10 @@ export function EditMealModal({
           </div>
 
           {/* Quantity & Servings Section */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Scale className="h-4 w-4 text-cyan-400" />
+                <Scale className="h-4 w-4 text-neutral-400" />
                 <span>Quantity / Servings</span>
               </span>
               <label className="flex items-center gap-1.5 text-[11px] text-neutral-400 cursor-pointer select-none">
@@ -262,7 +262,7 @@ export function EditMealModal({
                   type="checkbox"
                   checked={scaleWithQuantity}
                   onChange={(e) => setScaleWithQuantity(e.target.checked)}
-                  className="rounded border-neutral-700 bg-neutral-950 text-cyan-500 focus:ring-0"
+                  className="rounded border-neutral-700 bg-neutral-900 text-emerald-500 focus:ring-0"
                 />
                 <span>Auto-scale macros</span>
               </label>
@@ -279,7 +279,7 @@ export function EditMealModal({
                     step={0.1}
                     value={quantity}
                     onChange={(e) => handleQuantityChange(Number(e.target.value))}
-                    className="w-20 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-white font-mono text-center focus:border-cyan-500 focus:outline-none font-bold"
+                    className="w-20 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white font-mono text-center focus:border-emerald-500 focus:outline-none font-bold transition-colors duration-150 ease-out"
                   />
                   <div className="flex items-center gap-1">
                     {[0.5, 1, 1.5, 2, 3].map((m) => (
@@ -287,9 +287,9 @@ export function EditMealModal({
                         key={m}
                         type="button"
                         onClick={() => handleQuantityChange(m)}
-                        className={`px-2 py-1.5 rounded-lg text-[10px] font-mono transition border ${
+                        className={`px-2 py-1.5 rounded-lg text-[10px] font-mono transition-colors duration-150 ease-out border ${
                           quantity === m
-                            ? "border-cyan-500 bg-cyan-500/20 text-cyan-300 font-bold"
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-400 font-bold"
                             : "border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white"
                         }`}
                       >
@@ -308,7 +308,7 @@ export function EditMealModal({
                   value={servingDescription}
                   onChange={(e) => setServingDescription(e.target.value)}
                   placeholder="e.g. 2 servings, 200g, 1 plate"
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-white placeholder:text-neutral-600 focus:border-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none transition-colors duration-150 ease-out"
                 />
               </div>
             </div>
@@ -325,7 +325,7 @@ export function EditMealModal({
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
               {/* Calories */}
-              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-900/80 p-2.5">
+              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-950 p-2.5">
                 <label className="text-[10px] font-bold text-neutral-400 flex items-center gap-1">
                   <Flame className="h-3 w-3 text-emerald-400" />
                   <span>Calories</span>
@@ -336,14 +336,14 @@ export function EditMealModal({
                   min={0}
                   value={calories}
                   onChange={(e) => setCalories(Math.max(0, Number(e.target.value)))}
-                  className="w-full bg-transparent text-sm font-mono font-bold text-emerald-400 focus:outline-none"
+                  className="w-full bg-transparent text-sm font-mono font-bold text-white focus:outline-none"
                 />
                 <span className="text-[9px] text-neutral-500 font-mono">kcal</span>
               </div>
 
               {/* Protein */}
-              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-900/80 p-2.5">
-                <label className="text-[10px] font-bold text-cyan-400">Protein</label>
+              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-950 p-2.5">
+                <label className="text-[10px] font-bold text-neutral-400">Protein</label>
                 <input
                   type="number"
                   min={0}
@@ -356,8 +356,8 @@ export function EditMealModal({
               </div>
 
               {/* Carbs */}
-              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-900/80 p-2.5">
-                <label className="text-[10px] font-bold text-pink-400">Carbs</label>
+              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-950 p-2.5">
+                <label className="text-[10px] font-bold text-neutral-400">Carbs</label>
                 <input
                   type="number"
                   min={0}
@@ -370,8 +370,8 @@ export function EditMealModal({
               </div>
 
               {/* Fat */}
-              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-900/80 p-2.5">
-                <label className="text-[10px] font-bold text-amber-400">Fat</label>
+              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-950 p-2.5">
+                <label className="text-[10px] font-bold text-neutral-400">Fat</label>
                 <input
                   type="number"
                   min={0}
@@ -384,8 +384,8 @@ export function EditMealModal({
               </div>
 
               {/* Fiber */}
-              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-900/80 p-2.5">
-                <label className="text-[10px] font-bold text-purple-400">Fiber</label>
+              <div className="space-y-1 rounded-xl border border-neutral-800 bg-neutral-950 p-2.5">
+                <label className="text-[10px] font-bold text-neutral-400">Fiber</label>
                 <input
                   type="number"
                   min={0}
@@ -405,7 +405,7 @@ export function EditMealModal({
               type="button"
               onClick={handleDelete}
               disabled={isDeleting || isSaving}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-400 hover:text-red-400 hover:bg-red-500/10 border border-neutral-800 hover:border-red-500/30 transition disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-400 hover:text-rose-400 hover:bg-neutral-800 border border-neutral-800 transition-colors duration-150 ease-out disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
               <span>Delete Entry</span>
@@ -416,14 +416,14 @@ export function EditMealModal({
                 type="button"
                 onClick={onClose}
                 disabled={isSaving}
-                className="px-4 py-2 rounded-xl border border-neutral-800 bg-neutral-900 text-xs font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 transition disabled:opacity-50"
+                className="px-4 py-2 rounded-xl border border-neutral-800 bg-neutral-900 text-xs font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors duration-150 ease-out disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-xs font-bold text-neutral-950 shadow-md shadow-cyan-500/20 hover:from-cyan-400 hover:to-cyan-300 transition active:scale-[0.98] disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-xs font-semibold text-neutral-950 shadow-sm hover:bg-emerald-400 transition-colors duration-150 ease-out disabled:opacity-50"
               >
                 <Check className="h-3.5 w-3.5" />
                 <span>{isSaving ? "Saving..." : "Save Changes"}</span>
