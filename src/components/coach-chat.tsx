@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { isDevEnvironment } from "@/lib/env";
 import {
   BrainCircuit,
   Sparkles,
@@ -257,17 +258,17 @@ const QUICK_PROMPTS = [
 const INITIAL_WELCOME_MESSAGE: ChatMessage = {
   id: "welcome-msg",
   role: "assistant",
-  content: `👋 **Welcome to your StrengthWise AI Coaching Lab!**
+  content: `👋 **Hi, I'm your StrengthWise AI coach.**
 
-I am your dedicated **Generative AI Sports Scientist & Biomechanist** (CSCS, Clinical Exercise Physiology & Sports Nutrition certified).
+I can see your profile, today's meals and your training split, so you don't have to explain your situation from scratch. Here's what I can help with:
+- 🥗 **Log a meal**: tell me what you ate (e.g. *"I had 2 eggs and toast"*) and I'll estimate the macros and give you a button to add it to your Meals log.
+- 📸 **Check a photo**: attach a food label, a meal, or a picture of your lift setup.
+- 🏋️ **Swap an exercise**: find alternatives when a lift bothers a joint.
+- ⚡ **Plan progress**: when to add weight, when to deload, and how to break a plateau.
 
-I have full contextual integration with your biometrics, daily macros, and workout tracking:
-- 🥗 **Instant Meal Logging**: Tell me what you ate (e.g. *"I ate 2 eggs and toast"*) and I will calculate the exact macros, assess protein quality & leucine threshold, and provide an interactive button to log it straight into your Meals tracker!
-- 📸 **AI Computer Vision**: Attach or drag & drop lift photos, gym machines, or food labels for acute joint angle and form audits.
-- 🏋️ **Acute Exercise Substitutions**: Joint discomfort workarounds for bench press, squats, and deadlifts.
-- ⚡ **Progressive Overload**: Autoregulated deloads, pause variations, and tempo prescriptions.
+*I'm an AI, not a certified coach or medical professional. Check with a professional about injuries or health conditions.*
 
-*Attach a photo, choose a quick consultation below, or tell me what you ate to log it!*`,
+Pick a topic below or just type a question.`,
   timestamp: "Just now",
   source: "ai",
   model: "StrengthWise AI",
@@ -1254,7 +1255,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
               StrengthWise AI Coach
             </h3>
             <p className="text-[11px] text-neutral-400 mt-0.5">
-              Rate Limited (10/min) • Real-time Sports Science
+              Training & nutrition help
               {athleteContext?.weightLbs && (
                 <span className="hidden sm:inline text-neutral-500">
                   {" "}• {athleteContext.weightLbs} lbs • {athleteContext.splitType || "Active Split"}
@@ -1266,15 +1267,17 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
 
         {/* Header Actions */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowKeyModal(true)}
-            className="rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-150 ease-out flex items-center gap-1.5 bg-neutral-900 border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700"
-            title="Connect Custom AI Key"
-          >
-            <Key className="h-3.5 w-3.5 text-neutral-400" />
-            <span className="hidden sm:inline">Connect AI Key</span>
-          </button>
+          {isDevEnvironment && (
+            <button
+              type="button"
+              onClick={() => setShowKeyModal(true)}
+              className="rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-150 ease-out flex items-center gap-1.5 bg-neutral-900 border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700"
+              title="Connect Custom AI Key"
+            >
+              <Key className="h-3.5 w-3.5 text-neutral-400" />
+              <span className="hidden sm:inline">Use own API key</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -1370,7 +1373,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
         <div className="bg-neutral-950 border-b border-neutral-800 px-5 py-2 text-[11px] text-neutral-400 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-neutral-500 font-semibold uppercase tracking-wider text-[10px]">
-              Active Athlete Profile:
+              Coach can see:
             </span>
             {athleteContext.fullName && (
               <span className="text-neutral-300 font-medium">{athleteContext.fullName}</span>
@@ -1392,7 +1395,7 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
             )}
           </div>
           <span className="text-[10px] text-emerald-400 font-mono">
-            {hasProfile ? "Generative Biomechanical Reasoning" : "Demo Mode • Complete Profile to Customize"}
+            {hasProfile ? "From your profile" : "Sample profile"}
           </span>
         </div>
       )}
@@ -1401,8 +1404,8 @@ Every athletic adaptation is governed by the **Specific Adaptations to Imposed D
       {showQuickPrompts && (
         <div className="border-b border-neutral-800 bg-neutral-950 p-3 sm:p-4">
           <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-            <span>Tap to Consult Coach on Core Scenarios:</span>
-            <span className="text-[10px] text-neutral-500">1-click generative AI query</span>
+            <span>Try asking about:</span>
+            <span className="text-[10px] text-neutral-500">Tap to send</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {QUICK_PROMPTS.map((prompt, idx) => {

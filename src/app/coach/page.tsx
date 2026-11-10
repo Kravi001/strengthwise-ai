@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
 import {
-  ArrowRight,
   Bot,
   Brain,
   CheckCircle2,
-  Dumbbell,
-  Lock,
   MessageSquare,
   ShieldCheck,
   Utensils,
@@ -19,6 +15,8 @@ import { calculateNutritionTargets } from "@/lib/calc";
 import { CoachChat, type CoachAthleteContext } from "@/components/coach-chat";
 import { GuestAuthModal } from "@/components/guest-auth-modal";
 import type { User } from "@supabase/supabase-js";
+import { PageHeader } from "@/components/page-header";
+import { SampleDataBanner } from "@/components/sample-data-banner";
 
 export default function CoachPage() {
   const supabase = createClient();
@@ -101,7 +99,7 @@ export default function CoachPage() {
   }), [fullName, authUser, numWeightLbs, numWeightKg, heightCm, heightFt, heightIn, age, gender, goal, activityLevel, userSplitType, userSplitDays, calculated]);
 
   useEffect(() => {
-    document.title = "AI Sports Science Coach — StrengthWise AI";
+    document.title = "AI Coach — StrengthWise";
     async function loadData() {
       try {
         const {
@@ -224,35 +222,16 @@ export default function CoachPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-150 ease-out">
-      {/* Page Header */}
-      <div className="border-b border-neutral-800 pb-6">
-        <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-          24/7 AI Strength &amp; Nutrition Specialist
-        </h1>
-      </div>
+      <PageHeader
+        title="AI Coach"
+        description="Ask about training, nutrition, or exercise swaps. Tell it what you ate and it can log the meal for you."
+      />
 
-      {/* Gated Overlay if Profile Not Configured */}
       {!hasProfile && !loading && (
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 text-neutral-300">
-              <Lock className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Default Biometrics Context Loaded</h3>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                Complete your athlete profile so the AI Coach has your biomechanical context, experience level, and injury history.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/profile?redirect=/coach"
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 transition-colors duration-150 ease-out shrink-0"
-          >
-            <span>Complete Athlete Profile</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+        <SampleDataBanner
+          message="Create a profile so the coach knows your weight, goal, experience and injuries."
+          redirectPath="/coach"
+        />
       )}
 
       {/* Interactive AI Coach Chatbot */}
