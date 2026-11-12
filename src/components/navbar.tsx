@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronRight,
   Dumbbell,
   Home,
-  Lock,
   LogOut,
   Sparkles,
   TrendingUp,
@@ -20,17 +19,12 @@ import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState("home");
   const [hasProfile, setHasProfile] = useState(false);
   const [athleteAvatar, setAthleteAvatar] = useState<string | null>(null);
   const [athleteName, setAthleteName] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
-
-  const navRef = useRef<HTMLElement | null>(null);
-  const linkRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-  const barRef = useRef<HTMLDivElement | null>(null);
 
   const navLinks = [
     { href: "/", label: "Home", icon: Home, id: "home" },
@@ -50,41 +44,8 @@ export function Navbar() {
     return "";
   };
 
-  useEffect(() => {
-    const currentActiveId = getActiveSectionId(pathname);
-    setActiveSection(currentActiveId);
-
-    const updateSlidingBar = () => {
-      const navEl = navRef.current;
-      const barEl = barRef.current;
-      if (!navEl || !barEl) return;
-
-      const activeIdx = navLinks.findIndex((l) => l.id === currentActiveId);
-      if (activeIdx < 0 || !linkRefs.current[activeIdx]) {
-        barEl.style.opacity = "0";
-        return;
-      }
-
-      const linkEl = linkRefs.current[activeIdx]!;
-      const navRect = navEl.getBoundingClientRect();
-      const linkRect = linkEl.getBoundingClientRect();
-      const targetX = linkRect.left - navRect.left;
-      const targetWidth = linkRect.width;
-
-      barEl.style.opacity = "1";
-      barEl.style.transform = `translateX(${targetX}px)`;
-      barEl.style.width = `${targetWidth}px`;
-    };
-
-    updateSlidingBar();
-    const timer = setTimeout(updateSlidingBar, 100);
-    window.addEventListener("resize", updateSlidingBar);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("resize", updateSlidingBar);
-    };
-  }, [pathname]);
+  // Derived directly from the URL so the correct tab is highlighted on the very first render.
+  const activeSection = getActiveSectionId(pathname);
 
   useEffect(() => {
     // Check if athlete profile exists
@@ -183,36 +144,21 @@ export function Navbar() {
 
         {/* Center: Horizontal Navigation Links with Sliding Pill (Desktop md:flex) */}
         <nav
-          ref={navRef}
-          aria-label="Desktop navigation"
+          aria-label="Main navigation"
           className="relative hidden md:flex items-center gap-1 p-1 rounded-xl bg-neutral-900 border border-neutral-800 overflow-x-auto no-scrollbar"
         >
-          {/* Real-time sliding indicator pill */}
-          <div
-            ref={barRef}
-            className="absolute top-1 bottom-1 rounded-lg bg-neutral-800 border border-neutral-700 pointer-events-none z-0 will-change-transform"
-            style={{
-              left: 0,
-              transform: "translateX(0px)",
-              transition: "transform 150ms ease-out, width 150ms ease-out, opacity 150ms ease-out",
-            }}
-          />
-
-          {navLinks.map(({ href, label, icon: Icon, id }, index) => {
+          {navLinks.map(({ href, label, icon: Icon, id }) => {
             const isActive = activeSection === id;
 
             return (
               <Link
                 key={href}
-                ref={(el) => {
-                  linkRefs.current[index] = el as unknown as HTMLAnchorElement;
-                }}
                 href={href}
-                title={label}
-                className={`group relative z-10 flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-medium transition-colors duration-150 ease-out whitespace-nowrap ${
+                aria-current={isActive ? "page" : undefined}
+                className={`group relative flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-medium transition-colors duration-150 ease-out whitespace-nowrap ${
                   isActive
-                    ? "text-white font-semibold"
-                    : "text-neutral-400 hover:text-white"
+                    ? "bg-neutral-800 text-white font-semibold"
+                    : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
                 }`}
               >
                 <Icon
@@ -258,7 +204,7 @@ export function Navbar() {
                     {athleteName || user?.email?.split("@")[0] || "Athlete"}
                   </span>
                   <span className="text-[9px] text-emerald-400 font-mono flex items-center gap-0.5">
-                    <span>{hasProfile ? "Profile Active" : "Setup Profile"}</span>
+                    <span>{hasProfile ? "View profile" : "Finish setup"}</span>
                     <ChevronRight className="h-2 w-2 opacity-60 group-hover:translate-x-0.5 transition" />
                   </span>
                 </div>
@@ -281,7 +227,7 @@ export function Navbar() {
               className="flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out"
             >
               <UserIcon className="h-3.5 w-3.5 shrink-0" />
-              <span className="whitespace-nowrap">Sign In / Sign Up</span>
+              <span className="whitespace-nowrap">Sign in</span>
             </Link>
           )}
         </div>
@@ -299,6 +245,7 @@ export function Navbar() {
               <Link
                 key={href}
                 href={href}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors duration-150 ease-out ${
                   isActive
                     ? "text-emerald-400 font-bold"

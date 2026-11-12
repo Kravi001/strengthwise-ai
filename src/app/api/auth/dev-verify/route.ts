@@ -1,8 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureDbUser } from "@/lib/user";
+import { isDevEnvironment } from "@/lib/env";
 
 export async function POST(request: NextRequest) {
+  // Developer shortcut that confirms an email without the user clicking the link.
+  // It must never be reachable on a deployed site.
+  if (!isDevEnvironment) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
   try {
     const { email } = await request.json();
     if (!email) {

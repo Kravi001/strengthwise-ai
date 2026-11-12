@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
 import {
   Card,
   Text,
@@ -9,12 +8,10 @@ import {
   ProgressBar,
 } from "@/components/tremor";
 import {
-  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Clock,
   Flame,
-  Lock,
   Pencil,
   Plus,
   Scan,
@@ -35,6 +32,8 @@ import {
   formatResetTimeDisplay,
 } from "@/lib/date";
 import type { User } from "@supabase/supabase-js";
+import { PageHeader } from "@/components/page-header";
+import { SampleDataBanner } from "@/components/sample-data-banner";
 
 export default function MealsPage() {
   const supabase = createClient();
@@ -258,7 +257,7 @@ export default function MealsPage() {
   };
 
   useEffect(() => {
-    document.title = "Meals & Macro Nutrition — StrengthWise AI";
+    document.title = "Meals — StrengthWise";
     async function loadData() {
       try {
         const {
@@ -471,14 +470,11 @@ export default function MealsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-10 animate-in fade-in duration-150 ease-out">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Metabolic Architecture &amp; Macro Distribution
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+      <PageHeader
+        title="Meals"
+        description="Your daily calorie and macro targets, and everything you've eaten today."
+        actions={
+          <>
           <button
             type="button"
             onClick={() => {
@@ -490,7 +486,7 @@ export default function MealsPage() {
             className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-neutral-950 shadow-sm transition-colors duration-150 ease-out"
           >
             <Scan className="h-4 w-4" />
-            <span>Scan Food / Barcode</span>
+            <span>Scan Food</span>
           </button>
           <button
             type="button"
@@ -505,38 +501,22 @@ export default function MealsPage() {
             <Search className="h-3.5 w-3.5 text-neutral-400" />
             <span>Search Foods</span>
           </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      {/* Gated Overlay if Profile Not Configured */}
       {!hasProfile && !loading && (
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300">
-              <Lock className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Default Macro Calibration Loaded</h3>
-              <p className="text-xs text-neutral-300 mt-0.5">
-                Complete your athlete profile to personalize your daily targets.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/profile?redirect=/meals"
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-neutral-950 transition-colors duration-150 ease-out shrink-0 shadow-sm"
-          >
-            <span>Configure Athlete Profile</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+        <SampleDataBanner
+          message="Create a profile to get calorie and macro targets based on your body and goal."
+          redirectPath="/meals"
+        />
       )}
 
       {/* Prescribed Daily Fuel Target Card */}
       <Card className="relative overflow-hidden bg-neutral-900 border border-neutral-800 p-4 sm:p-6 shadow-sm flex flex-col items-center justify-center space-y-6">
         <div className="text-center relative">
           <Text className="text-neutral-400 text-xs uppercase tracking-wider font-semibold font-mono">
-            Prescribed Daily Fuel
+            Daily Calorie Target
           </Text>
           <div className="text-3xl sm:text-4xl font-extrabold text-white font-mono tabular-nums mt-1">
             {calculated.targetCalories} <span className="text-xs text-neutral-500 font-sans">KCAL</span>

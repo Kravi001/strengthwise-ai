@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
 import {
   Card,
   ProgressBar,
   AreaChart,
 } from "@/components/tremor";
 import {
-  ArrowRight,
   Calendar,
   Check,
   CheckCircle2,
@@ -16,7 +14,6 @@ import {
   ChevronUp,
   Clock,
   Flame,
-  Lock,
   Plus,
   Scale,
   Sparkles,
@@ -30,6 +27,8 @@ import { createClient } from "@/lib/supabase/client";
 import { getLocalDateString } from "@/lib/date";
 import { GuestAuthModal } from "@/components/guest-auth-modal";
 import type { User } from "@supabase/supabase-js";
+import { PageHeader } from "@/components/page-header";
+import { SampleDataBanner } from "@/components/sample-data-banner";
 
 interface WeightLogItem {
   id: string;
@@ -207,7 +206,7 @@ export default function ProgressPage() {
   };
 
   useEffect(() => {
-    document.title = "Progress & Telemetry — StrengthWise AI";
+    document.title = "Progress — StrengthWise";
     async function loadData() {
       try {
         const {
@@ -391,37 +390,16 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {/* Page Header */}
-      <div className="border-b border-neutral-800 pb-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Progress Telemetry &amp; Strength Analytics
-          </h1>
-        </div>
-      </div>
+      <PageHeader
+        title="Progress"
+        description="Track your bodyweight against your goal and see how your lifts are trending."
+      />
 
-      {/* Gated Overlay if Profile Not Configured */}
       {!hasProfile && !loading && (
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 text-neutral-300">
-              <Lock className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Baseline Telemetry Active</h3>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                Complete your profile to customize your progress trajectory and goal metrics.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/profile?redirect=/progress"
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-neutral-950 hover:bg-emerald-400 transition-colors duration-150 ease-out shrink-0"
-          >
-            <span>Complete Profile Settings</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+        <SampleDataBanner
+          message="Create a profile to log weigh-ins and track progress toward your own goal."
+          redirectPath="/progress"
+        />
       )}
 
       {/* WEIGHT OVER TIME & GOAL CONVERGENCE FEATURE */}
@@ -431,13 +409,13 @@ export default function ProgressPage() {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 text-xs uppercase font-mono tracking-wider text-emerald-400 font-bold">
               <Scale className="h-4 w-4" />
-              <span>Body Composition Telemetry</span>
+              <span>Bodyweight</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-              <span>Weight Over Time &amp; Goal Convergence</span>
+              <span>Weight vs. Goal</span>
             </h2>
             <p className="text-xs text-neutral-400">
-              Biometric check-in trendline calibrated against your target weight curve.
+              Your weigh-ins over time compared with your target weight.
             </p>
           </div>
 
@@ -497,7 +475,7 @@ export default function ProgressPage() {
           {/* Net Change Since Baseline */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-1">
             <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Total Trajectory</span>
+              <span>Total Change</span>
               {netChange <= 0 ? (
                 <TrendingDown className="h-3.5 w-3.5 text-emerald-400" />
               ) : (
@@ -528,7 +506,7 @@ export default function ProgressPage() {
           {/* Weekly Velocity / Goal Projection */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4 space-y-1">
             <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Pace Velocity</span>
+              <span>Weekly Pace</span>
               <Sparkles className="h-3.5 w-3.5 text-neutral-400" />
             </div>
             <div className="text-2xl sm:text-3xl font-black text-white font-mono tabular-nums flex items-baseline gap-1">
@@ -550,7 +528,7 @@ export default function ProgressPage() {
           <div className="flex justify-between items-center text-xs">
             <div className="flex items-center gap-1.5 text-neutral-300 font-medium">
               <Target className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Goal Convergence Progress</span>
+              <span>Progress to Goal</span>
             </div>
             <span className="font-mono text-emerald-400 font-semibold">
               {convergencePercent}% on track
