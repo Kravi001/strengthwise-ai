@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dumbbell, Plus, RotateCcw, Trash2 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { WorkoutBuilder } from "@/components/workout-builder";
+import { WorkoutCalendar } from "@/components/workout-calendar";
 import { GuestAuthModal } from "@/components/guest-auth-modal";
 import { PageHeader } from "@/components/page-header";
 import { SampleDataBanner } from "@/components/sample-data-banner";
 import { parseExercises, type WorkoutExercise } from "@/lib/workout-format";
+import { formatDisplayDate, getLocalDateString } from "@/lib/date";
 
 interface LoggedWorkout {
   id: string;
@@ -44,6 +46,12 @@ const SAMPLE_WORKOUTS: LoggedWorkout[] = [
   },
 ];
 
+interface BuilderPrefill {
+  name: string;
+  exercises?: WorkoutExercise[];
+  date?: string;
+}
+
 const SAMPLE_SUMMARY: WorkoutSummary = { thisWeekCount: 2, weeklyMinutes: 115, totalWorkouts: 2 };
 
 export default function WorkoutsPage() {
@@ -54,8 +62,12 @@ export default function WorkoutsPage() {
   const [workouts, setWorkouts] = useState<LoggedWorkout[]>([]);
   const [summary, setSummary] = useState<WorkoutSummary>({ thisWeekCount: 0, weeklyMinutes: 0, totalWorkouts: 0 });
 
+  const [month, setMonth] = useState(() => new Date());
+  const [monthWorkouts, setMonthWorkouts] = useState<LoggedWorkout[]>([]);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
   const [builderOpen, setBuilderOpen] = useState(false);
-  const [builderPrefill, setBuilderPrefill] = useState<{ name: string; exercises?: WorkoutExercise[] }>({ name: "" });
+  const [builderPrefill, setBuilderPrefill] = useState<BuilderPrefill>({ name: "" });
   const [guestModalOpen, setGuestModalOpen] = useState(false);
 
   const fetchWorkouts = useCallback(async () => {
@@ -69,6 +81,43 @@ export default function WorkoutsPage() {
       console.warn("Failed to fetch workouts:", err);
     }
   }, []);
+
+  const fetchMonth = useCallback(async (m: Date) => {
+    const from = new Date(m.getFullYear(), m.getMonth(), 1).toISOString();
+    const to = new Date(m.getFullYear(), m.getMonth() + 1, 1).toISOString();
+    try {
+      const res = await fetch(`/api/workouts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setMonthWorkouts(data.workouts ?? []);
+    } catch (err) {
+      console.warn("Failed to fetch workouts for month:", err);
+    }
+  }, []);
+
+  // Load the visible month's workouts for the calendar.
+  useEffect(() => {
+    if (loading) return;
+    if (authUser) fetchMonth(month);
+    else setMonthWorkouts(SAMPLE_WORKOUTS);
+  }, [authUser, loading, month, fetchMonth]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([fetchWorkouts(), fetchMonth(month)]);
+  }, [fetchWorkouts, fetchMonth, month]);
+
+  const countsByDay = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const w of monthWorkouts) {
+      const day = getLocalDateString(new Date(w.loggedAt));
+      counts[day] = (counts[day] ?? 0) + 1;
+    }
+    return counts;
+  }, [monthWorkouts]);
+
+  const visibleWorkouts = selectedDay
+    ? monthWorkouts.filter((w) => getLocalDateString(new Date(w.loggedAt)) === selectedDay)
+    : workouts;
 
   useEffect(() => {
     document.title = "Workouts — StrengthWise";
@@ -101,7 +150,7 @@ export default function WorkoutsPage() {
     load();
   }, [supabase, fetchWorkouts]);
 
-  const openBuilder = (prefill: { name: string; exercises?: WorkoutExercise[] } = { name: "" }) => {
+  const openBuilder = (prefill: BuilderPrefill = { name: "" }) => {
     if (!authUser) {
       setGuestModalOpen(true);
       return;
@@ -114,7 +163,7 @@ export default function WorkoutsPage() {
     if (!window.confirm("Delete this workout?")) return;
     try {
       await fetch(`/api/workouts?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      await fetchWorkouts();
+      await refresh();
     } catch (err) {
       console.warn("Failed to delete workout:", err);
     }
@@ -128,7 +177,7 @@ export default function WorkoutsPage() {
         actions={
           <button
             type="button"
-            onClick={() => openBuilder()}
+            onClick={() => openBuilder({ name: "", date: selectedDay ?? undefined })}
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-neutral-950 transition-colors duration-150 ease-out"
           >
             <Plus className="h-4 w-4" />
@@ -150,30 +199,60 @@ export default function WorkoutsPage() {
         <Stat label="Logged" value={summary.totalWorkouts} unit="total" />
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-neutral-300">History</h2>
+      <WorkoutCalendar
+        month={month}
+        onMonthChange={(m) => {
+          setMonth(m);
+          setSelectedDay(null);
+        }}
+        countsByDay={countsByDay}
+        selectedDay={selectedDay}
+        onSelectDay={setSelectedDay}
+      />
 
-        {workouts.length === 0 ? (
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-neutral-300">
+            {selectedDay ? formatDisplayDate(selectedDay) : "Recent workouts"}
+          </h2>
+          {selectedDay && (
+            <button
+              type="button"
+              onClick={() => setSelectedDay(null)}
+              className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors duration-150 ease-out"
+            >
+              Show all
+            </button>
+          )}
+        </div>
+
+        {visibleWorkouts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-neutral-800 bg-neutral-900/50 p-10 text-center space-y-3">
             <Dumbbell className="mx-auto h-8 w-8 text-neutral-500" />
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-white">{loading ? "Loading…" : "No workouts yet"}</p>
-              {!loading && <p className="text-xs text-neutral-400">Create your first workout by adding the exercises you did.</p>}
+              <p className="text-sm font-semibold text-white">
+                {loading ? "Loading…" : selectedDay ? "No workouts on this day" : "No workouts yet"}
+              </p>
+              {!loading && (
+                <p className="text-xs text-neutral-400">
+                  {selectedDay ? "Missed logging one? Add it to this day." : "Create your first workout by adding the exercises you did."}
+                </p>
+              )}
             </div>
             {!loading && (
               <button
                 type="button"
-                onClick={() => openBuilder()}
+                onClick={() => openBuilder({ name: "", date: selectedDay ?? undefined })}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-sm font-semibold text-white transition-colors duration-150 ease-out"
               >
                 <Plus className="h-4 w-4" />
-                New workout
+                {selectedDay ? "Log a workout for this day" : "New workout"}
               </button>
             )}
           </div>
         ) : (
           <ul className="space-y-3">
-            {workouts.map((w) => {
+            {visibleWorkouts.map((w) => {
               const exercises = parseExercises(w.notes);
               return (
                 <li key={w.id} className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 space-y-3">
@@ -234,10 +313,11 @@ export default function WorkoutsPage() {
       <WorkoutBuilder
         isOpen={builderOpen}
         onClose={() => setBuilderOpen(false)}
-        onSaved={fetchWorkouts}
+        onSaved={refresh}
         athleteWeightKg={weightKg}
         initialName={builderPrefill.name}
         initialExercises={builderPrefill.exercises}
+        initialDate={builderPrefill.date}
       />
 
       <GuestAuthModal
