@@ -116,7 +116,7 @@ export default function LandingPage() {
           <p className="text-base sm:text-lg text-neutral-400 max-w-xl mx-auto">
             Log your lifts and meals, track your progress, and get advice from a coach that knows your numbers.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <div className="flex justify-center pt-2">
             <Link
               href={user ? "/workouts" : "/profile"}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold px-6 py-3 text-sm transition-colors duration-150 ease-out"
@@ -124,18 +124,12 @@ export default function LandingPage() {
               <span>{user ? "Open Workouts" : "Get started free"}</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <a
-              href="#tutorial"
-              className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 hover:bg-neutral-800 px-6 py-3 text-sm font-semibold text-neutral-300 hover:text-white transition-colors duration-150 ease-out"
-            >
-              See how it works
-            </a>
           </div>
         </div>
       </section>
 
       {/* Tutorial */}
-      <section id="tutorial" className="scroll-mt-20 px-4 pb-16 sm:px-6 sm:pb-24">
+      <section id="tutorial" className="px-4 pb-16 sm:px-6 sm:pb-24">
         <div className="mx-auto max-w-4xl space-y-6">
           <div className="text-center space-y-2">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">How it works</h2>
