@@ -207,22 +207,27 @@ export function getRandomWorkout(): RandomWorkoutTemplate {
 
 const STORAGE_KEY = "sw_custom_split";
 
+/** Validates an unknown value (from storage or the API) into a CustomSplit, or null if it isn't one. */
+export function parseCustomSplit(value: unknown): CustomSplit | null {
+  if (!value || typeof value !== "object") return null;
+  const parsed = value as Partial<CustomSplit>;
+  if (!Array.isArray(parsed.days) || parsed.days.length === 0) return null;
+  return {
+    name: parsed.name || DEFAULT_CUSTOM_SPLIT.name,
+    frequency: parsed.frequency || `${parsed.days.length} Days / Week`,
+    daysCount: parsed.daysCount || parsed.days.length,
+    description: parsed.description || DEFAULT_CUSTOM_SPLIT.description,
+    targetSets: parsed.targetSets || 14,
+    days: parsed.days,
+  };
+}
+
 export function loadCustomSplit(): CustomSplit {
   if (typeof window === "undefined") return DEFAULT_CUSTOM_SPLIT;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_CUSTOM_SPLIT;
-    const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.days) && parsed.days.length > 0) {
-      return {
-        name: parsed.name || DEFAULT_CUSTOM_SPLIT.name,
-        frequency: parsed.frequency || `${parsed.days.length} Days / Week`,
-        daysCount: parsed.daysCount || parsed.days.length,
-        description: parsed.description || DEFAULT_CUSTOM_SPLIT.description,
-        targetSets: parsed.targetSets || 14,
-        days: parsed.days,
-      };
-    }
+    return parseCustomSplit(JSON.parse(raw)) ?? DEFAULT_CUSTOM_SPLIT;
   } catch (err) {
     console.warn("Failed to load custom split from localStorage:", err);
   }
