@@ -44,6 +44,7 @@ import {
   CustomSplit,
   DEFAULT_CUSTOM_SPLIT,
   loadCustomSplit,
+  parseCustomSplit,
   saveCustomSplit,
 } from "@/lib/custom-split";
 import { createClient } from "@/lib/supabase/client";
@@ -282,30 +283,34 @@ export default function ProfilePage() {
     async function loadUserAndProfile() {
       try {
         setAuthLoading(true);
+        // Start from this browser's copy of the custom split; the saved profile replaces it below.
+        setCustomSplit(loadCustomSplit());
+
         const {
           data: { user: currentUser },
         } = await supabase.auth.getUser();
 
+        let dbResult: "found" | "none" | "error" = "none";
         if (currentUser) {
           setUser(currentUser);
           hydrateFromGoogle(currentUser);
-          await fetchProfileFromDb();
+          dbResult = await fetchProfileFromDb();
         } else {
           // Check session fallback
           const { data: sessionData } = await supabase.auth.getSession();
           if (sessionData.session?.user) {
             setUser(sessionData.session.user);
             hydrateFromGoogle(sessionData.session.user);
-            await fetchProfileFromDb();
+            dbResult = await fetchProfileFromDb();
           } else {
             setUser(null);
           }
         }
 
-        // Local storage cache fallback
-        if (typeof window !== "undefined") {
-          const loadedCustom = loadCustomSplit();
-          setCustomSplit(loadedCustom);
+        // The saved profile is the source of truth. Only fall back to this browser's
+        // cached copy when the server couldn't be reached, so stale values never
+        // overwrite what's saved.
+        if (dbResult === "error" && typeof window !== "undefined") {
           const stored = localStorage.getItem("sw_athlete_profile");
           if (stored) {
             try {
@@ -357,63 +362,79 @@ export default function ProfilePage() {
     };
   }, [supabase]);
 
-  const fetchProfileFromDb = async () => {
+  const fetchProfileFromDb = async (): Promise<"found" | "none" | "error"> => {
     try {
       const res = await fetch("/api/profile");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.profile) {
-          if (data.profile.firstName) setFirstName(data.profile.firstName);
-          if (data.profile.lastName) setLastName(data.profile.lastName);
-          if (data.profile.age) setAge(data.profile.age);
-          if (data.profile.gender) setGender(data.profile.gender);
-          if (data.profile.heightCm) {
-            const totalIn = Math.round(data.profile.heightCm / 2.54);
-            setHeightFt(Math.floor(totalIn / 12));
-            setHeightIn(totalIn % 12);
+      if (!res.ok) return "error";
+      const data = await res.json();
+      if (!data.profile) return "none";
+      if (data.profile.avatar) {
+        setAvatar(data.profile.avatar);
+        // Keep the navbar's cached avatar in step with the saved one.
+        try {
+          const cached = JSON.parse(localStorage.getItem("sw_athlete_profile") || "{}");
+          if (cached.avatar !== data.profile.avatar) {
+            localStorage.setItem("sw_athlete_profile", JSON.stringify({ ...cached, avatar: data.profile.avatar }));
+            window.dispatchEvent(new Event("sw_profile_updated"));
           }
-          if (data.profile.weightKg) {
-            setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
-          }
-          if (data.profile.goalWeightKg) {
-            setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
-          }
-          if (data.profile.equipment) setEquipment(data.profile.equipment);
-          if (data.profile.splitDays) setSplitDays(data.profile.splitDays);
-          if (data.profile.splitType) {
-            if (data.profile.splitType.toUpperCase().includes("CUSTOM")) {
-              setIsCustomSplit(true);
-            }
-          }
-          if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
-          if (data.profile.goal) {
-            setGoal(
-              data.profile.goal === "LOSE_WEIGHT"
-                ? "CUT"
-                : data.profile.goal === "BUILD_MUSCLE"
-                ? "BULK"
-                : "MAINTAIN"
-            );
-          }
-          if (data.profile.dietPreference) setDietPreference(data.profile.dietPreference);
-          if (data.profile.targetCalories) {
-            setSavedTargets({
-              targetCalories: data.profile.targetCalories,
-              targetProtein: data.profile.targetProtein ?? 0,
-              targetCarbs: data.profile.targetCarbs ?? 0,
-              targetFat: data.profile.targetFat ?? 0,
-            });
-          }
-          if (data.profile.mealResetTime) {
-            setMealResetTime(data.profile.mealResetTime);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("sw_meal_reset_time", data.profile.mealResetTime);
-            }
-          }
+        } catch {}
+      }
+      const savedSplit = parseCustomSplit(data.profile.customSplit);
+      if (savedSplit) {
+        setCustomSplit(savedSplit);
+        saveCustomSplit(savedSplit);
+      }
+      if (data.profile.firstName) setFirstName(data.profile.firstName);
+      if (data.profile.lastName) setLastName(data.profile.lastName);
+      if (data.profile.age) setAge(data.profile.age);
+      if (data.profile.gender) setGender(data.profile.gender);
+      if (data.profile.heightCm) {
+        const totalIn = Math.round(data.profile.heightCm / 2.54);
+        setHeightFt(Math.floor(totalIn / 12));
+        setHeightIn(totalIn % 12);
+      }
+      if (data.profile.weightKg) {
+        setCurrentWeightLbs(Math.round(data.profile.weightKg * 2.20462));
+      }
+      if (data.profile.goalWeightKg) {
+        setGoalWeightLbs(Math.round(data.profile.goalWeightKg * 2.20462));
+      }
+      if (data.profile.equipment) setEquipment(data.profile.equipment);
+      if (data.profile.splitDays) setSplitDays(data.profile.splitDays);
+      if (data.profile.splitType) {
+        if (data.profile.splitType.toUpperCase().includes("CUSTOM")) {
+          setIsCustomSplit(true);
         }
       }
+      if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+      if (data.profile.goal) {
+        setGoal(
+          data.profile.goal === "LOSE_WEIGHT"
+            ? "CUT"
+            : data.profile.goal === "BUILD_MUSCLE"
+            ? "BULK"
+            : "MAINTAIN"
+        );
+      }
+      if (data.profile.dietPreference) setDietPreference(data.profile.dietPreference);
+      if (data.profile.targetCalories) {
+        setSavedTargets({
+          targetCalories: data.profile.targetCalories,
+          targetProtein: data.profile.targetProtein ?? 0,
+          targetCarbs: data.profile.targetCarbs ?? 0,
+          targetFat: data.profile.targetFat ?? 0,
+        });
+      }
+      if (data.profile.mealResetTime) {
+        setMealResetTime(data.profile.mealResetTime);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sw_meal_reset_time", data.profile.mealResetTime);
+        }
+      }
+      return "found";
     } catch (err) {
       console.warn("Could not fetch DB profile:", err);
+      return "error";
     }
   };
 
@@ -688,6 +709,7 @@ export default function ProfilePage() {
         equipment,
         splitDays: isCustomSplit ? (customSplit.daysCount || customSplit.days.length || 4) : splitDays,
         splitType: isCustomSplit ? "CUSTOM" : calculatedTargets.splitInfo.name,
+        ...(isCustomSplit ? { customSplit } : {}),
         activityLevel,
         goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
         dietPreference,

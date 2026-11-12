@@ -2,9 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/user";
 import { calculateNutritionTargets } from "@/lib/calc";
+import { parseCustomSplit } from "@/lib/custom-split";
+import { Prisma } from "@prisma/client";
 
 const MIN_TARGET_CALORIES = 1000;
 const MAX_TARGET_CALORIES = 6000;
+const MAX_AVATAR_LENGTH = 2048;
+const MAX_CUSTOM_SPLIT_BYTES = 20_000;
 
 export async function GET() {
   try {
@@ -67,6 +71,8 @@ export async function POST(request: NextRequest) {
     const {
       firstName,
       lastName,
+      avatar,
+      customSplit,
       fullName,
       name,
       age,
@@ -115,6 +121,22 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+    }
+
+    if (avatar !== undefined && avatar !== null && (typeof avatar !== "string" || avatar.length > MAX_AVATAR_LENGTH)) {
+      return NextResponse.json({ error: "Avatar is invalid." }, { status: 400 });
+    }
+
+    // `customSplit: null` clears it; an object must be a valid split.
+    let parsedCustomSplit: Prisma.InputJsonValue | typeof Prisma.DbNull | undefined;
+    if (customSplit === null) {
+      parsedCustomSplit = Prisma.DbNull;
+    } else if (customSplit !== undefined) {
+      const split = parseCustomSplit(customSplit);
+      if (!split || JSON.stringify(split).length > MAX_CUSTOM_SPLIT_BYTES) {
+        return NextResponse.json({ error: "Custom split is invalid." }, { status: 400 });
+      }
+      parsedCustomSplit = split as unknown as Prisma.InputJsonValue;
     }
 
     // Fetch existing profile to preserve existing fields during partial updates (e.g. from AI coach)
@@ -197,6 +219,8 @@ export async function POST(request: NextRequest) {
       update: {
         firstName: firstName !== undefined ? firstName : existing?.firstName,
         lastName: lastName !== undefined ? lastName : existing?.lastName,
+        ...(avatar !== undefined && avatar !== null ? { avatar } : {}),
+        ...(parsedCustomSplit !== undefined ? { customSplit: parsedCustomSplit } : {}),
         age: parsedAge,
         gender: resolvedGender,
         heightCm: parsedHeight,
@@ -221,6 +245,8 @@ export async function POST(request: NextRequest) {
         userId: auth.dbUser.id,
         firstName: firstName || null,
         lastName: lastName || null,
+        avatar: avatar || null,
+        ...(parsedCustomSplit !== undefined ? { customSplit: parsedCustomSplit } : {}),
         age: parsedAge,
         gender: resolvedGender,
         heightCm: parsedHeight,

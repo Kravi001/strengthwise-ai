@@ -31,6 +31,7 @@ model Profile {
   
   firstName       String?
   lastName        String?
+  avatar          String?  // emoji preset or image URL
   age             Int?
   gender          String?
   heightCm        Float?
@@ -40,6 +41,7 @@ model Profile {
   equipment       String?  // COMMERCIAL_GYM | BARBELL_HOME | DUMBBELLS | BANDS_BODYWEIGHT | BODYWEIGHT
   splitDays       Int?     // 3 | 4 | 5 | 6
   splitType       String?  // FULL_BODY | UPPER_LOWER | PPL_5 | PPL_6 | ARNOLD
+  customSplit     Json?    // the athlete's own split (days + lifts) when splitType is CUSTOM
   
   activityLevel   String?  // SEDENTARY | LIGHT | MODERATE | ACTIVE | VERY_ACTIVE
   goal            String?  // LOSE_WEIGHT | MAINTAIN | BUILD_MUSCLE

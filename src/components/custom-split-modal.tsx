@@ -145,6 +145,7 @@ export function CustomSplitModal({
           body: JSON.stringify({
             splitType: "CUSTOM",
             splitDays: customSplitPayload.daysCount,
+            customSplit: customSplitPayload,
           }),
         });
       } catch {

@@ -32,6 +32,8 @@ import {
   CustomSplit,
   DEFAULT_CUSTOM_SPLIT,
   loadCustomSplit,
+  parseCustomSplit,
+  saveCustomSplit,
 } from "@/lib/custom-split";
 import type { User } from "@supabase/supabase-js";
 import { PageHeader } from "@/components/page-header";
@@ -333,12 +335,22 @@ export default function WorkoutsPage() {
           return;
         }
 
+        // Start from this browser's copy of the custom split; the saved profile replaces it below.
+        if (typeof window !== "undefined") setCustomSplit(loadCustomSplit());
+
+        let profileLoaded = false;
         if (currentUser) {
-          const res = await fetch("/api/profile");
-          if (res.ok) {
+          const res = await fetch("/api/profile").catch(() => null);
+          if (res?.ok) {
+            profileLoaded = true;
             const data = await res.json();
             if (data.profile) {
               setHasProfile(true);
+              const savedSplit = parseCustomSplit(data.profile.customSplit);
+              if (savedSplit) {
+                setCustomSplit(savedSplit);
+                saveCustomSplit(savedSplit);
+              }
               if (data.profile.weightKg) setNumWeightKg(data.profile.weightKg);
               if (data.profile.splitDays) setUserSplitDays(data.profile.splitDays);
               if (data.profile.splitType) {
@@ -355,11 +367,9 @@ export default function WorkoutsPage() {
           await fetchLoggedWorkouts();
         }
 
-        // Local storage fallback
-        if (typeof window !== "undefined") {
-          const loadedCustom = loadCustomSplit();
-          setCustomSplit(loadedCustom);
-
+        // Fall back to this browser's cached profile only when the server couldn't be
+        // reached, so stale values never override the saved profile.
+        if (!profileLoaded && typeof window !== "undefined") {
           const stored = localStorage.getItem("sw_athlete_profile");
           if (stored) {
             const p = JSON.parse(stored);
