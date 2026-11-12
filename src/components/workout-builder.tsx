@@ -15,6 +15,8 @@ interface WorkoutBuilderProps {
   initialExercises?: WorkoutExercise[];
   /** "YYYY-MM-DD" day to log the workout on; defaults to today. */
   initialDate?: string;
+  /** Minutes, e.g. from the workout stopwatch; defaults to 60. */
+  initialDuration?: number;
 }
 
 const emptyExercise = (): WorkoutExercise => ({ name: "", sets: [{ weight: "", reps: "" }] });
@@ -30,6 +32,7 @@ export function WorkoutBuilder({
   initialName = "",
   initialExercises,
   initialDate,
+  initialDuration,
 }: WorkoutBuilderProps) {
   const [name, setName] = useState("");
   const [exercises, setExercises] = useState<WorkoutExercise[]>([emptyExercise()]);
@@ -42,10 +45,10 @@ export function WorkoutBuilder({
     if (!isOpen) return;
     setName(initialName);
     setExercises(initialExercises?.length ? initialExercises : [emptyExercise()]);
-    setDuration("60");
+    setDuration(String(initialDuration ?? 60));
     setDate(initialDate || getLocalDateString());
     setError(null);
-  }, [isOpen, initialName, initialExercises, initialDate]);
+  }, [isOpen, initialName, initialExercises, initialDate, initialDuration]);
 
   if (!isOpen) return null;
 

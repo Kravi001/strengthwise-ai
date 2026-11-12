@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { getLocalDateString } from "@/lib/date";
 
 interface WorkoutCalendarProps {
@@ -14,6 +15,7 @@ interface WorkoutCalendarProps {
 }
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function WorkoutCalendar({ month, onMonthChange, countsByDay, selectedDay, onSelectDay }: WorkoutCalendarProps) {
   const year = month.getFullYear();
@@ -37,15 +39,29 @@ export function WorkoutCalendar({ month, onMonthChange, countsByDay, selectedDay
     ),
   ];
 
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(year);
+  const now = new Date();
+
   const shiftMonth = (delta: number) => onMonthChange(new Date(year, monthIndex + delta, 1));
 
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 sm:p-5 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-base font-bold text-white">
-            {month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-          </h2>
+          <button
+            type="button"
+            onClick={() => {
+              setPickerYear(year);
+              setPickerOpen((open) => !open);
+            }}
+            aria-expanded={pickerOpen}
+            aria-label="Choose month"
+            className="-ml-1 inline-flex items-center gap-1 rounded-lg px-1 text-base font-bold text-white hover:bg-neutral-800 transition-colors duration-150 ease-out"
+          >
+            <span>{month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+            <ChevronDown className={`h-4 w-4 text-neutral-400 transition-transform duration-150 ${pickerOpen ? "rotate-180" : ""}`} />
+          </button>
           <p className="text-xs text-neutral-500">
             {monthTotal} {monthTotal === 1 ? "workout" : "workouts"} on {activeDays} {activeDays === 1 ? "day" : "days"}
           </p>
@@ -74,14 +90,62 @@ export function WorkoutCalendar({ month, onMonthChange, countsByDay, selectedDay
           <button
             type="button"
             onClick={() => shiftMonth(1)}
-            disabled={isCurrentMonth}
             aria-label="Next month"
-            className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors duration-150 ease-out"
+            className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors duration-150 ease-out"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
       </div>
+
+      {pickerOpen && (
+        <div className="space-y-2 rounded-xl border border-neutral-800 bg-neutral-950 p-3">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setPickerYear((y) => y - 1)}
+              aria-label="Previous year"
+              className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors duration-150 ease-out"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="font-mono text-sm font-bold text-white">{pickerYear}</span>
+            <button
+              type="button"
+              onClick={() => setPickerYear((y) => y + 1)}
+              aria-label="Next year"
+              className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors duration-150 ease-out"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            {MONTHS.map((label, i) => {
+              const isShown = pickerYear === year && i === monthIndex;
+              const isNow = pickerYear === now.getFullYear() && i === now.getMonth();
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    onMonthChange(new Date(pickerYear, i, 1));
+                    setPickerOpen(false);
+                  }}
+                  className={`rounded-lg py-2 text-xs font-semibold transition-colors duration-150 ease-out ${
+                    isShown
+                      ? "bg-emerald-500 text-neutral-950"
+                      : isNow
+                      ? "text-emerald-400 ring-1 ring-neutral-700 hover:bg-neutral-800"
+                      : "text-neutral-300 hover:bg-neutral-800"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-mono text-neutral-500" aria-hidden>
         {WEEKDAYS.map((d, i) => (
