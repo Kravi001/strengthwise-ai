@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { WorkoutBuilder } from "@/components/workout-builder";
 import { WorkoutCalendar } from "@/components/workout-calendar";
+import { WorkoutStopwatch, useWorkoutStopwatch } from "@/components/workout-stopwatch";
 import { GuestAuthModal } from "@/components/guest-auth-modal";
 import { PageHeader } from "@/components/page-header";
 import { SampleDataBanner } from "@/components/sample-data-banner";
@@ -50,6 +51,9 @@ interface BuilderPrefill {
   name: string;
   exercises?: WorkoutExercise[];
   date?: string;
+  durationMinutes?: number;
+  /** Opened from the stopwatch's Finish button; saving resets the stopwatch. */
+  fromTimer?: boolean;
 }
 
 const SAMPLE_SUMMARY: WorkoutSummary = { thisWeekCount: 2, weeklyMinutes: 115, totalWorkouts: 2 };
@@ -69,6 +73,7 @@ export default function WorkoutsPage() {
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderPrefill, setBuilderPrefill] = useState<BuilderPrefill>({ name: "" });
   const [guestModalOpen, setGuestModalOpen] = useState(false);
+  const stopwatch = useWorkoutStopwatch();
 
   const fetchWorkouts = useCallback(async () => {
     try {
@@ -184,6 +189,18 @@ export default function WorkoutsPage() {
             <span>New workout</span>
           </button>
         }
+      />
+
+      <WorkoutStopwatch
+        stopwatch={stopwatch}
+        onFinish={() => {
+          if (stopwatch.running) stopwatch.pause();
+          openBuilder({
+            name: "",
+            durationMinutes: Math.max(1, Math.round(stopwatch.elapsedMs / 60000)),
+            fromTimer: true,
+          });
+        }}
       />
 
       {!authUser && !loading && (
@@ -313,11 +330,15 @@ export default function WorkoutsPage() {
       <WorkoutBuilder
         isOpen={builderOpen}
         onClose={() => setBuilderOpen(false)}
-        onSaved={refresh}
+        onSaved={() => {
+          if (builderPrefill.fromTimer) stopwatch.reset();
+          refresh();
+        }}
         athleteWeightKg={weightKg}
         initialName={builderPrefill.name}
         initialExercises={builderPrefill.exercises}
         initialDate={builderPrefill.date}
+        initialDuration={builderPrefill.durationMinutes}
       />
 
       <GuestAuthModal
