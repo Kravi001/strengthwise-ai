@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Plus, Trash2, X } from "lucide-react";
 import { formatExercises, type WorkoutExercise } from "@/lib/workout-format";
+import { getLocalDateString } from "@/lib/date";
 
 interface WorkoutBuilderProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface WorkoutBuilderProps {
   /** Prefill from a past workout ("Repeat"). */
   initialName?: string;
   initialExercises?: WorkoutExercise[];
+  /** "YYYY-MM-DD" day to log the workout on; defaults to today. */
+  initialDate?: string;
 }
 
 const emptyExercise = (): WorkoutExercise => ({ name: "", sets: [{ weight: "", reps: "" }] });
@@ -26,10 +29,12 @@ export function WorkoutBuilder({
   athleteWeightKg = 80,
   initialName = "",
   initialExercises,
+  initialDate,
 }: WorkoutBuilderProps) {
   const [name, setName] = useState("");
   const [exercises, setExercises] = useState<WorkoutExercise[]>([emptyExercise()]);
   const [duration, setDuration] = useState("60");
+  const [date, setDate] = useState(() => getLocalDateString());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,8 +43,9 @@ export function WorkoutBuilder({
     setName(initialName);
     setExercises(initialExercises?.length ? initialExercises : [emptyExercise()]);
     setDuration("60");
+    setDate(initialDate || getLocalDateString());
     setError(null);
-  }, [isOpen, initialName, initialExercises]);
+  }, [isOpen, initialName, initialExercises, initialDate]);
 
   if (!isOpen) return null;
 
@@ -73,6 +79,9 @@ export function WorkoutBuilder({
     const notes = formatExercises(exercises);
     if (!name.trim()) return setError("Give your workout a name.");
     if (!notes) return setError("Add at least one exercise.");
+    const today = getLocalDateString();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError("Pick a date for this workout.");
+    if (date > today) return setError("You can't log a workout in the future.");
 
     setSaving(true);
     setError(null);
@@ -88,7 +97,8 @@ export function WorkoutBuilder({
           notes,
           durationMinutes: mins,
           caloriesBurned: calories,
-          loggedAt: new Date().toISOString(),
+          // Today keeps the current time; a past day is logged at local noon so it stays on that day.
+          loggedAt: date === today ? new Date().toISOString() : new Date(`${date}T12:00:00`).toISOString(),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -125,15 +135,25 @@ export function WorkoutBuilder({
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold text-neutral-300">Workout name</span>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Push day"
+              className={inputClass}
+            />
+          </label>
           <div className="grid grid-cols-[1fr_96px] gap-3">
             <label className="space-y-1.5">
-              <span className="text-xs font-semibold text-neutral-300">Workout name</span>
+              <span className="text-xs font-semibold text-neutral-300">Date</span>
               <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Push day"
-                className={inputClass}
+                type="date"
+                value={date}
+                max={getLocalDateString()}
+                onChange={(e) => setDate(e.target.value)}
+                className={`${inputClass} [color-scheme:dark]`}
               />
             </label>
             <label className="space-y-1.5">

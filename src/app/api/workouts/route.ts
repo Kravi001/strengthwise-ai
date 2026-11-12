@@ -13,18 +13,24 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limitParam = searchParams.get("limit");
-    const limit = limitParam ? parseInt(limitParam, 10) : 30;
+    const limitParam = parseInt(searchParams.get("limit") ?? "", 10);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 500) : 30;
+
+    // Optional date range (ISO strings) for the calendar view: from <= loggedAt < to.
+    const from = new Date(searchParams.get("from") ?? "");
+    const to = new Date(searchParams.get("to") ?? "");
+    const hasRange = !isNaN(from.getTime()) && !isNaN(to.getTime());
 
     // Fetch user's workout logs
     const workouts = await prisma.workoutLog.findMany({
       where: {
         userId: auth.dbUser.id,
+        ...(hasRange ? { loggedAt: { gte: from, lt: to } } : {}),
       },
       orderBy: {
         loggedAt: "desc",
       },
-      take: limit,
+      take: hasRange ? 500 : limit,
     });
 
     // Calculate this week window (last 7 days)
