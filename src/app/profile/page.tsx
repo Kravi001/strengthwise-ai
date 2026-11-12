@@ -56,8 +56,13 @@ import { Card, DonutChart, ProgressBar } from "@/components/tremor";
 import { formatResetTimeDisplay } from "@/lib/date";
 import type { FoodItem } from "@/lib/usda-foods";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import { isDevEnvironment } from "@/lib/env";
 import { CalorieTargetModal, type CalorieTargetValues } from "@/components/calorie-target-modal";
 import { saveCalorieTargets, resetCalorieTargets, isCustomTarget } from "@/lib/calorie-targets";
+
+const UNCONFIRMED_EMAIL_MSG = isDevEnvironment
+  ? "Email address has not been confirmed yet. Click 'Instant Dev Verify' below."
+  : "Please confirm your email address first. Check your inbox for the link.";
 
 const AVATAR_PRESETS = ["🏋️‍♂️", "🦾", "⚡", "🥗", "🧘", "🏆", "🔥", "🥇"];
 
@@ -272,7 +277,7 @@ export default function ProfilePage() {
 
   // 3. Load initial Auth & Profile data
   useEffect(() => {
-    document.title = "Athlete Profile & Settings — StrengthWise AI";
+    document.title = "Profile — StrengthWise";
 
     async function loadUserAndProfile() {
       try {
@@ -521,7 +526,7 @@ export default function ProfilePage() {
           }
         } else {
           setEmailConfirmationSent(true);
-          setAuthSuccessMsg("Account created! Check your email or use Instant Dev Verify below.");
+          setAuthSuccessMsg(isDevEnvironment ? "Account created! Check your email or use Instant Dev Verify below." : "Account created! Check your email for a confirmation link, then sign in.");
         }
       } else {
         // Sign In mode: Username or Email + Password
@@ -531,45 +536,52 @@ export default function ProfilePage() {
           return;
         }
 
-        let targetEmail = authIdentifier.trim();
+        const identifier = authIdentifier.trim();
+        let data: { user: User | null } = { user: null };
 
-        // If it doesn't contain '@', resolve the registered email for this username
-        if (!targetEmail.includes("@")) {
-          try {
-            const res = await fetch("/api/auth/resolve-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ identifier: targetEmail }),
-            });
-            const lookup = await res.json();
-            if (!res.ok || !lookup.email) {
-              setAuthErrorMsg(lookup.error || `No registered account found with username "${targetEmail}".`);
-              setAuthSubmitting(false);
-              return;
+        if (identifier.includes("@")) {
+          const result = await supabase.auth.signInWithPassword({ email: identifier, password: authPassword });
+          if (result.error) {
+            if (result.error.message.toLowerCase().includes("email not confirmed")) {
+              setEmailConfirmationSent(true);
+              setAuthEmail(identifier);
+              setAuthErrorMsg(UNCONFIRMED_EMAIL_MSG);
+            } else {
+              setAuthErrorMsg(result.error.message);
             }
-            targetEmail = lookup.email;
-          } catch {
-            setAuthErrorMsg("Could not verify username. Please enter your email address.");
             setAuthSubmitting(false);
             return;
           }
-        }
-
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: targetEmail,
-          password: authPassword,
-        });
-
-        if (error) {
-          if (error.message.toLowerCase().includes("email not confirmed")) {
-            setEmailConfirmationSent(true);
-            setAuthEmail(targetEmail);
-            setAuthErrorMsg("Email address has not been confirmed yet. Click 'Instant Dev Verify' below.");
-          } else {
-            setAuthErrorMsg(error.message);
+          data = { user: result.data.user };
+        } else {
+          // Usernames are resolved and checked on the server so emails are never exposed.
+          const res = await fetch("/api/auth/sign-in", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ identifier, password: authPassword }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            if (body.code === "email_not_confirmed" && body.email) {
+              setEmailConfirmationSent(true);
+              setAuthEmail(body.email);
+              setAuthErrorMsg(UNCONFIRMED_EMAIL_MSG);
+            } else {
+              setAuthErrorMsg(body.error || "Sign-in failed. Please try again.");
+            }
+            setAuthSubmitting(false);
+            return;
           }
-          setAuthSubmitting(false);
-          return;
+          const sessionResult = await supabase.auth.setSession({
+            access_token: body.access_token,
+            refresh_token: body.refresh_token,
+          });
+          if (sessionResult.error) {
+            setAuthErrorMsg(sessionResult.error.message);
+            setAuthSubmitting(false);
+            return;
+          }
+          data = { user: sessionResult.data.user };
         }
 
         if (data.user) {
@@ -588,6 +600,23 @@ export default function ProfilePage() {
     } finally {
       setAuthSubmitting(false);
     }
+  };
+
+  const handleResendConfirmation = async () => {
+    const email = authEmail.trim() || authIdentifier.trim();
+    if (!email.includes("@")) {
+      setAuthErrorMsg("Enter your email address to resend the confirmation link.");
+      return;
+    }
+    setIsVerifyingDev(true);
+    setAuthErrorMsg(null);
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    if (error) {
+      setAuthErrorMsg(error.message);
+    } else {
+      setAuthSuccessMsg(`Confirmation email sent to ${email}.`);
+    }
+    setIsVerifyingDev(false);
   };
 
   const handleDevVerify = async () => {
@@ -1007,8 +1036,29 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                {/* Dev Verify Bypass */}
-                {emailConfirmationSent && (
+                {/* Production: confirm by email link, with a resend option */}
+                {emailConfirmationSent && !isDevEnvironment && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-3.5 space-y-2">
+                    <div className="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
+                      <MailCheck className="h-4 w-4" />
+                      <span>Check your email</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed">
+                      We sent a confirmation link to {authEmail || "your email"}. Click it, then come back and sign in.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={isVerifyingDev}
+                      className="w-full rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 font-semibold text-xs py-2 transition"
+                    >
+                      {isVerifyingDev ? "Sending..." : "Resend confirmation email"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Dev Verify Bypass (local development only) */}
+                {emailConfirmationSent && isDevEnvironment && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-3.5 space-y-2">
                     <div className="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
                       <MailCheck className="h-4 w-4" />

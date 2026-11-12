@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
 import {
   Card,
   Title,
@@ -14,7 +13,6 @@ import {
   Clock,
   Dumbbell,
   Layers,
-  Lock,
   Pause,
   Play,
   Plus,
@@ -36,6 +34,8 @@ import {
   loadCustomSplit,
 } from "@/lib/custom-split";
 import type { User } from "@supabase/supabase-js";
+import { PageHeader } from "@/components/page-header";
+import { SampleDataBanner } from "@/components/sample-data-banner";
 
 export default function WorkoutsPage() {
   const supabase = createClient();
@@ -288,7 +288,7 @@ export default function WorkoutsPage() {
   };
 
   useEffect(() => {
-    document.title = "Workouts & Periodization — StrengthWise AI";
+    document.title = "Workouts — StrengthWise";
     async function loadData() {
       try {
         const {
@@ -392,17 +392,11 @@ export default function WorkoutsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 animate-in fade-in duration-150 ease-out">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-5">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-semibold">
-            <Dumbbell className="h-3.5 w-3.5" />
-            <span>Resistance Training &amp; Kinetic Overload</span>
-          </div>
-          <h1 className="text-xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Adaptive Workouts &amp; Periodization
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Workouts"
+        description="Follow your training split, log your sets, and use the rest timer between sets."
+        actions={
+          <>
           <button
             type="button"
             onClick={() => {
@@ -416,7 +410,7 @@ export default function WorkoutsPage() {
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-neutral-950 transition-colors duration-150 ease-out shadow-sm"
           >
             <Plus className="h-3.5 w-3.5 stroke-[3]" />
-            <span>Log Routine</span>
+            <span>Log Workout</span>
           </button>
           <button
             type="button"
@@ -429,40 +423,18 @@ export default function WorkoutsPage() {
             className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-medium text-neutral-200 hover:text-white hover:bg-neutral-700 transition-colors duration-150 ease-out shadow-sm"
           >
             <Shuffle className="h-3.5 w-3.5 text-neutral-400" />
-            <span>Random Session</span>
+            <span>Random Workout</span>
           </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      {/* Guest Mode Live Telemetry Banner */}
       {!authUser && !loading && (
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-800 border border-neutral-700 text-emerald-400">
-              <Dumbbell className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold mb-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span>Guest Telemetry Preview Mode</span>
-              </div>
-              <h2 className="text-sm sm:text-base font-bold text-white">
-                Live Workout Demo: Upper Body Strength (Session A)
-              </h2>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                Explore live set tracking, rest countdown intervals, and telemetry. Create an athlete profile to persist your records.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsGuestAuthModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-neutral-950 transition-colors duration-150 ease-out shrink-0 shadow-sm"
-          >
-            <span>Create Profile / Sign In</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <SampleDataBanner
+          message="This is an example workout. Sign in to log your own sets and keep your history."
+          onAction={() => setIsGuestAuthModalOpen(true)}
+          actionLabel="Sign in or create profile"
+        />
       )}
 
       {/* ========================================================================= */}
@@ -474,7 +446,7 @@ export default function WorkoutsPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold tracking-wider uppercase text-zinc-400 font-mono">
-                ACTIVE SESSION PROTOCOL
+                Today's Session
               </span>
               <span className="rounded bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-400">
                 RPE 8.0 - 9.0
@@ -536,10 +508,10 @@ export default function WorkoutsPage() {
             </div>
             <div>
               <div className="text-[10px] font-semibold tracking-wider uppercase text-zinc-400 font-mono">
-                INTER-SET RECOVERY TIMER
+                REST TIMER
               </div>
               <div className="text-xs text-neutral-300">
-                Active rest interval countdown between working sets
+                Counts down your rest between sets
               </div>
             </div>
           </div>

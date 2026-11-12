@@ -1,10 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import fs from "fs";
 import path from "path";
+import { isDevEnvironment } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  // Changing the server's AI key is a local-development convenience only. On a
+  // deployed site, keys are set in the hosting dashboard (Vercel env vars).
+  if (!isDevEnvironment) {
+    return NextResponse.json(
+      { error: "API keys can only be changed by the site owner in the hosting settings." },
+      { status: 403 }
+    );
+  }
+
   try {
     const { apiKey, provider } = await req.json();
 
