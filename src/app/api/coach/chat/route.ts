@@ -35,6 +35,21 @@ interface AthleteContext {
   mealResetTime?: string;
 }
 
+// Backup coach when Gemini is unavailable. Low effort keeps chat replies fast;
+// max_tokens leaves room for thinking (always on for this model) plus a short reply.
+// Server-side fallbacks re-run a policy-declined request on a suitable model.
+function claudeCoachRequest(system: string, messages: Anthropic.MessageParam[]) {
+  return {
+    model: "claude-opus-5-5",
+    max_tokens: 4096,
+    output_config: { effort: "low" as const },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default" as const,
+    system,
+    messages,
+  };
+}
+
 // 10 requests per 60-second sliding window for fair free usage
 const RATE_LIMIT_CONFIG = {
   limit: 10,
@@ -386,12 +401,12 @@ When the athlete asks to set, raise or lower their calorie target or macros: giv
           const anthropic = new Anthropic({ apiKey: anthropicApiKey });
           const anthropicMessages = formatAnthropicMessages(messages);
 
-          const anthropicStream = anthropic.messages.stream({
-            model: "claude-3-5-sonnet-20241022",
-            max_tokens: 1024,
-            temperature: 0.35,
-            system: systemPrompt,
-            messages: anthropicMessages,
+          // create({ stream: true }) waits for the HTTP response, so API errors
+          // (bad key, unavailable model, rate limit) throw here and we fall
+          // through to the built-in coach instead of breaking the reply mid-stream.
+          const anthropicStream = await anthropic.beta.messages.create({
+            ...claudeCoachRequest(systemPrompt, anthropicMessages),
+            stream: true,
           });
 
           const encoder = new TextEncoder();
@@ -544,16 +559,12 @@ When the athlete asks to set, raise or lower their calorie target or macros: giv
         const anthropic = new Anthropic({ apiKey: anthropicApiKey });
         const anthropicMessages = formatAnthropicMessages(messages);
 
-        const response = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 1024,
-          temperature: 0.35,
-          system: systemPrompt,
-          messages: anthropicMessages,
-        });
+        const response = await anthropic.beta.messages.create(
+          claudeCoachRequest(systemPrompt, anthropicMessages)
+        );
 
         const replyText = response.content
-          .filter((block): block is Anthropic.TextBlock => block.type === "text")
+          .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
           .map((block) => block.text)
           .join("\n")
           .trim();
