@@ -24,6 +24,8 @@ import { calculateNutritionTargets } from "@/lib/calc";
 import { FoodScannerModal } from "@/components/food-scanner-modal";
 import { EditMealModal, type LoggedMealItem } from "@/components/edit-meal-modal";
 import { MealResetModal } from "@/components/meal-reset-modal";
+import { CalorieTargetModal, type CalorieTargetValues } from "@/components/calorie-target-modal";
+import { saveCalorieTargets, resetCalorieTargets } from "@/lib/calorie-targets";
 import { GuestAuthModal } from "@/components/guest-auth-modal";
 import {
   getLocalDateString,
@@ -69,6 +71,8 @@ export default function MealsPage() {
   const [goalWeightLbs, setGoalWeightLbs] = useState<number>(175);
   const [goal, setGoal] = useState<"CUT" | "MAINTAIN" | "BULK">("BULK");
   const [activityLevel, setActivityLevel] = useState<string>("MODERATE");
+  const [splitDays, setSplitDays] = useState<number | null>(null);
+  const [dietPreference, setDietPreference] = useState<string | null>(null);
   const [customCalories, setCustomCalories] = useState<number | null>(null);
   const [customProtein, setCustomProtein] = useState<number | null>(null);
   const [customCarbs, setCustomCarbs] = useState<number | null>(null);
@@ -80,30 +84,67 @@ export default function MealsPage() {
   const totalInches = (Number(heightFt) || 6) * 12 + (Number(heightIn) || 0);
   const heightCm = totalInches * 2.54;
 
+  // Targets calculated purely from body stats and goal
+  const baseTargets = useMemo(
+    () =>
+      calculateNutritionTargets({
+        age: Number(age) || 26,
+        gender: gender,
+        heightCm: heightCm,
+        weightKg: numWeightKg,
+        activityLevel: activityLevel,
+        goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
+        splitDays,
+        dietPreference,
+      }),
+    [age, gender, heightCm, numWeightKg, activityLevel, goal, splitDays, dietPreference]
+  );
+
+  // Targets in effect: a saved manual/coach target wins over the calculated one
   const calculated = useMemo(() => {
-    const base = calculateNutritionTargets({
-      age: Number(age) || 26,
-      gender: gender,
-      heightCm: heightCm,
-      weightKg: numWeightKg,
-      activityLevel: activityLevel,
-      goal: goal === "CUT" ? "LOSE_WEIGHT" : goal === "BULK" ? "BUILD_MUSCLE" : "MAINTAIN",
-    });
+    const base = baseTargets;
 
     if (customCalories && customCalories > 500) {
       const diffRatio = customCalories / (base.targetCalories || 2000);
+      const targetProtein = customProtein ? Math.round(customProtein) : base.targetProtein;
+      const targetCarbs = customCarbs ? Math.round(customCarbs) : Math.max(30, Math.round(base.targetCarbs * diffRatio));
+      const targetFat = customFat ? Math.round(customFat) : Math.max(30, Math.round(base.targetFat * diffRatio));
       return {
         ...base,
         targetCalories: customCalories,
-        targetProtein: customProtein ? Math.round(customProtein) : base.targetProtein,
-        targetCarbs: customCarbs ? Math.round(customCarbs) : Math.max(30, Math.round(base.targetCarbs * diffRatio)),
-        targetFat: customFat ? Math.round(customFat) : Math.max(30, Math.round(base.targetFat * diffRatio)),
-        isCustom: true,
+        targetProtein,
+        targetCarbs,
+        targetFat,
+        isCustom:
+          customCalories !== base.targetCalories ||
+          targetProtein !== base.targetProtein ||
+          targetCarbs !== base.targetCarbs ||
+          targetFat !== base.targetFat,
       };
     }
 
     return { ...base, isCustom: false };
-  }, [age, gender, heightCm, numWeightKg, activityLevel, goal, customCalories, customProtein, customCarbs, customFat]);
+  }, [baseTargets, customCalories, customProtein, customCarbs, customFat]);
+
+  // Manual calorie target setting
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+
+  const applyTargetsLocally = (t: CalorieTargetValues) => {
+    setCustomCalories(t.targetCalories);
+    setCustomProtein(t.targetProtein);
+    setCustomCarbs(t.targetCarbs);
+    setCustomFat(t.targetFat);
+  };
+
+  const handleSaveCalorieTarget = async (values: CalorieTargetValues) => {
+    applyTargetsLocally(await saveCalorieTargets(values));
+    await fetchLoggedMeals(selectedDate, mealResetTime);
+  };
+
+  const handleResetCalorieTarget = async () => {
+    applyTargetsLocally(await resetCalorieTargets());
+    await fetchLoggedMeals(selectedDate, mealResetTime);
+  };
 
   const chartData = [
     { name: "Protein", value: calculated.targetProtein, color: "#06b6d4" },
@@ -376,6 +417,8 @@ export default function MealsPage() {
                 setGoal(data.profile.goal === "LOSE_WEIGHT" ? "CUT" : data.profile.goal === "BUILD_MUSCLE" ? "BULK" : "MAINTAIN");
               }
               if (data.profile.activityLevel) setActivityLevel(data.profile.activityLevel);
+              if (data.profile.splitDays) setSplitDays(data.profile.splitDays);
+              if (data.profile.dietPreference) setDietPreference(data.profile.dietPreference);
               if (data.profile.targetCalories) setCustomCalories(data.profile.targetCalories);
               if (data.profile.targetProtein) setCustomProtein(data.profile.targetProtein);
               if (data.profile.targetCarbs) setCustomCarbs(data.profile.targetCarbs);
@@ -521,11 +564,24 @@ export default function MealsPage() {
           <div className="text-3xl sm:text-4xl font-extrabold text-white font-mono tabular-nums mt-1">
             {calculated.targetCalories} <span className="text-xs text-neutral-500 font-sans">KCAL</span>
           </div>
-          {calculated.isCustom && (
-            <div className="mt-1 text-xs font-mono text-emerald-400 font-medium">
-              Coach Target
-            </div>
-          )}
+          <div className="mt-1 text-xs font-mono font-medium">
+            {calculated.isCustom ? (
+              <span className="text-emerald-400">Custom target</span>
+            ) : (
+              <span className="text-neutral-500">Calculated from your profile</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (!handleProtectedAction("Create an athlete profile to set your calorie target", "Sign in or create an athlete profile to choose your own daily calorie target.")) return;
+              setIsTargetModalOpen(true);
+            }}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition-colors duration-150 ease-out"
+          >
+            <Pencil className="h-3.5 w-3.5 text-neutral-400" />
+            <span>Change target</span>
+          </button>
         </div>
 
         <DonutChart
@@ -872,6 +928,27 @@ export default function MealsPage() {
         onClose={() => setIsResetModalOpen(false)}
         currentResetTime={mealResetTime}
         onSave={handleSaveResetTime}
+      />
+
+      {/* Manual Daily Calorie Target Modal */}
+      <CalorieTargetModal
+        isOpen={isTargetModalOpen}
+        onClose={() => setIsTargetModalOpen(false)}
+        current={{
+          targetCalories: calculated.targetCalories,
+          targetProtein: calculated.targetProtein,
+          targetCarbs: calculated.targetCarbs,
+          targetFat: calculated.targetFat,
+        }}
+        calculated={{
+          targetCalories: baseTargets.targetCalories,
+          targetProtein: baseTargets.targetProtein,
+          targetCarbs: baseTargets.targetCarbs,
+          targetFat: baseTargets.targetFat,
+        }}
+        isCustom={calculated.isCustom}
+        onSave={handleSaveCalorieTarget}
+        onResetToCalculated={handleResetCalorieTarget}
       />
 
       {/* Guest Athlete Profile Intercept Modal */}

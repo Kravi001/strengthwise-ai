@@ -24,6 +24,7 @@ import {
   LogOut,
   Mail,
   MailCheck,
+  Pencil,
   Plus,
   RefreshCw,
   Scale,
@@ -56,6 +57,8 @@ import { formatResetTimeDisplay } from "@/lib/date";
 import type { FoodItem } from "@/lib/usda-foods";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { isDevEnvironment } from "@/lib/env";
+import { CalorieTargetModal, type CalorieTargetValues } from "@/components/calorie-target-modal";
+import { saveCalorieTargets, resetCalorieTargets, isCustomTarget } from "@/lib/calorie-targets";
 
 const UNCONFIRMED_EMAIL_MSG = isDevEnvironment
   ? "Email address has not been confirmed yet. Click 'Instant Dev Verify' below."
@@ -211,11 +214,40 @@ export default function ProfilePage() {
     });
   }, [age, gender, heightCm, numWeightKg, goalWeightLbs, activityLevel, goal, dietPreference, equipment, splitDays]);
 
+  // Saved target (set manually or by the coach) wins over the calculated one
+  const [savedTargets, setSavedTargets] = useState<CalorieTargetValues | null>(null);
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const hasCustomTarget = isCustomTarget(savedTargets, calculatedTargets);
+  const activeTargets = useMemo(() => {
+    const t = hasCustomTarget && savedTargets ? savedTargets : calculatedTargets;
+    const proteinCals = t.targetProtein * 4;
+    const carbsCals = t.targetCarbs * 4;
+    const fatCals = t.targetFat * 9;
+    const total = proteinCals + carbsCals + fatCals || 1;
+    return {
+      targetCalories: Math.round(t.targetCalories),
+      targetProtein: Math.round(t.targetProtein),
+      targetCarbs: Math.round(t.targetCarbs),
+      targetFat: Math.round(t.targetFat),
+      proteinPercent: Math.round((proteinCals / total) * 100),
+      carbsPercent: Math.round((carbsCals / total) * 100),
+      fatPercent: Math.round((fatCals / total) * 100),
+    };
+  }, [hasCustomTarget, savedTargets, calculatedTargets]);
+
+  const handleSaveCalorieTarget = async (values: CalorieTargetValues) => {
+    setSavedTargets(await saveCalorieTargets(values));
+  };
+
+  const handleResetCalorieTarget = async () => {
+    setSavedTargets(await resetCalorieTargets());
+  };
+
   const macroChartData = useMemo(() => [
-    { name: "Protein", value: calculatedTargets.targetProtein, color: "#06b6d4" },
-    { name: "Carbs", value: calculatedTargets.targetCarbs, color: "#ec4899" },
-    { name: "Fats", value: calculatedTargets.targetFat, color: "#f59e0b" },
-  ], [calculatedTargets]);
+    { name: "Protein", value: activeTargets.targetProtein, color: "#06b6d4" },
+    { name: "Carbs", value: activeTargets.targetCarbs, color: "#ec4899" },
+    { name: "Fats", value: activeTargets.targetFat, color: "#f59e0b" },
+  ], [activeTargets]);
 
   // Extract Google OAuth metadata if available
   const hydrateFromGoogle = (u: User) => {
@@ -364,6 +396,14 @@ export default function ProfilePage() {
             );
           }
           if (data.profile.dietPreference) setDietPreference(data.profile.dietPreference);
+          if (data.profile.targetCalories) {
+            setSavedTargets({
+              targetCalories: data.profile.targetCalories,
+              targetProtein: data.profile.targetProtein ?? 0,
+              targetCarbs: data.profile.targetCarbs ?? 0,
+              targetFat: data.profile.targetFat ?? 0,
+            });
+          }
           if (data.profile.mealResetTime) {
             setMealResetTime(data.profile.mealResetTime);
             if (typeof window !== "undefined") {
@@ -1138,12 +1178,20 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="rounded-2xl border border-neutral-800 bg-neutral-950/80 px-4 py-2 text-center">
-                    <div className="text-[10px] uppercase font-mono text-neutral-400">Calculated Intake</div>
-                    <div className="text-lg font-black font-mono text-emerald-400">
-                      {calculatedTargets.targetCalories} <span className="text-xs text-neutral-500 font-normal">kcal</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsTargetModalOpen(true)}
+                    className="group rounded-2xl border border-neutral-800 bg-neutral-950/80 px-4 py-2 text-center hover:border-neutral-700 hover:bg-neutral-900 transition-colors duration-150 ease-out"
+                    title="Change your daily calorie target"
+                  >
+                    <div className="flex items-center justify-center gap-1 text-[10px] uppercase font-mono text-neutral-400">
+                      <span>{hasCustomTarget ? "Custom Target" : "Calculated Intake"}</span>
+                      <Pencil className="h-3 w-3 text-neutral-500 group-hover:text-neutral-300" />
                     </div>
-                  </div>
+                    <div className="text-lg font-black font-mono text-emerald-400 tabular-nums">
+                      {activeTargets.targetCalories} <span className="text-xs text-neutral-500 font-normal">kcal</span>
+                    </div>
+                  </button>
                   <div className="rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-center">
                     <div className="text-[10px] uppercase font-mono text-neutral-400">Active Split</div>
                     <div className="text-lg font-black font-mono text-white truncate max-w-[130px]">
@@ -1618,15 +1666,32 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="rounded-2xl bg-neutral-950 p-4 border border-neutral-800 space-y-3">
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-xs text-neutral-400">Daily Target Calories:</span>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-xs text-neutral-400">
+                          Daily Target Calories:
+                          <span className="block text-[10px] font-mono mt-0.5">
+                            {hasCustomTarget ? (
+                              <span className="text-emerald-400">Custom target · calculated {calculatedTargets.targetCalories} kcal</span>
+                            ) : (
+                              <span className="text-neutral-500">Calculated from your profile</span>
+                            )}
+                          </span>
+                        </span>
                         <div className="text-right">
-                          <span className="text-3xl font-black font-mono text-emerald-400">
-                            {calculatedTargets.targetCalories}
+                          <span className="text-3xl font-black font-mono text-emerald-400 tabular-nums">
+                            {activeTargets.targetCalories}
                           </span>
                           <span className="text-xs text-neutral-500 font-mono ml-1">kcal</span>
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsTargetModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition-colors duration-150 ease-out"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-neutral-400" />
+                        <span>Change target</span>
+                      </button>
                       <div className="flex justify-between text-xs text-neutral-500 font-mono border-t border-neutral-800 pt-2">
                         <span>BMR: {calculatedTargets.bmr} kcal</span>
                         <span>TDEE: {calculatedTargets.tdee} kcal</span>
@@ -1640,18 +1705,18 @@ export default function ProfilePage() {
                       <div className="grid grid-cols-3 gap-2">
                         <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-center">
                           <div className="text-xs font-bold text-neutral-300">Protein</div>
-                          <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetProtein}g</div>
-                          <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.proteinPercent}% kcal</div>
+                          <div className="text-xl font-black text-white font-mono mt-0.5">{activeTargets.targetProtein}g</div>
+                          <div className="text-[10px] text-neutral-400 font-mono">{activeTargets.proteinPercent}% kcal</div>
                         </div>
                         <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-center">
                           <div className="text-xs font-bold text-neutral-300">Carbs</div>
-                          <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetCarbs}g</div>
-                          <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.carbsPercent}% kcal</div>
+                          <div className="text-xl font-black text-white font-mono mt-0.5">{activeTargets.targetCarbs}g</div>
+                          <div className="text-[10px] text-neutral-400 font-mono">{activeTargets.carbsPercent}% kcal</div>
                         </div>
                         <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 text-center">
                           <div className="text-xs font-bold text-neutral-300">Fats</div>
-                          <div className="text-xl font-black text-white font-mono mt-0.5">{calculatedTargets.targetFat}g</div>
-                          <div className="text-[10px] text-neutral-400 font-mono">{calculatedTargets.usdaBenchmark.fatPercent}% kcal</div>
+                          <div className="text-xl font-black text-white font-mono mt-0.5">{activeTargets.targetFat}g</div>
+                          <div className="text-[10px] text-neutral-400 font-mono">{activeTargets.fatPercent}% kcal</div>
                         </div>
                       </div>
 
@@ -1741,6 +1806,22 @@ export default function ProfilePage() {
         onMealLogged={() => {}}
         initialMealType="LUNCH"
         initialTab="scan"
+      />
+
+      {/* Manual Daily Calorie Target Modal */}
+      <CalorieTargetModal
+        isOpen={isTargetModalOpen}
+        onClose={() => setIsTargetModalOpen(false)}
+        current={activeTargets}
+        calculated={{
+          targetCalories: calculatedTargets.targetCalories,
+          targetProtein: calculatedTargets.targetProtein,
+          targetCarbs: calculatedTargets.targetCarbs,
+          targetFat: calculatedTargets.targetFat,
+        }}
+        isCustom={hasCustomTarget}
+        onSave={handleSaveCalorieTarget}
+        onResetToCalculated={handleResetCalorieTarget}
       />
 
       {/* Custom Split Modal */}

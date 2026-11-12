@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/user";
 import { calculateNutritionTargets } from "@/lib/calc";
 
+const MIN_TARGET_CALORIES = 1000;
+const MAX_TARGET_CALORIES = 6000;
+
 export async function GET() {
   try {
     const auth = await getAuthenticatedUser();
@@ -85,7 +88,34 @@ export async function POST(request: NextRequest) {
       targetFiber,
       targetWaterLiters,
       mealResetTime,
+      resetTargets,
     } = body;
+
+    // A manually chosen calorie target must be a realistic daily intake.
+    if (targetCalories !== undefined && targetCalories !== null && targetCalories !== "") {
+      const requested = Number(targetCalories);
+      if (!Number.isFinite(requested) || requested < MIN_TARGET_CALORIES || requested > MAX_TARGET_CALORIES) {
+        return NextResponse.json(
+          { error: `Calorie target must be between ${MIN_TARGET_CALORIES} and ${MAX_TARGET_CALORIES} kcal.` },
+          { status: 400 }
+        );
+      }
+    }
+    for (const [label, value] of [
+      ["Protein", targetProtein],
+      ["Carbs", targetCarbs],
+      ["Fat", targetFat],
+    ] as const) {
+      if (value !== undefined && value !== null && value !== "") {
+        const grams = Number(value);
+        if (!Number.isFinite(grams) || grams < 0 || grams > 1000) {
+          return NextResponse.json(
+            { error: `${label} target must be between 0 and 1000 g.` },
+            { status: 400 }
+          );
+        }
+      }
+    }
 
     // Fetch existing profile to preserve existing fields during partial updates (e.g. from AI coach)
     const existing = await prisma.profile.findUnique({
@@ -146,10 +176,13 @@ export async function POST(request: NextRequest) {
     const parsedTargetFiber = targetFiber ? parseFloat(String(targetFiber)) : null;
     const parsedTargetWater = targetWaterLiters ? parseFloat(String(targetWaterLiters)) : null;
 
-    const finalTargetCalories = parsedTargetCalories ?? existing?.targetCalories ?? targets.targetCalories;
-    const finalTargetProtein = parsedTargetProtein ?? existing?.targetProtein ?? targets.targetProtein;
-    const finalTargetCarbs = parsedTargetCarbs ?? existing?.targetCarbs ?? targets.targetCarbs;
-    const finalTargetFat = parsedTargetFat ?? existing?.targetFat ?? targets.targetFat;
+    // `resetTargets: true` drops any manual or coach-set targets and goes back to the
+    // values calculated from the athlete's body stats and goal.
+    const keepExisting = resetTargets !== true;
+    const finalTargetCalories = parsedTargetCalories ?? (keepExisting ? existing?.targetCalories : null) ?? targets.targetCalories;
+    const finalTargetProtein = parsedTargetProtein ?? (keepExisting ? existing?.targetProtein : null) ?? targets.targetProtein;
+    const finalTargetCarbs = parsedTargetCarbs ?? (keepExisting ? existing?.targetCarbs : null) ?? targets.targetCarbs;
+    const finalTargetFat = parsedTargetFat ?? (keepExisting ? existing?.targetFat : null) ?? targets.targetFat;
     const finalTargetFiber = parsedTargetFiber ?? existing?.targetFiber ?? targets.targetFiber;
     const finalTargetWater = parsedTargetWater ?? existing?.targetWaterLiters ?? targets.targetWaterLiters;
 
